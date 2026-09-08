@@ -14,8 +14,15 @@ secrets.yaml
 # Data — never committed. Pulls are reproducible from src/data.py, and ENTSO-E
 # data carries its own reuse terms. Keep the directory structure via .gitkeep.
 # ─────────────────────────────────────────────────────────────────────────────
-data/
-!data/.gitkeep
+#
+# Note the pattern:  git never descends into an excluded *directory*, so a
+# negation inside one can never fire.  `data/` would therefore swallow the
+# .gitkeep files and a clean clone would come up with no data/ skeleton at all.
+# Excluding the *contents* instead keeps the re-includes below working.
+data/**
+# Re-include the directories themselves, so git descends into them...
+!data/**/
+# ...and the markers that keep the skeleton alive on a clean clone.
 !data/**/.gitkeep
 *.parquet
 *.csv
@@ -91,3 +98,4 @@ Thumbs.db
 # ─────────────────────────────────────────────────────────────────────────────
 *.log
 logs/
+logfiles/
