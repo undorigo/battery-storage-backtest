@@ -1,0 +1,15 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Stage 0 dependencies — hand-curated, never `pip freeze`.
+#
+# A freeze dump would pin the hundreds of transitive packages that happen to sit
+# in the environment and hide which four libraries this project actually chose.
+# Only direct imports belong here; pip resolves the rest.  Versions are pinned
+# exactly because the Third Law requires a clean clone to reproduce a number,
+# and an unpinned pandas major release is precisely how that silently stops.
+# ─────────────────────────────────────────────────────────────────────────────
+
+entsoe-py==0.8.1        # ENTSO-E transport + XML parsing; reads ENTSOE_API_KEY itself
+pandas==3.0.5           # tz-aware DatetimeIndex is the backbone of every series here
+pyarrow==25.0.1         # parquet engine; preserves the UTC index on round-trip
+python-dotenv==1.2.3    # loads the API token from .env, which is never committed
+matplotlib==3.11.1      # stage 0 figures: price history, negative hours, daily spread
