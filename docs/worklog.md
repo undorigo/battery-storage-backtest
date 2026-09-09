@@ -5,6 +5,29 @@ last. Written for a reader who was not present: what changed, and why it changed
 Decisions belong here with their reasoning; `CLAUDE.md` holds the standing rules and
 `HANDOVER.md` the decisions settled before any code existed.
 
+## Contents
+
+- [Stage 0 — Data · 8–9 September 2026](#stage-0-data-89-september-2026)
+  - [8 September 2026 — repository, environment, and the split](#8-september-2026-repository-environment-and-the-split)
+    - [Commit message corrected on an already-pushed commit](#commit-message-corrected-on-an-already-pushed-commit)
+    - [The environment was not the project's](#the-environment-was-not-the-projects)
+    - [Two `.gitignore` bugs, same root cause](#two-gitignore-bugs-same-root-cause)
+    - [`.env.example` written, `.env` created](#envexample-written-env-created)
+    - [The split boundary bug — demonstrated, not assumed](#the-split-boundary-bug-demonstrated-not-assumed)
+    - [Design decisions taken](#design-decisions-taken)
+    - [Facts verified against live sources, not memory](#facts-verified-against-live-sources-not-memory)
+  - [9 September 2026 — degradation cost, and a live API outage](#9-september-2026-degradation-cost-and-a-live-api-outage)
+    - [Cycle degradation cost set to 8.0 EUR/MWh discharged](#cycle-degradation-cost-set-to-80-eurmwh-discharged)
+    - [ENTSO-E API outage — diagnosed, not guessed](#entso-e-api-outage-diagnosed-not-guessed)
+    - [Fallback routes established and tested](#fallback-routes-established-and-tested)
+    - [Housekeeping](#housekeeping)
+  - [Commits](#commits)
+  - [Open items](#open-items)
+  - [Next](#next)
+
+*Add an entry here whenever a section is added — anchors are GitHub-style: lowercase,
+punctuation stripped, spaces hyphenated.*
+
 ---
 
 ## Stage 0 — Data · 8–9 September 2026
