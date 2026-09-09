@@ -12,7 +12,7 @@ One row per working day. Follow the date link for the detail.
 | Date | What was done |
 |---|---|
 | [8 Sep 2026](#d20260908) | Repository initialised. Environment rebuilt off the pyenv global into a project venv. Two `.gitignore` bugs found. Split boundary bug demonstrated and fixed in `config.py`. |
-| [9 Sep 2026](#d20260909) | Cycle cost set to 8 EUR/MWh. ENTSO-E API outage diagnosed, then recovered. First authenticated pull. SMARD cross-validated. Python 3.11.14, editor settings, 15 contract tests. |
+| [9 Sep 2026](#d20260909) | Cycle cost set to 8 EUR/MWh. ENTSO-E API outage diagnosed, then recovered. First authenticated pull. SMARD cross-validated to the cent. Raw XML read — two silent traps found. Python 3.11.14, editor settings, 15 contract tests. |
 
 [Commits](#commits) · [Open items](#open-items) · [Next](#next)
 
@@ -279,12 +279,65 @@ slicing bug failed exactly three of them, with the validation set showing 8761 r
 instead of 8760 — the duplicated boundary hour caught. A test that has never been seen to
 fail is not yet evidence of anything.
 
+#### Reading a raw response — two traps that fail silently
+
+One real A44 response was read element by element before any library touched it, and
+saved as `tests/fixtures/sample_A44_dayahead_price.xml`. It turned out to contain two
+things no amount of planning would have anticipated. Both are invisible failures.
+
+**1. The same hours arrive twice, at two resolutions.** A request for two days returned
+**four** `TimeSeries` blocks — each period once at `PT15M` and once at `PT60M`. This is
+June 2024, more than a year before quarter-hourly products went live. The only field
+separating them is `classificationSequence_AttributeInstanceComponent.position`: `1` is
+hourly, `2` is quarter-hourly. Domain, currency, business type, auction type, contract
+type and curve type are identical across all four. Select on anything else and a
+different series comes back, with no error.
+
+**2. Under `curveType A03`, an absent position is not missing data.** One block held 95
+points with a highest position of 96 — position 54 simply absent. A03 means
+"variable-sized block": a gap repeats the previous value. Position 53 was `0` and
+position 55 was `-16.75`, so the true value at 54 is `0`. Reindexing without a forward
+fill would invent a hole, and any later imputation would land near `-16.75` — a
+different price, and for a battery a different decision.
+
+`entsoe-py` handles both (`parsers.py`: *"Handle curveType A03: forward fill missing
+positions"*). A hand-written parser written for comparison reproduced its values exactly,
+which is the clearest argument yet for wrapping the library rather than writing one.
+
+Points carry no timestamp, only a 1-based `position`; the time is reconstructed as
+`period_start + (position - 1) x resolution`. Every tag is namespaced under an IEC URN,
+so searching for the bare tag name finds nothing.
+
+#### Leakage — scope clarified
+
+A loose phrase during discussion ("tomorrow's weather") caused confusion and was wrong.
+No weather data is used anywhere; that decision is unchanged. The actual risk is narrower
+and closer to home: ENTSO-E publishes the day-ahead generation **forecast** (`A69`/`A01`)
+and the **actual** generation (`A75`/`A16`) in the same units and the same shape,
+separated only by request parameters. Pull the wrong one and the split stays clean, the
+target is still withheld, nothing errors — and the model has been handed what actually
+happened.
+
+Withholding the target and Contract 1 therefore cover different things: the first protects
+the label, the second protects the features. Only the two forecast series carry real risk;
+prices and calendar features have nothing to confuse them with.
+
+**Proposed, not yet confirmed:** verify each forecast series empirically once — pull the
+forecast and the actual for the same days and confirm they differ the way a forecast
+differs from reality — then keep a fast assertion on the request parameters thereafter.
+About 20 minutes per series, one-off.
+
 #### Housekeeping
 
 Work log moved from `logfiles/` to `docs/`, and `logfiles/` deleted — it was an empty
 leftover, and `.gitignore` already covers `logs/` and `*.log` for stage 5 runtime output.
 A work log is documentation, not runtime output, so it belongs in version control. A
-table of contents was added, since the log grows by a section per session.
+table of contents was added, then cut back to one row per day once it began reproducing
+the whole document above itself.
+
+The planning artifact was brought up to date: stage 0 marked part-done, the schedule
+corrected to show where the slippage went, an internal `2019` / `October 2018` slip fixed,
+and the degradation cost and the two XML traps folded in.
 
 A weekly routine (`trig_0113rBvXLa9eZa46byKszxZi`, Tuesdays 09:00 Berlin) probes the API
 and drafts an outage email if it fails. Now that the platform is back it is redundant, but
@@ -305,37 +358,51 @@ harmless, and useful if the migration causes further instability.
 | `4dac141` | 09 Sep | Add a table of contents to the work log |
 | `b7302d7` | 09 Sep | Pin the interpreter and share the editor's environment setting |
 | `bdb5923` | 09 Sep | Add contract tests for the split and market constants |
+| `9800277` | 09 Sep | Record the API recovery and the SMARD cross-validation |
+| `3eee18b` | 09 Sep | Reduce the work log contents to one row per day |
+| `f736ad2` | 09 Sep | Record a real A44 response as a parser fixture |
 
 ---
 
 ### Open items
 
-1. **`src/sources/` not yet recorded** in CLAUDE.md's Quick Reference — to land with the
+1. **Forecast-verification approach not confirmed.** Empirical verification is proposed
+   and written into the plan, but was never explicitly agreed. Settle it before the
+   catalog is written, since it decides what each catalog record carries.
+2. **`src/sources/` not yet recorded** in CLAUDE.md's Quick Reference — to land with the
    first file placed there.
-2. **SMARD filter IDs beyond `4169` remain unverified.** Prices are confirmed against
+3. **SMARD filter IDs beyond `4169` remain unverified.** Prices are confirmed against
    ENTSO-E to the cent; every other filter is still an undocumented magic number and must
    not be used for a forecast series until validated the same way.
-3. **Document-count cap unknown.** ENTSO-E's own articles disagree — one says 100 matching
+4. **Document-count cap unknown.** ENTSO-E's own articles disagree — one says 100 matching
    documents, the other 200. Needs pinning down before request chunking is built.
-4. **Coverage uncounted** (HANDOVER open question 1): gaps in DE-LU 2018–2025 unknown,
+5. **Coverage uncounted** (HANDOVER open question 1): gaps in DE-LU 2018–2025 unknown,
    because no bulk data has been pulled yet.
-5. **Revision behaviour untested** (HANDOVER open question 2): whether ENTSO-E overwrites
+6. **Revision behaviour untested** (HANDOVER open question 2): whether ENTSO-E overwrites
    published day-ahead values. The immutable cache answers this by construction once two
    pulls of the same period exist.
-6. **Platform stability after the migration.** The API recovered but was slow enough that a
-   30-second timeout failed. Whether that persists is unknown.
+7. **Platform stability after the migration.** The API recovered but was slow enough that a
+   30-second timeout failed, and it returned `599` again an hour later. Assume it is
+   unreliable; build for it and keep SMARD as the fallback.
+8. **The 23/25-hour delivery day** contradicts CLAUDE.md's "24 values per run". Storing in
+   UTC keeps joins safe but does not settle it. Needs an explicit rule at stage 2, when the
+   model layout is chosen.
 
 ### Next
 
-The three data-layer pieces:
+Stage 0 has roughly three hours left. In order:
 
-1. **Catalog** — the data items as declarative records carrying an `available_at` claim,
-   making Contract 1 a field that can be asserted on rather than a comment.
+1. **Confirm open item 1**, then write the **catalog** — the data items as declarative
+   records carrying their availability claim, so Contract 1 becomes a field that can be
+   asserted on rather than a comment.
 2. **Fetch and cache** — immutable timestamped pulls plus `manifest.jsonl`, which also
-   supplies the incremental retrieval an MLOps loop needs, and answers open question 5
-   above by letting two pulls be diffed.
-3. **Normalisation** — the single Contract 5 choke point: UTC, hourly, the 60→15-minute
-   transition, and gap counting.
+   supplies the incremental retrieval an MLOps loop needs, and answers open item 6 by
+   letting two pulls be diffed.
+3. **Normalisation** — the single Contract 5 choke point: UTC, hourly, the two-resolution
+   selection, `curveType A03`, and gap counting.
+4. **First figures** — negative-price hours per year, average daily spread, residual load
+   against price. This closes the stage 0 checkpoint.
 
-The `src/sources/` split has already earned itself: for most of today SMARD worked and the
-API did not, and the layer above will neither know nor care which supplied the bytes.
+The `src/sources/` split has already earned itself: for most of 9 September SMARD worked
+and the API did not, and the layer above will neither know nor care which supplied the
+bytes.
