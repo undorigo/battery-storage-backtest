@@ -13,3 +13,9 @@ pandas==3.0.5           # tz-aware DatetimeIndex is the backbone of every series
 pyarrow==25.0.1         # parquet engine; preserves the UTC index on round-trip
 python-dotenv==1.2.3    # loads the API token from .env, which is never committed
 matplotlib==3.11.1      # stage 0 figures: price history, negative hours, daily spread
+
+# Testing.  Scoped to the Integration Contracts rather than general coverage —
+# the failures worth pinning are the silent ones: a split boundary that leaks an
+# hour, a timezone that shifts a series, a feature that was not knowable at
+# gate closure.  None of those announce themselves.
+pytest==9.1.1
