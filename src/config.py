@@ -125,11 +125,14 @@ class Battery:
     soc_min: float = 0.0                        # state of charge as a fraction of capacity
     soc_max: float = 1.0
 
-    # Degradation penalty per MWh cycled.  CLAUDE.md specifies that a penalty
-    # exists but not its size, and an invented figure would set the trade
-    # threshold and therefore the revenue.  Left at zero until stage 4 sets it
-    # from a cited source; zero means "no penalty", not "penalty unknown".
-    cycle_cost_eur_per_mwh: float = 0.0
+    # Degradation penalty, per MWh *discharged* — the convention matters, since
+    # counting charge and discharge together would halve it.  Derived as cell
+    # replacement cost over lifetime throughput: 70 EUR/kWh of LFP cells across
+    # 8000 equivalent full cycles is ~8.75 EUR/MWh, and Montel's published
+    # framework for a 50 MW two-hour GB battery uses GBP 7/MWh (~8 EUR/MWh).
+    # It sets the spread below which cycling is not worth the wear, so stage 4
+    # reports a sensitivity at 4 / 8 / 16 rather than resting on this figure.
+    cycle_cost_eur_per_mwh: float = 8.0
 
     @property
     def round_trip_efficiency(self) -> float:
