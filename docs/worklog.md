@@ -20,6 +20,9 @@ Decisions belong here with their reasoning; `CLAUDE.md` holds the standing rules
     - [Cycle degradation cost set to 8.0 EUR/MWh discharged](#cycle-degradation-cost-set-to-80-eurmwh-discharged)
     - [ENTSO-E API outage — diagnosed, not guessed](#entso-e-api-outage-diagnosed-not-guessed)
     - [Fallback routes established and tested](#fallback-routes-established-and-tested)
+    - [First authenticated pull — and three findings](#first-authenticated-pull-and-three-findings)
+    - [SMARD validated against ENTSO-E — filter 4169 confirmed](#smard-validated-against-entso-e-filter-4169-confirmed)
+    - [Environment and tests](#environment-and-tests)
     - [Housekeeping](#housekeeping)
   - [Commits](#commits)
   - [Open items](#open-items)
@@ -182,7 +185,30 @@ because the API is down. Each hypothesis was eliminated in turn:
 | `curl`, `securityToken` query param | **HTTP 599** `uu-gateway-router/connectTimeout` — *"Unable to access service within time limit"* | everything else |
 
 The last probe is ENTSO-E's own gateway reporting it cannot reach its own backend.
-Server-side, unrelated to the token or the local setup. Still failing on retry at 10:44 UTC.
+Server-side, unrelated to the token or the local setup.
+
+The platform's own dashboard corroborated this from the other side. *Web API Access*
+showed the security token **Generated** and the integration channel **ACTIVE**, and
+*Integration Channels Monitoring* logged **Last Activity 10:46:30 UTC** with a file count
+of 6 — matching the six probes made that morning. So the requests arrived, were
+attributed to the account and counted, and only then failed. Both directions agreed the
+credentials were fine.
+
+The documented error surface confirmed it too. Every failure ENTSO-E documents — missing
+or duplicate parameters, no data found, range over one year, too many documents, bad
+characters — returns an `Acknowledgement_MarketDocument` XML carrying a `<Reason><code>`.
+Ours returned JSON from `uu-gateway-router`. The request never reached the API
+application at all.
+
+(The Zendesk articles are readable through the Help Center JSON API at
+`/api/v2/help_center/en-us/articles/{id}.json`, which is not behind the bot wall that
+returns 403 to the HTML pages. Worth remembering.)
+
+**Recovered at 11:42:30 UTC**, roughly 70 minutes after first observation, caught by a
+10-minute poller. Two useful limits harvested from the documentation meanwhile: a
+**one-year maximum range per request**, and a document-count cap — though the two
+articles disagree, one saying 100 and the other 200, so it needs pinning down before
+chunking is built.
 
 Documentation was also unreachable: `transparencyplatform.zendesk.com` returns 403 to
 non-browser clients, so the API contract in use was reconstructed from the `entsoe-py`
@@ -205,11 +231,74 @@ actual. Mislabelling one as the other injects silent hindsight — precisely the
 mode Contract 1 exists to prevent. Forecast series therefore come from the ENTSO-E File
 Library or the API, never from an unverified SMARD ID.
 
+#### First authenticated pull — and three findings
+
+Once the API returned, the token verified end to end through `entsoe-py`: 49 rows of
+DE-LU day-ahead prices for 1–3 June 2024. Three things surfaced that shape the client:
+
+1. **`entsoe-py` returns a `Europe/Berlin` index, not UTC.** Contract 5's conversion is
+   required at the source boundary, exactly as designed — not an optional tidy-up.
+2. **The endpoint is inclusive at both ends.** A request for 1 June to 3 June returned
+   **49** hours, not 48. The same off-by-one class as the split boundary bug, now known
+   about before it can cause a silent duplicate.
+3. **The platform is slow while recovering.** A 30-second timeout failed; 120 seconds
+   succeeded, and `entsoe-py`'s built-in retry fired twice before the call went through.
+   Timeouts must be generous, and the library's `retry_count=3, retry_delay=10` is doing
+   real work rather than sitting idle.
+
+#### SMARD validated against ENTSO-E — filter 4169 confirmed
+
+The open risk from the fallback work was that SMARD's filter IDs are undocumented magic
+numbers, so using one for a *forecast* series could silently inject hindsight. That risk
+is now resolved for prices, by measurement rather than assumption.
+
+Both sources were pulled for the same window and compared hour by hour after converting
+each to UTC:
+
+```
+overlapping hours compared : 49
+max absolute difference    : 0.000000 EUR/MWh
+hours differing by > 0.01  : 0
+```
+
+Exact agreement on every hour. This establishes three things at once: SMARD filter `4169`
+**is** the DE-LU day-ahead price; the timezone handling is correct on both paths, since
+independently-converted indices align to the hour; and there is now a reproducible
+cross-source check to re-run whenever either feed is touched.
+
+The caveat still stands for every **other** SMARD filter. Forecast series remain
+unverified and must not be used until each is validated the same way — against ENTSO-E,
+or from the File Library's labelled extracts.
+
+#### Environment and tests
+
+Interpreter moved from **3.11.3 to 3.11.14** — eleven patch releases had accumulated.
+3.11 was kept rather than moving to 3.13 after checking that every current and planned
+dependency (`pandas`, `pyarrow`, `statsmodels`, `lightgbm`, `evidently`, `pulp`) supports
+3.11 through 3.14, so compatibility does not discriminate between the lines. Portability
+comes from the project-local `.venv`, the exact pins and `.python-version`, not from the
+minor version. All five pinned packages resolved to identical versions on the rebuilt venv.
+
+The second `.gitignore` bug is fixed: `.vscode/*` instead of `.vscode/`, so the promised
+`!.vscode/settings.json` negation can finally fire. `settings.json` now pins the
+interpreter path and enables pytest, while personal editor state stays ignored.
+
+**15 contract tests** added, scoped to Contracts 2 and 5 rather than general coverage.
+They were mutation-tested rather than merely run: reintroducing the `.loc` inclusive
+slicing bug failed exactly three of them, with the validation set showing 8761 rows
+instead of 8760 — the duplicated boundary hour caught. A test that has never been seen to
+fail is not yet evidence of anything.
+
 #### Housekeeping
 
 Work log moved from `logfiles/` to `docs/`, and `logfiles/` deleted — it was an empty
 leftover, and `.gitignore` already covers `logs/` and `*.log` for stage 5 runtime output.
-A work log is documentation, not runtime output, so it belongs in version control.
+A work log is documentation, not runtime output, so it belongs in version control. A
+table of contents was added, since the log grows by a section per session.
+
+A weekly routine (`trig_0113rBvXLa9eZa46byKszxZi`, Tuesdays 09:00 Berlin) probes the API
+and drafts an outage email if it fails. Now that the platform is back it is redundant, but
+harmless, and useful if the migration causes further instability.
 
 ---
 
@@ -222,35 +311,41 @@ A work log is documentation, not runtime output, so it belongs in version contro
 | `7beaa76` | 08 Sep | Pin stage 0 dependencies and document the required API token |
 | `e7c23c3` | 08 Sep | Add config.py as the single source of truth for split and market |
 | `5dec185` | 09 Sep | Set battery cycle degradation cost to 8 EUR per MWh discharged |
+| `d73e0ef` | 09 Sep | Add a work log recording decisions and their reasoning |
+| `4dac141` | 09 Sep | Add a table of contents to the work log |
+| `b7302d7` | 09 Sep | Pin the interpreter and share the editor's environment setting |
+| `bdb5923` | 09 Sep | Add contract tests for the split and market constants |
 
 ---
 
 ### Open items
 
-1. **Python version undecided.** Running 3.11.3 — a patch release now past bugfix support,
-   and the only version pyenv has installed. 3.13.x is available and every current and
-   planned dependency (pandas, pyarrow, scikit-learn, pulp, lightgbm, entsoe-py) ships
-   3.13 wheels. Cheapest to switch now, while there is almost no code and no data.
-2. **`.vscode/` ignore rule** still blocks committing `settings.json`, so the interpreter
-   choice is not reproducible from a clean clone.
-3. **Tests not yet written.** Agreed scope: Contracts 1, 2 and 5 only. Needs `pytest` in
-   `requirements.txt` in the same commit.
-4. **`src/sources/` not yet recorded** in CLAUDE.md's Quick Reference.
-5. **SMARD filter-ID mapping unresolved** — blocks using SMARD for anything but prices.
-6. **Coverage uncounted** (HANDOVER open question 1): gaps in DE-LU 2018–2025 unknown,
-   because no bulk data has been pulled.
+1. **`src/sources/` not yet recorded** in CLAUDE.md's Quick Reference — to land with the
+   first file placed there.
+2. **SMARD filter IDs beyond `4169` remain unverified.** Prices are confirmed against
+   ENTSO-E to the cent; every other filter is still an undocumented magic number and must
+   not be used for a forecast series until validated the same way.
+3. **Document-count cap unknown.** ENTSO-E's own articles disagree — one says 100 matching
+   documents, the other 200. Needs pinning down before request chunking is built.
+4. **Coverage uncounted** (HANDOVER open question 1): gaps in DE-LU 2018–2025 unknown,
+   because no bulk data has been pulled yet.
+5. **Revision behaviour untested** (HANDOVER open question 2): whether ENTSO-E overwrites
+   published day-ahead values. The immutable cache answers this by construction once two
+   pulls of the same period exist.
+6. **Platform stability after the migration.** The API recovered but was slow enough that a
+   30-second timeout failed. Whether that persists is unknown.
 
 ### Next
 
-The three data-layer pieces, none of which need the API to be reachable:
+The three data-layer pieces:
 
 1. **Catalog** — the data items as declarative records carrying an `available_at` claim,
    making Contract 1 a field that can be asserted on rather than a comment.
 2. **Fetch and cache** — immutable timestamped pulls plus `manifest.jsonl`, which also
-   supplies the incremental retrieval an MLOps loop needs, and answers HANDOVER open
-   question 2 (does ENTSO-E revise published values?) by letting two pulls be diffed.
+   supplies the incremental retrieval an MLOps loop needs, and answers open question 5
+   above by letting two pulls be diffed.
 3. **Normalisation** — the single Contract 5 choke point: UTC, hourly, the 60→15-minute
    transition, and gap counting.
 
-The `src/sources/` split earns itself here: SMARD works today, the API does not, and the
-layer above neither knows nor cares which supplied the bytes.
+The `src/sources/` split has already earned itself: for most of today SMARD worked and the
+API did not, and the layer above will neither know nor care which supplied the bytes.
