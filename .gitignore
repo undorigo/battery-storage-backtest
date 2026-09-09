@@ -87,7 +87,11 @@ htmlcov/
 # ─────────────────────────────────────────────────────────────────────────────
 # Editors and OS
 # ─────────────────────────────────────────────────────────────────────────────
-.vscode/
+# Same rule as data/ above: excluding the directory would make the negation
+# below unreachable, because git never descends into an excluded directory.
+# Exclude the contents instead, so the shared interpreter setting can be
+# committed while personal editor state stays out.
+.vscode/*
 !.vscode/settings.json
 .idea/
 .DS_Store
