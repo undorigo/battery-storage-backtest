@@ -7,29 +7,17 @@ Decisions belong here with their reasoning; `CLAUDE.md` holds the standing rules
 
 ## Contents
 
-- [Stage 0 — Data · 8–9 September 2026](#stage-0-data-89-september-2026)
-  - [8 September 2026 — repository, environment, and the split](#8-september-2026-repository-environment-and-the-split)
-    - [Commit message corrected on an already-pushed commit](#commit-message-corrected-on-an-already-pushed-commit)
-    - [The environment was not the project's](#the-environment-was-not-the-projects)
-    - [Two `.gitignore` bugs, same root cause](#two-gitignore-bugs-same-root-cause)
-    - [`.env.example` written, `.env` created](#envexample-written-env-created)
-    - [The split boundary bug — demonstrated, not assumed](#the-split-boundary-bug-demonstrated-not-assumed)
-    - [Design decisions taken](#design-decisions-taken)
-    - [Facts verified against live sources, not memory](#facts-verified-against-live-sources-not-memory)
-  - [9 September 2026 — degradation cost, and a live API outage](#9-september-2026-degradation-cost-and-a-live-api-outage)
-    - [Cycle degradation cost set to 8.0 EUR/MWh discharged](#cycle-degradation-cost-set-to-80-eurmwh-discharged)
-    - [ENTSO-E API outage — diagnosed, not guessed](#entso-e-api-outage-diagnosed-not-guessed)
-    - [Fallback routes established and tested](#fallback-routes-established-and-tested)
-    - [First authenticated pull — and three findings](#first-authenticated-pull-and-three-findings)
-    - [SMARD validated against ENTSO-E — filter 4169 confirmed](#smard-validated-against-entso-e-filter-4169-confirmed)
-    - [Environment and tests](#environment-and-tests)
-    - [Housekeeping](#housekeeping)
-  - [Commits](#commits)
-  - [Open items](#open-items)
-  - [Next](#next)
+One row per working day. Follow the date link for the detail.
 
-*Add an entry here whenever a section is added — anchors are GitHub-style: lowercase,
-punctuation stripped, spaces hyphenated.*
+| Date | What was done |
+|---|---|
+| [8 Sep 2026](#d20260908) | Repository initialised. Environment rebuilt off the pyenv global into a project venv. Two `.gitignore` bugs found. Split boundary bug demonstrated and fixed in `config.py`. |
+| [9 Sep 2026](#d20260909) | Cycle cost set to 8 EUR/MWh. ENTSO-E API outage diagnosed, then recovered. First authenticated pull. SMARD cross-validated. Python 3.11.14, editor settings, 15 contract tests. |
+
+[Commits](#commits) · [Open items](#open-items) · [Next](#next)
+
+*Anchors are explicit `<a id="dYYYYMMDD">` tags on each day heading, so the links keep
+working when a heading is reworded.*
 
 ---
 
@@ -42,6 +30,7 @@ a verified fallback exists.
 
 ---
 
+<a id="d20260908"></a>
 ### 8 September 2026 — repository, environment, and the split
 
 Opened with `README.md`, `CLAUDE.md`, `HANDOVER.md`, `.gitignore` and `LICENSE` already
@@ -152,6 +141,7 @@ Verified:
 
 ---
 
+<a id="d20260909"></a>
 ### 9 September 2026 — degradation cost, and a live API outage
 
 #### Cycle degradation cost set to 8.0 EUR/MWh discharged
