@@ -13,8 +13,12 @@ withheld, no test fails.  The model simply knows what actually happened, scores
 beautifully, and would lose money in production.
 
 So this compares each forecast against its own actual.  A forecast tracks reality
-closely and is never equal to it.  Actuals are equal to themselves.  A mean
-absolute error of exactly zero means the same series was pulled twice.
+closely and is never equal to it.  Actuals are equal to themselves.
+
+The test is that *every* point matches, not that any does.  Individual
+coincidences are perfectly possible — a forecast can land exactly on the outcome
+— and are reported in the `exact` column rather than treated as failures.  What
+cannot happen by chance is a whole fortnight matching to the last decimal.
 
 This is a one-off check per series, re-run only when a source, a parameter or the
 client library changes.  The cheap permanent guard is the request parameters
@@ -53,11 +57,21 @@ def _compare(name: str, forecast: pd.Series, actual: pd.Series) -> bool:
         return False
 
     err = both.f - both.a
-    is_identical = bool((err.abs() < IDENTICAL_TOL).all())   # the failure we are hunting
+
+    # Whether every point matches, not whether any does.  Individual coincidences
+    # are expected and harmless; wholesale equality is the failure being hunted.
+    is_identical = bool((err.abs() < IDENTICAL_TOL).all())
+    exact = int((err.abs() < IDENTICAL_TOL).sum())           # how many coincided by chance
+
+    # These series are not all hourly — load and renewables arrive quarter-hourly
+    # even in 2022 — so the count is of points, and the step is reported with it.
+    step = both.index.to_series().diff().mode()
+    res = f"{int(step.iloc[0].total_seconds() // 60)}min" if len(step) else "?"
+
     verdict = "!! IDENTICAL — LEAK" if is_identical else "forecast"
     print(
-        f"  {name:<16}{len(both):>7}{both.f.corr(both.a):>9.4f}"
-        f"{err.abs().mean():>11,.0f}{err.mean():>+11,.0f}   {verdict}"
+        f"  {name:<16}{len(both):>8}{res:>8}{both.f.corr(both.a):>9.4f}"
+        f"{err.abs().mean():>11,.0f}{err.mean():>+11,.0f}{exact:>8}   {verdict}"
     )
     return not is_identical
 
@@ -85,8 +99,11 @@ def main() -> int:
 
     client = EntsoePandasClient(api_key=token, timeout=90)   # platform can be slow
     print(f"Window: {START.date()} to {END.date()} (training period)\n")
-    print(f"  {'series':<16}{'hours':>7}{'corr':>9}{'MAE (MW)':>11}{'bias (MW)':>11}   verdict")
-    print("  " + "-" * 72)
+    print(
+        f"  {'series':<16}{'points':>8}{'step':>8}{'corr':>9}"
+        f"{'MAE (MW)':>11}{'bias (MW)':>11}{'exact':>8}   verdict"
+    )
+    print("  " + "-" * 88)
 
     ok = []
 
