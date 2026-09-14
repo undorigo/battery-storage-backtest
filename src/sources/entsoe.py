@@ -48,7 +48,8 @@ class DataItem:
 
 
 # ── The catalog ───────────────────────────────────────────────────────────────
-# Four items: the target, two features, and one that exists only to be excluded.
+# Five items: the target, two features, and the two hindsight twins those features
+# would be confused with.  Each forbidden series sits beside the one it shadows.
 #
 # Note what `known_before_gate_closure` means, because it is narrower than it
 # looks: may the value for delivery period t be used to predict period t?  For the
