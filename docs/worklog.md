@@ -13,7 +13,7 @@ One row per working day. Follow the date link for the detail.
 |---|---|
 | [8 Sep 2026](#d20260908) | Repository initialised. Environment rebuilt off the pyenv global into a project venv. Two `.gitignore` bugs found. Split boundary bug demonstrated and fixed in `config.py`. |
 | [9 Sep 2026](#d20260909) | Cycle cost set to 8 EUR/MWh. ENTSO-E API outage diagnosed, then recovered. First authenticated pull. SMARD cross-validated to the cent. Raw XML read — two silent traps found. Python 3.11.14, editor settings, 15 contract tests. |
-| [14 Sep 2026](#d20260914) | Platform fully recovered, sub-second responses. All four forecast series verified against their actuals by measurement; the check shown to fail when fed actuals. |
+| [14 Sep 2026](#d20260914) | Platform recovered, sub-second. All four forecast series verified against their actuals by measurement. Catalog written — Contract 1 becomes a testable field. Code review found five issues, two of them wrong assumptions in the tests themselves. |
 
 [Commits](#commits) · [Open items](#open-items) · [Next](#next)
 
@@ -26,8 +26,8 @@ working when a heading is reworded.*
 
 **Stage goal:** a reproducible data pull with the split locked.
 **Checkpoint:** runs twice identically; coverage counted.
-**Status:** groundwork, `config.py` and forecast provenance complete. The bulk pull,
-the coverage count and the first figures remain — roughly three hours.
+**Status:** groundwork, `config.py`, forecast provenance and the catalog complete. The
+bulk pull, the coverage count and the first figures remain — roughly two and a half hours.
 
 ---
 
@@ -347,7 +347,7 @@ harmless, and useful if the migration causes further instability.
 ---
 
 <a id="d20260914"></a>
-### 14 September 2026 — forecast provenance verified
+### 14 September 2026 — forecast provenance, the catalog, and a review
 
 #### The platform has fully recovered
 
@@ -393,6 +393,73 @@ Kept as `scripts/verify_forecast_series.py`, exiting non-zero on failure so it c
 pipeline later. It needs the network and a token, so it stays out of the offline test
 suite; the permanent guard there will be an assertion on the catalog's request parameters.
 
+#### The catalog — Contract 1 becomes a field
+
+`src/sources/entsoe.py` holds one record per series: how to fetch it, what comes back, and
+whether the model may see it. Adding a sixth series should be an entry here and nothing
+else.
+
+The field that carries the contract needed more care than expected. A plain
+`feature_eligible` flag broke on the price: day D's price is the **target**, and the
+auction publishes it at roughly 12:45 on D-1 — forty-five minutes after gate closure — yet
+*lagged* prices are entirely legitimate features. So the field became
+`known_before_gate_closure`, meaning precisely: may the value for delivery period t be used
+to predict period t? For the price, no. Lags are `features.py`'s business, because the lag
+is what makes a value old enough to have been public.
+
+Five records, arranged as pairs: the target, two forecasts, and the two hindsight twins
+those forecasts would be confused with. The forbidden series are listed rather than omitted
+— a prohibition is only testable if the trap has a record to point at.
+
+#### Review of the three modules, and what it found
+
+Reading the code back rather than admiring it turned up five issues, all fixed:
+
+1. **The verification script named its own query methods**, so the catalog and the thing it
+   audits were free to drift apart, each looking correct alone. It now resolves every call
+   through `cat.get()`.
+2. **`actual_load` had no record**, though the script fetched it. The catalog claimed
+   completeness it did not have.
+3. **`expected_resolution` was described as "checked"** when nothing checked it. Comment
+   corrected rather than the claim quietly left standing.
+4. `_DE_AT_LU_EIC` was private yet reached into by a test. Made public — a named hazard is
+   easier to check against than a hidden one.
+5. `GATE_CLOSURE_LOCAL` was a bare string, now a `datetime.time`, since the lag arithmetic
+   will compare against it rather than print it.
+
+**Fixing (2) exposed two wrong assumptions.** A test asserted that document types uniquely
+identify a series; load forecast and actual load are both `A65`, and only the process type
+separates them. It had passed only because the forbidden twin was missing. And a mutation
+pointing `load_forecast` at `query_load` — the actuals — **passed every offline test**,
+because `hasattr` asks only whether a method exists. The precise leak Contract 1 exists to
+prevent walked through the fast guard untouched.
+
+Both are now tested, and the defence is layered:
+
+| Layer | Cost | Caught the mislabel |
+|---|---|---|
+| Offline test suite | 0.26 s | `test_no_two_items_share_a_query_method` |
+| Live provenance check | ~40 s, network | `corr 1.0000, MAE 0, exact 1344 — LEAK` |
+
+The refactored script returns numbers identical to before — 0.9914 / 936 / +195 on load —
+which is the First Law check that a refactor did not quietly become a change.
+
+#### Walkthrough of `config.py` and the catalog
+
+Read line by line rather than summarised. Two things worth recording because they are easy
+to get wrong and produce no error when you do.
+
+`DateOffset(days=1)` means *the same clock time tomorrow*; `Timedelta(days=1)` means
+*exactly 24 hours later*. On the 25-hour October day the second lands back inside the same
+day, silently losing its final hour. `_last_delivery_hour` uses the former.
+
+`df.loc[mask]` and `df.loc[start:end]` are different operations. Only the boolean mask can
+express "strictly greater than" — label slicing is inclusive at both ends, which is the
+original split bug.
+
+A stale comment was found during the walkthrough itself: the catalog still said "four
+items" after `actual_load` was added.
+
 ---
 
 ### Commits
@@ -413,36 +480,44 @@ suite; the permanent guard there will be an assertion on the catalog's request p
 | `f736ad2` | 09 Sep | Record a real A44 response as a parser fixture |
 | `9c8666e` | 09 Sep | Record the raw response findings and clarify the leakage scope |
 | `27044a4` | 14 Sep | Verify the forecast series are forecasts and not actuals |
+| `92d6997` | 14 Sep | Report resolution and coincidence count in the provenance check |
+| `97db7ae` | 14 Sep | Add the ENTSO-E data-item catalog and its contract tests |
+| `03e4503` | 14 Sep | Name the wrong-market EIC publicly and type gate closure as a time |
+| `dec837e` | 14 Sep | Make the catalog load-bearing rather than merely descriptive |
+| `7fc4858` | 14 Sep | Correct the catalog's item count and name the pairing |
 
 ---
 
 ### Open items
 
-1. **`src/sources/` not yet recorded** in CLAUDE.md's Quick Reference — to land with the
-   first file placed there.
-2. **SMARD filter IDs beyond `4169` remain unverified.** Prices are confirmed against
+1. **SMARD filter IDs beyond `4169` remain unverified.** Prices are confirmed against
    ENTSO-E to the cent; every other filter is still an undocumented magic number and must
    not be used for a forecast series until validated the same way.
-3. **Document-count cap unknown.** ENTSO-E's own articles disagree — one says 100 matching
+2. **Document-count cap unknown.** ENTSO-E's own articles disagree — one says 100 matching
    documents, the other 200. Needs pinning down before request chunking is built.
-4. **Coverage uncounted** (HANDOVER open question 1): gaps in DE-LU 2018–2025 unknown,
+3. **Coverage uncounted** (HANDOVER open question 1): gaps in DE-LU 2018–2025 unknown,
    because no bulk data has been pulled yet.
-5. **Revision behaviour untested** (HANDOVER open question 2): whether ENTSO-E overwrites
+4. **Revision behaviour untested** (HANDOVER open question 2): whether ENTSO-E overwrites
    published day-ahead values. The immutable cache answers this by construction once two
    pulls of the same period exist.
-6. **Platform stability** — resolved as of 14 September: sub-second responses, no retries.
+5. **Platform stability** — resolved as of 14 September: sub-second responses, no retries.
    Keep generous timeouts and SMARD as a fallback anyway; the outage cost half a day once.
-7. **The 23/25-hour delivery day** contradicts CLAUDE.md's "24 values per run". Storing in
+6. **The 23/25-hour delivery day** contradicts CLAUDE.md's "24 values per run". Storing in
    UTC keeps joins safe but does not settle it. Needs an explicit rule at stage 2, when the
    model layout is chosen.
+7. **`expected_resolution` is declared but unchecked.** The normaliser should compare it
+   against what actually arrives; until it does, the October 2025 style of surprise would
+   pass unnoticed.
+8. **Half of `config.py` is not yet used** — the path constants, `RESOLUTION`,
+   `QUARTER_HOUR_GOLIVE` and `GATE_CLOSURE_LOCAL` are waiting for the pull and the
+   normaliser. Declared early on purpose, but they are promises until something reads them.
 
 ### Next
 
-Stage 0 has roughly three hours left. In order:
+Stage 0 has roughly two and a half hours left. In order:
 
-1. **Confirm open item 1**, then write the **catalog** — the data items as declarative
-   records carrying their availability claim, so Contract 1 becomes a field that can be
-   asserted on rather than a comment.
+1. **Finish the walkthrough** — `scripts/verify_forecast_series.py`, then the two test
+   files. The catalog and `config.py` are done.
 2. **Fetch and cache** — immutable timestamped pulls plus `manifest.jsonl`, which also
    supplies the incremental retrieval an MLOps loop needs, and answers open item 6 by
    letting two pulls be diffed.
