@@ -307,8 +307,10 @@ by an hour.
 | File | Role |
 |------|------|
 | `src/config.py` | Split dates, EIC codes, paths, battery parameters — single source of truth |
-| `src/data.py` | ENTSO-E and SMARD pulls, timezone and resolution normalisation |
-| `src/features.py` | Feature construction; owns the availability contract |
+| `src/sources/` | Transport only: parameters in, tidy frame out. One module per source, so swapping SMARD for ENTSO-E never edits the file that owns Contract 5. Nothing outside imports these |
+| `src/sources/entsoe.py` | The data-item catalog: request parameters, and the Contract 1 claim per series as a field a test can read |
+| `src/data.py` | Caching and normalisation; the public `load_*()` API everything else calls |
+| `src/features.py` | Feature construction; enforces the availability contract the catalog declares |
 | `src/models.py` | Training, benchmarks, quantile models |
 | `src/backtest.py` | Dispatch optimiser and settlement |
 | `src/evaluate.py` | rMAE, Diebold-Mariano, pinball loss, capture rate |
