@@ -34,6 +34,19 @@ def test_key_matches_its_dict_entry(key):
     assert cat.CATALOG[key].key == key
 
 
+def test_no_two_items_share_a_query_method():
+    """The leak, in the form it would actually take.
+
+    `hasattr` only asks whether a method exists, so pointing load_forecast at
+    query_load — the actuals — satisfies it perfectly. Two items resolving to the
+    same call means one of them is fetching the other's data, which is precisely
+    the mistake Contract 1 exists to prevent, and it is invisible otherwise.
+    """
+    queries = [item.query for item in cat.CATALOG.values()]
+    duplicated = {q for q in queries if queries.count(q) > 1}
+    assert not duplicated, f"more than one catalog item fetches via {duplicated}"
+
+
 # ── Contract 1 ────────────────────────────────────────────────────────────────
 # The two that must never be feature-eligible, named individually rather than
 # counted, so that adding a series cannot quietly flip one of them.
@@ -81,10 +94,24 @@ def test_actual_generation_declares_the_realised_process_type():
     assert cat.CATALOG["actual_generation"].process_type == "A16"
 
 
-def test_document_types_are_distinct_per_item():
-    """Two items sharing a document type would mean one of them is mislabelled."""
-    types = [item.document_type for item in cat.CATALOG.values()]
-    assert len(types) == len(set(types))
+def test_the_document_and_process_pair_is_unique_per_item():
+    """It is the pair that identifies a series, not the document type alone.
+
+    Load forecast and actual load are both A65; only the process type separates
+    them, A01 against A16. An earlier version of this test asserted that document
+    types alone were distinct, which is simply untrue of ENTSO-E's model — and it
+    passed only because the forbidden twin was missing from the catalog.
+    """
+    pairs = [(i.document_type, i.process_type) for i in cat.CATALOG.values()]
+    assert len(pairs) == len(set(pairs))
+
+
+def test_each_forecast_has_its_forbidden_twin_catalogued():
+    """The pairs the verification script compares, and the pairs a mistake swaps."""
+    for forecast, actual in (("load_forecast", "actual_load"),
+                             ("wind_solar_forecast", "actual_generation")):
+        assert cat.CATALOG[forecast].known_before_gate_closure is True
+        assert cat.CATALOG[actual].known_before_gate_closure is False
 
 
 # ── Lookup ────────────────────────────────────────────────────────────────────

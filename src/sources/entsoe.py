@@ -28,7 +28,12 @@ class DataItem:
     key: str                      # our name; becomes the cache directory
     query: str                    # entsoe-py method, resolved by name at call time
     unit: str
-    expected_resolution: str      # measured, not assumed — see the probe in the work log
+
+    # What the API was observed to return, not what it promises.  Recorded so the
+    # normaliser can compare it against what actually arrives and complain if the
+    # two diverge — the October 2025 switch would have been caught that way.  That
+    # comparison does not exist yet; until it does this is documentation.
+    expected_resolution: str
     publication: str              # when the value for delivery period t becomes public
     known_before_gate_closure: bool
     why: str
@@ -98,6 +103,22 @@ CATALOG: dict[str, DataItem] = {
         ),
         document_type="A69",
         process_type="A01",
+    ),
+    "actual_load": DataItem(
+        key="actual_load",
+        query="query_load",
+        unit="MW",
+        expected_resolution="15min",
+        publication="after delivery",
+        known_before_gate_closure=False,
+        why=(
+            "Forbidden as a feature, and the twin of load_forecast — same units, "
+            "same shape, one process type apart. Listed for the same reason as "
+            "actual_generation: the prohibition is only testable if the trap has a "
+            "record. verify_forecast_series.py compares the load forecast against it."
+        ),
+        document_type="A65",
+        process_type="A16",
     ),
     "actual_generation": DataItem(
         key="actual_generation",

@@ -34,6 +34,7 @@ import pandas as pd
 from dotenv import load_dotenv
 
 from src import config as cfg
+from src.sources import entsoe as cat
 
 # ── Window ────────────────────────────────────────────────────────────────────
 # Deliberately inside the training period.  Contract 2 keeps the test years for a
@@ -105,20 +106,30 @@ def main() -> int:
     )
     print("  " + "-" * 88)
 
+    def fetch(key: str):
+        """Call whatever the catalog says this item is fetched by.
+
+        Resolved through the catalog rather than named here, so that the request
+        parameters this script verifies are the same ones the pipeline will use.
+        Hardcoding the method would leave the audit trail and the thing audited
+        free to drift apart, each looking correct on its own.
+        """
+        item = cat.get(key)
+        return getattr(client, item.query)(cfg.BIDDING_ZONE, start=START, end=END)
+
     ok = []
 
     # ── Load ──────────────────────────────────────────────────────────────────
-    # The day-ahead load forecast is published by the TSOs well before gate
-    # closure; actual load is only known after the hour has passed.
-    forecast = client.query_load_forecast(cfg.BIDDING_ZONE, start=START, end=END).iloc[:, 0]
-    actual = client.query_load(cfg.BIDDING_ZONE, start=START, end=END).iloc[:, 0]
-    ok.append(_compare("Load", forecast, actual))
+    # The day-ahead load forecast is published by the TSOs before gate closure;
+    # actual load is only known once the hour has passed.  Both are A65 — only the
+    # process type separates them, which is exactly how a mistake would happen.
+    ok.append(_compare("Load", fetch("load_forecast").iloc[:, 0], fetch("actual_load").iloc[:, 0]))
 
     # ── Wind and solar ────────────────────────────────────────────────────────
     # One request returns all three technologies as columns.  Each is checked
     # separately, because a mistake could affect one series and not the others.
-    ws_forecast = client.query_wind_and_solar_forecast(cfg.BIDDING_ZONE, start=START, end=END)
-    ws_actual = client.query_generation(cfg.BIDDING_ZONE, start=START, end=END)
+    ws_forecast = fetch("wind_solar_forecast")
+    ws_actual = fetch("actual_generation")
 
     for tech in ("Solar", "Wind Onshore", "Wind Offshore"):
         try:
