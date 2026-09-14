@@ -109,7 +109,8 @@ def test_split_is_correct_for_a_non_utc_input(hourly_frame):
 
 def test_bidding_zone_is_de_lu_not_de_at_lu():
     assert cfg.BIDDING_ZONE_EIC == "10Y1001A1001A82H"
-    assert cfg.BIDDING_ZONE_EIC != cfg._DE_AT_LU_EIC
+    assert cfg.BIDDING_ZONE_EIC != cfg.DE_AT_LU_EIC
+    assert cfg.DE_AT_LU_EIC == "10Y1001A1001A63L"     # the hazard, named so it stays named
 
 
 def test_history_starts_when_the_de_lu_zone_did():

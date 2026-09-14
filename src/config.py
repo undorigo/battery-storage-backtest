@@ -9,6 +9,7 @@ previously reported number, so the Transparency Protocol applies to every edit.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import time
 from pathlib import Path
 
 import pandas as pd
@@ -50,11 +51,18 @@ QUARTER_HOUR_GOLIVE = pd.Timestamp("2025-10-01", tz=TZ_MARKET)
 
 BIDDING_ZONE = "DE_LU"                          # entsoe-py Area key
 BIDDING_ZONE_EIC = "10Y1001A1001A82H"           # DE-LU, the zone this project models
-_DE_AT_LU_EIC = "10Y1001A1001A63L"              # pre-Oct-2018 DE-AT-LU; never use
+
+# Public rather than private, despite never being used: a named hazard is easier
+# to check against than an absent one.  The two codes differ by a few characters
+# and name different markets, so the wrong one produces a spliced series rather
+# than an error.
+DE_AT_LU_EIC = "10Y1001A1001A63L"               # pre-Oct-2018 DE-AT-LU; never use
 
 # The auction closes at 12:00 on D-1 and covers all delivery periods of day D.
-# Every feature must have been knowable before this moment (Contract 1).
-GATE_CLOSURE_LOCAL = "12:00"                    # on D-1, in TZ_MARKET
+# Every feature must have been knowable before this moment (Contract 1).  A real
+# time object rather than a string, because the lag arithmetic in features.py
+# will have to compare against it rather than print it.
+GATE_CLOSURE_LOCAL = time(12, 0)                # on D-1, in TZ_MARKET
 HISTORY_START = "2018-10-01"                    # first day DE-LU existed as a zone
 
 # ── The split — Contract 2 ────────────────────────────────────────────────────
