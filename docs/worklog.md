@@ -13,6 +13,7 @@ One row per working day. Follow the date link for the detail.
 |---|---|
 | [8 Sep 2026](#d20260908) | Repository initialised. Environment rebuilt off the pyenv global into a project venv. Two `.gitignore` bugs found. Split boundary bug demonstrated and fixed in `config.py`. |
 | [9 Sep 2026](#d20260909) | Cycle cost set to 8 EUR/MWh. ENTSO-E API outage diagnosed, then recovered. First authenticated pull. SMARD cross-validated to the cent. Raw XML read — two silent traps found. Python 3.11.14, editor settings, 15 contract tests. |
+| [14 Sep 2026](#d20260914) | Platform fully recovered, sub-second responses. All four forecast series verified against their actuals by measurement; the check shown to fail when fed actuals. |
 
 [Commits](#commits) · [Open items](#open-items) · [Next](#next)
 
@@ -21,12 +22,12 @@ working when a heading is reworded.*
 
 ---
 
-## Stage 0 — Data · 8–9 September 2026
+## Stage 0 — Data · from 8 September 2026
 
 **Stage goal:** a reproducible data pull with the split locked.
 **Checkpoint:** runs twice identically; coverage counted.
-**Status:** groundwork and `config.py` complete. Data pull blocked by an ENTSO-E outage;
-a verified fallback exists.
+**Status:** groundwork, `config.py` and forecast provenance complete. The bulk pull,
+the coverage count and the first figures remain — roughly three hours.
 
 ---
 
@@ -322,10 +323,10 @@ Withholding the target and Contract 1 therefore cover different things: the firs
 the label, the second protects the features. Only the two forecast series carry real risk;
 prices and calendar features have nothing to confuse them with.
 
-**Proposed, not yet confirmed:** verify each forecast series empirically once — pull the
-forecast and the actual for the same days and confirm they differ the way a forecast
-differs from reality — then keep a fast assertion on the request parameters thereafter.
-About 20 minutes per series, one-off.
+**Proposed:** verify each forecast series empirically once — pull the forecast and the
+actual for the same days and confirm they differ the way a forecast differs from reality —
+then keep a fast assertion on the request parameters thereafter. Adopted and carried out
+on 14 September; see below.
 
 #### Housekeeping
 
@@ -345,6 +346,55 @@ harmless, and useful if the migration causes further instability.
 
 ---
 
+<a id="d20260914"></a>
+### 14 September 2026 — forecast provenance verified
+
+#### The platform has fully recovered
+
+An unauthenticated probe returned `401` in **0.16 s**, against 34.8 s or an outright
+timeout five days earlier. An authenticated pull completed in **1.90 s** with no retries,
+where the same call previously needed a 120-second timeout and two internal retries.
+
+The values came back identical to the 9 September pull — same minimum of −19.58 and
+maximum of 109.01 EUR/MWh for the same window. Not proof that ENTSO-E never revises, but
+the first datapoint against it, and free.
+
+#### Forecast series verified by measurement, not by trust
+
+Contract 1's hazard is that the API indexes values by the hour they describe and never by
+when they were published. Ask for wind on a past day and it answers whether you wanted the
+forecast or the outcome — the two differ only by request parameters, and both arrive as
+megawatts on the same index. Pull the wrong one and the split stays clean, the target is
+still withheld, no test fails, and the model quietly knows what happened.
+
+So each forecast was compared against its own actual over a fortnight in the **training**
+period — the test years are not spent on a provenance check that any fortnight answers
+equally well.
+
+| Series | Hours | Correlation | MAE | Bias | Verdict |
+|---|---|---|---|---|---|
+| Load | 1344 | 0.9914 | 936 MW | +195 MW | forecast |
+| Solar | 1344 | 0.9967 | 681 MW | −421 MW | forecast |
+| Wind Onshore | 1344 | 0.9716 | 769 MW | −128 MW | forecast |
+| Wind Offshore | 1344 | 0.9343 | 393 MW | −161 MW | forecast |
+
+All four track reality closely and none equals it, which is what a forecast looks like and
+what actuals never look like. Two details corroborate rather than merely pass: the
+predictability ordering is physically sensible — solar highest, offshore wind lowest — and
+load carries a consistent positive bias while all three renewables carry negative ones,
+matching the known tendency of TSO publications to over-forecast demand and under-forecast
+renewables.
+
+**The check was then shown to fail when it should.** Feeding actual load in place of the
+forecast produced correlation 1.0000, MAE 0, and the LEAK verdict. A check that has never
+been seen to fail is not yet evidence of anything.
+
+Kept as `scripts/verify_forecast_series.py`, exiting non-zero on failure so it can gate a
+pipeline later. It needs the network and a token, so it stays out of the offline test
+suite; the permanent guard there will be an assertion on the catalog's request parameters.
+
+---
+
 ### Commits
 
 | SHA | Date | Summary |
@@ -361,30 +411,28 @@ harmless, and useful if the migration causes further instability.
 | `9800277` | 09 Sep | Record the API recovery and the SMARD cross-validation |
 | `3eee18b` | 09 Sep | Reduce the work log contents to one row per day |
 | `f736ad2` | 09 Sep | Record a real A44 response as a parser fixture |
+| `9c8666e` | 09 Sep | Record the raw response findings and clarify the leakage scope |
+| `27044a4` | 14 Sep | Verify the forecast series are forecasts and not actuals |
 
 ---
 
 ### Open items
 
-1. **Forecast-verification approach not confirmed.** Empirical verification is proposed
-   and written into the plan, but was never explicitly agreed. Settle it before the
-   catalog is written, since it decides what each catalog record carries.
-2. **`src/sources/` not yet recorded** in CLAUDE.md's Quick Reference — to land with the
+1. **`src/sources/` not yet recorded** in CLAUDE.md's Quick Reference — to land with the
    first file placed there.
-3. **SMARD filter IDs beyond `4169` remain unverified.** Prices are confirmed against
+2. **SMARD filter IDs beyond `4169` remain unverified.** Prices are confirmed against
    ENTSO-E to the cent; every other filter is still an undocumented magic number and must
    not be used for a forecast series until validated the same way.
-4. **Document-count cap unknown.** ENTSO-E's own articles disagree — one says 100 matching
+3. **Document-count cap unknown.** ENTSO-E's own articles disagree — one says 100 matching
    documents, the other 200. Needs pinning down before request chunking is built.
-5. **Coverage uncounted** (HANDOVER open question 1): gaps in DE-LU 2018–2025 unknown,
+4. **Coverage uncounted** (HANDOVER open question 1): gaps in DE-LU 2018–2025 unknown,
    because no bulk data has been pulled yet.
-6. **Revision behaviour untested** (HANDOVER open question 2): whether ENTSO-E overwrites
+5. **Revision behaviour untested** (HANDOVER open question 2): whether ENTSO-E overwrites
    published day-ahead values. The immutable cache answers this by construction once two
    pulls of the same period exist.
-7. **Platform stability after the migration.** The API recovered but was slow enough that a
-   30-second timeout failed, and it returned `599` again an hour later. Assume it is
-   unreliable; build for it and keep SMARD as the fallback.
-8. **The 23/25-hour delivery day** contradicts CLAUDE.md's "24 values per run". Storing in
+6. **Platform stability** — resolved as of 14 September: sub-second responses, no retries.
+   Keep generous timeouts and SMARD as a fallback anyway; the outage cost half a day once.
+7. **The 23/25-hour delivery day** contradicts CLAUDE.md's "24 values per run". Storing in
    UTC keeps joins safe but does not settle it. Needs an explicit rule at stage 2, when the
    model layout is chosen.
 
