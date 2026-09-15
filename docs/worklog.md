@@ -14,6 +14,7 @@ One row per working day. Follow the date link for the detail.
 | [8 Sep 2026](#d20260908) | Repository initialised. Environment rebuilt off the pyenv global into a project venv. Two `.gitignore` bugs found. Split boundary bug demonstrated and fixed in `config.py`. |
 | [9 Sep 2026](#d20260909) | Cycle cost set to 8 EUR/MWh. ENTSO-E API outage diagnosed, then recovered. First authenticated pull. SMARD cross-validated to the cent. Raw XML read — two silent traps found. Python 3.11.14, editor settings, 15 contract tests. |
 | [14 Sep 2026](#d20260914) | Platform recovered, sub-second. All four forecast series verified against their actuals by measurement. Catalog written — Contract 1 becomes a testable field. Code review found five issues, two of them wrong assumptions in the tests themselves. |
+| [15 Sep 2026](#d20260915) | `just` replaced ad-hoc invocation. A proposal built on a hypothetical was dropped, and a protocol added to stop and ask instead. Eight open questions settled, including what finishes stage 0. |
 
 [Commits](#commits) · [Open items](#open-items) · [Next](#next)
 
@@ -462,6 +463,59 @@ items" after `actual_load` was added.
 
 ---
 
+<a id="d20260915"></a>
+### 15 September 2026 — a command menu, and a deliberate stop
+
+#### `just` replaced the ad-hoc invocation
+
+Three pieces of knowledge lived only in conversation: use `.venv/bin/python`, run scripts
+as modules rather than file paths, and be in the repository root. Three of four plausible
+invocations failed, each with a `ModuleNotFoundError` rather than a hint.
+
+A Makefile was written first and then replaced within the hour. `just` searches parent
+directories and runs recipes from the directory holding the file, so a command works from
+anywhere in the project — which is the one fragility make could not fix and which had been
+papered over with editor tasks. `--list` is also built in, where make needed a grep-and-awk
+incantation for the same menu.
+
+The objection to `just` had been that a clean clone must install it. That was weaker than
+it looked: the clone already creates a venv and installs pinned dependencies, so this is
+one more documented line rather than a new kind of burden. It belongs in the README now
+and in the Dockerfile from stage 5 — not in `requirements.txt`, which is for Python
+imports. (The `just` package on PyPI is an unrelated file-reading library; installing it
+would be a genuine trap.)
+
+#### Stopped adding, after being told to
+
+A proposal to send `process_type` explicitly rather than rely on `entsoe-py`'s default was
+dropped. The risk it defended against — a library default changing on an upgrade, for a
+method this project never calls — had not been observed. The Second Law already forbade
+it; what was missing was the instinct to stop and ask instead of reasoning onward.
+
+A new standing protocol, **Align Before Building**, now says so explicitly: a hypothetical
+justifies a note here, not a module. And when the line count grows faster than the results,
+say so. At this point the count was 664 lines of Python, 40 tests, and **zero rows of
+market data**.
+
+#### Eight decisions, settled so they are not re-litigated
+
+| Question | Decision |
+|---|---|
+| Learning or portfolio, when they conflict | **Both, sequenced.** Learning drives stages 1–3; portfolio polish is one pass at the end |
+| How much testing | **Contracts, plus a regression test for every real bug.** Nothing for code that fails loudly |
+| SMARD, now the API works | **Cross-check only.** No source module; keep the comparison for re-validating prices |
+| What the first pull fetches | **Everything in the catalog, full history**, 2018-10 to 2025-12 |
+| Actual generation, which stage 1 does not need | **Include it.** One pass over the API is cheaper than two |
+| The empty `notebooks/` directory | **Exploration only, never a source of truth.** Anything producing a reported number moves to `src/` or `scripts/` |
+| What finishes stage 0 | Pull runs twice identically · coverage counted · negative-price hours and daily spread in the README · first figures · a written data-quality note |
+| The 16 October end date | **Provisional.** Re-plan after stage 1, which is the first stage with a real deliverable and therefore the first honest measure of pace |
+
+Note on the pull scope: all five catalog items are cached, not four. `actual_load` and
+`actual_generation` are symmetric — both forbidden twins kept for the same reason — and
+"everything in the catalog" is a rule that needs no exception to explain.
+
+---
+
 ### Commits
 
 | SHA | Date | Summary |
@@ -485,6 +539,10 @@ items" after `actual_load` was added.
 | `03e4503` | 14 Sep | Name the wrong-market EIC publicly and type gate closure as a time |
 | `dec837e` | 14 Sep | Make the catalog load-bearing rather than merely descriptive |
 | `7fc4858` | 14 Sep | Correct the catalog's item count and name the pairing |
+| `40f64f1` | 14 Sep | Record the catalog, the review findings, and two wrong test assumptions |
+| `37cdfd6` | 15 Sep | Add a Makefile and editor tasks as the project's command menu |
+| `8473e76` | 15 Sep | Replace the Makefile with a justfile |
+| `3902e02` | 15 Sep | Add a standing protocol to align before building |
 
 ---
 
