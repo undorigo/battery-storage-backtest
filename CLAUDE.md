@@ -110,6 +110,26 @@ Data pulls are cached and timestamped. A cached pull is never silently overwritt
 ENTSO-E revises history, and an overwrite would rewrite the training data underneath
 results that were already published.
 
+### Standing Protocol — Align Before Building
+
+Ask before building, whenever a change needs alignment or clarification. A question costs
+a minute. The wrong abstraction costs a day, and is harder to remove later than it was to
+add.
+
+Use the ask-a-question prompt rather than prose whenever:
+
+- a plan changes materially, or a stage's scope moves
+- a decision has more than one defensible answer
+- a new file, directory, dependency or tool is being proposed
+- something is being built to guard against a risk that has not actually been observed
+
+**"I can imagine a case where this breaks" is not a requirement.** Build for the failure
+that happened, or that the data shows will happen. A hypothetical justifies a note in the
+work log, not a module.
+
+Scaffolding is the easiest thing to add and the hardest to notice. When the line count
+grows faster than the results, stop and say so.
+
 ### Standing Protocol — Transparency
 
 Before any change touching an Integration Contract, state:
