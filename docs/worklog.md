@@ -27,8 +27,11 @@ working when a heading is reworded.*
 
 **Stage goal:** a reproducible data pull with the split locked.
 **Checkpoint:** runs twice identically; coverage counted.
-**Status:** groundwork, `config.py`, forecast provenance and the catalog complete. The
-bulk pull, the coverage count and the first figures remain — roughly two and a half hours.
+**Status:** groundwork, `config.py`, forecast provenance, the catalog and the command menu
+complete. The bulk pull, the coverage count, the figures and the data-quality note remain —
+roughly two and a half hours.
+**Done means:** pull runs twice identically · coverage counted · negative-price hours and
+daily spread in the README · first figures · a written data-quality note.
 
 ---
 
@@ -574,9 +577,11 @@ Note on the pull scope: all five catalog items are cached, not four. `actual_loa
 
 Stage 0 has roughly two and a half hours left. In order:
 
-1. **Finish the walkthrough** — `scripts/verify_forecast_series.py`, then the two test
-   files. The catalog and `config.py` are done.
-2. **Fetch and cache** — immutable timestamped pulls plus `manifest.jsonl`, which also
+1. **`main()` in `verify_forecast_series.py`** — the last unread 45 lines, and the three
+   patterns the pull will reuse: loading the token, resolving through the catalog, and
+   returning an exit code.
+2. **A file map** — what exists and what depends on what, drawn before adding to it.
+3. **Fetch and cache** — immutable timestamped pulls plus `manifest.jsonl`, which also
    supplies the incremental retrieval an MLOps loop needs, and answers open item 6 by
    letting two pulls be diffed.
 3. **Normalisation** — the single Contract 5 choke point: UTC, hourly, the two-resolution
