@@ -1,0 +1,45 @@
+{
+  // Click-to-run versions of the Makefile targets.
+  //
+  // These delegate to make rather than repeating the commands, so there is still
+  // one source of truth. They also fix the one thing make does not: a task always
+  // runs from the workspace root, so it works no matter which file is open.
+  //
+  // Run with Cmd+Shift+P -> "Tasks: Run Task", or Cmd+Shift+B for the default.
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "test",
+      "detail": "Offline contract tests — no network, no token",
+      "type": "shell",
+      "command": "make test",
+      "group": { "kind": "test", "isDefault": true },
+      "presentation": { "reveal": "always", "panel": "dedicated", "clear": true },
+      "problemMatcher": []
+    },
+    {
+      "label": "verify",
+      "detail": "Check the forecast series really are forecasts — needs network and token",
+      "type": "shell",
+      "command": "make verify",
+      "presentation": { "reveal": "always", "panel": "dedicated", "clear": true },
+      "problemMatcher": []
+    },
+    {
+      "label": "setup",
+      "detail": "Recreate the venv and install pinned dependencies",
+      "type": "shell",
+      "command": "make setup",
+      "presentation": { "reveal": "always", "panel": "dedicated", "clear": true },
+      "problemMatcher": []
+    },
+    {
+      "label": "clean",
+      "detail": "Clear __pycache__ and .pytest_cache — leaves data and the venv alone",
+      "type": "shell",
+      "command": "make clean",
+      "presentation": { "reveal": "silent", "panel": "shared" },
+      "problemMatcher": []
+    }
+  ]
+}

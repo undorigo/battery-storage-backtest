@@ -92,7 +92,11 @@ htmlcov/
 # Exclude the contents instead, so the shared interpreter setting can be
 # committed while personal editor state stays out.
 .vscode/*
+# Shared project configuration, listed one by one rather than by a wildcard:
+# settings.json pins the interpreter, tasks.json is the command menu. Everything
+# else in .vscode is personal state and stays out.
 !.vscode/settings.json
+!.vscode/tasks.json
 .idea/
 .DS_Store
 Thumbs.db
