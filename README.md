@@ -72,15 +72,37 @@ that date — Germany, Austria and Luxembourg shared a single zone and a single 
 ENTSO-E API access requires a free account plus a token request. No raw data is committed
 to this repository — the pull is reproducible from `src/data.py`.
 
+## Running it
+
+Commands live in the [`justfile`](justfile). Run `just` with no argument for the menu.
+
+```bash
+brew install just          # or: curl -sSf https://just.systems/install.sh | bash -s -- --to ~/.local/bin
+
+git clone <this repo> && cd battery-storage-backtest
+just setup                 # create the venv, install pinned dependencies
+just test                  # 40 contract tests — offline, no token needed
+
+cp .env.example .env       # then paste your ENTSO-E token into it
+just verify                # confirm the forecast series really are forecasts
+```
+
+`just` searches parent directories, so any of these work from anywhere in the project. The
+same commands are available in VS Code under *Tasks: Run Task*.
+
+Python 3.11.14, pinned in `.python-version`. Dependencies are pinned exactly in
+`requirements.txt` — a clean clone resolves to the same versions.
+
 ## Structure
 
 ```
-src/config.py      split dates, EIC codes, battery parameters — single source of truth
-src/data.py        ENTSO-E and SMARD pulls, timezone and resolution normalisation
-src/features.py    feature construction; owns the availability rule
-src/models.py      training, benchmarks, quantile models
-src/backtest.py    dispatch optimiser and settlement
-src/evaluate.py    rMAE, Diebold-Mariano, pinball loss, capture rate
+src/config.py           split dates, EIC codes, battery parameters — single source of truth
+src/sources/entsoe.py   the data-item catalog: what is fetched, and what may reach a model
+src/data.py             caching and normalisation; the loaders everything else calls
+src/features.py         feature construction; enforces the availability rule
+src/models.py           training, benchmarks, quantile models
+src/backtest.py         dispatch optimiser and settlement
+src/evaluate.py         rMAE, Diebold-Mariano, pinball loss, capture rate
 ```
 
 ## Scope
