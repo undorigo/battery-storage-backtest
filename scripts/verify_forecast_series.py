@@ -96,7 +96,7 @@ def main() -> int:
         print("ENTSOE_API_KEY missing — copy .env.example to .env and fill it in")
         return 2
 
-    from entsoe import EntsoePandasClient                # imported late so --help stays fast
+    from entsoe import EntsoePandasClient                # after the token check, so that error surfaces first
 
     client = EntsoePandasClient(api_key=token, timeout=90)   # platform can be slow
     print(f"Window: {START.date()} to {END.date()} (training period)\n")
