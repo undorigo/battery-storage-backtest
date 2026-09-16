@@ -28,9 +28,10 @@ working when a heading is reworded.*
 
 **Stage goal:** a reproducible data pull with the split locked.
 **Checkpoint:** runs twice identically; coverage counted.
-**Status:** groundwork, `config.py`, forecast provenance, the catalog and the command menu
-complete. The bulk pull, the coverage count, the figures and the data-quality note remain —
-roughly two and a half hours.
+**Status:** groundwork, `config.py`, forecast provenance, the catalog, the command menu,
+`src/data.py` and the first full pull complete — 34 MB, five series, 2018-10-01 to
+2025-12-31. Coverage counted. The data-quality note, the headline numbers and the figures
+remain — roughly an hour.
 **Done means:** pull runs twice identically · coverage counted · negative-price hours and
 daily spread in the README · first figures · a written data-quality note.
 
@@ -520,6 +521,76 @@ Note on the pull scope: all five catalog items are cached, not four. `actual_loa
 
 ---
 
+<a id="d20260916"></a>
+### 16 September 2026 — a recap ritual, a map, and the first real data
+
+**A daily recap, and a language rule.** The session opened with an interview on everything
+built so far: eight questions across market knowledge, the code, and how the work is done.
+Three answers needed rebuilding, and the most important was capture rate — it had been
+understood as a comparison of predicted price to actual price. It is a comparison of
+*money to money*: revenue from the schedule the forecast chose, over revenue from the
+schedule perfect foresight would have chosen, both settled at real prices.
+
+That led somewhere useful. A worked example: a forecast wrong by 40 EUR/MWh on every hour
+captures 100 % of the available revenue, while one accurate to 7.7 EUR/MWh captures 86 %.
+A constant error shifts every hour equally and changes no comparison; only errors that
+*reorder* hours cost money. Which is the whole argument for capture rate as the headline
+number, and the reason a model that hedges toward the mean is dangerous here in a way MAE
+will never show.
+
+A new standing protocol followed — learnings are written in plain language, technical
+terms in brackets rather than doing the explaining — plus `docs/learnings.md`, local and
+uncommitted, as the record of what was understood rather than what was done.
+
+**The map came before more code.** Explanation had been running bottom-up: lines before
+architecture. `docs/architecture.md` now states the shape — `src/` is the machine,
+`scripts/` are the buttons; each file answers exactly one question; downloading and
+splitting are different jobs. The README's file list had named seven modules, five of
+which had never been written, so it now separates BUILT from PLANNED.
+
+`scripts/__init__.py` was deleted. Removing it and running everything proved it did no
+work, and it had claimed `scripts/` was a library when it is the opposite. A stale comment
+in the verification script — justifying a late import by a `--help` flag the script does
+not have — was corrected in the same session.
+
+**Storage was evaluated before it was designed.** The first estimate assumed weekly pulls
+and produced 1.6 GB a year, which was answering the wrong question: this is a backtest, not
+a production system, and the realistic figure is about twenty pulls over the project's
+whole life. Correcting that inverted the argument for keeping old copies. Rare pulls make a
+silent overwrite *worse*, not better — months of published results rest on each one.
+
+The evaluation also exposed the design flaw worth keeping: **appending is not overwriting**.
+A pull reaching further forward in time adds rows and rewrites nothing. Without that
+distinction every pull would archive a full copy for no reason.
+
+**`src/data.py` and `just pull` built.** Four save outcomes — `created`, `unchanged`,
+`extended`, `revised` — with only the last displacing anything. Fetching moved out of the
+verification script so one definition serves both commands. 25 new tests, 65 in total, and
+five deliberate mutations to check they would actually fail: silent overwrite, `sum` for
+`mean`, skipped timezone conversion, NaN mishandled, vanished rows ignored. All five caught.
+
+**The first pull: 21 minutes, 34 MB, five series, 2018-10-01 to 2025-12-31.**
+
+| Series | Raw rows | Arrives | Hourly | Missing hours |
+|---|---|---|---|---|
+| `day_ahead_price` | 70,198 | 60min → 15min | 63,578 | 7 |
+| `load_forecast` | 250,740 | 15min | 63,575 | **890** |
+| `wind_solar_forecast` | 254,308 | 15min | 63,577 | 0 |
+| `actual_load` | 254,292 | 15min | 63,576 | 3 |
+| `actual_generation` | 254,308 | 15min | — | — |
+
+Two findings. **The October 2025 resolution change needed no code of its own** — the price
+series carries 6,620 more raw rows than hours, which is Q4 2025 arriving as quarter-hour
+products, and resampling rather than reshaping absorbed it. That closes a Danger Zone by
+measurement instead of assertion.
+
+And **`load_forecast` is missing 890 hours**, 1.4 % of the record, while also starting two
+hours late — 02:00 Berlin on 1 October 2018 rather than midnight. It is one of only two
+feature-eligible series, so this needs a written decision before `features.py`, not a
+silent `fillna`.
+
+---
+
 ### Commits
 
 | SHA | Date | Summary |
@@ -557,39 +628,49 @@ Note on the pull scope: all five catalog items are cached, not four. `actual_loa
    not be used for a forecast series until validated the same way.
 2. **Document-count cap unknown.** ENTSO-E's own articles disagree — one says 100 matching
    documents, the other 200. Needs pinning down before request chunking is built.
-3. **Coverage uncounted** (HANDOVER open question 1): gaps in DE-LU 2018–2025 unknown,
-   because no bulk data has been pulled yet.
-4. **Revision behaviour untested** (HANDOVER open question 2): whether ENTSO-E overwrites
-   published day-ahead values. The immutable cache answers this by construction once two
-   pulls of the same period exist.
+3. **Coverage counted — 16 September** (HANDOVER open question 1). Price, wind/solar and
+   actual load are near-complete: 7, 0 and 3 missing hours across seven years. **The load
+   forecast is missing 890 hours**, 1.4 % of the record, and starts two hours after every
+   other series. It is one of only two feature-eligible series, so how those hours are
+   handled is a decision to make in writing before `features.py`, not a `fillna` buried in
+   a feature function. Whether the gaps cluster in particular months is not yet known.
+4. **Revision behaviour** (HANDOVER open question 2): whether ENTSO-E overwrites published
+   day-ahead values. The comparison in `src/data.py` now answers it by construction — a
+   second pull reports `unchanged`, `extended` or `revised` per series. One data point so
+   far is not a revision rate; that accumulates in `data/raw/manifest.csv`.
 5. **Platform stability** — resolved as of 14 September: sub-second responses, no retries.
    Keep generous timeouts and SMARD as a fallback anyway; the outage cost half a day once.
 6. **The 23/25-hour delivery day** contradicts CLAUDE.md's "24 values per run". Storing in
    UTC keeps joins safe but does not settle it. Needs an explicit rule at stage 2, when the
    model layout is chosen.
-7. **`expected_resolution` is declared but unchecked.** The normaliser should compare it
-   against what actually arrives; until it does, the October 2025 style of surprise would
-   pass unnoticed.
-8. **Half of `config.py` is not yet used** — the path constants, `RESOLUTION`,
-   `QUARTER_HOUR_GOLIVE` and `GATE_CLOSURE_LOCAL` are waiting for the pull and the
-   normaliser. Declared early on purpose, but they are promises until something reads them.
+7. **`expected_resolution` is declared but still unchecked.** `src/data.py` now *measures*
+   what arrives and records it in the manifest, but nothing compares that against the
+   catalog's claim. The measurement is the harder half; the comparison is a few lines, and
+   worth adding the next time the catalog gains an entry.
+8. **`QUARTER_HOUR_GOLIVE` turned out to be unnecessary**, which is worth noticing.
+   Resampling rather than reshaping meant the switch needed no date at all — a series that
+   changes resolution halfway through comes out hourly without being told when. The
+   constant stays as a named hazard, like `DE_AT_LU_EIC`, but it is documentation now
+   rather than a promise. `GATE_CLOSURE_LOCAL`, `INTERIM` and `PROCESSED` are still
+   waiting for `features.py`.
 
 ### Next
 
-Stage 0 has roughly two and a half hours left. In order:
+Three of the five things that finish stage 0 are done: the pull runs twice, coverage is
+counted, and the data is on disk. What remains is roughly an hour:
 
-1. **`main()` in `verify_forecast_series.py`** — the last unread 45 lines, and the three
-   patterns the pull will reuse: loading the token, resolving through the catalog, and
-   returning an exit code.
-2. **A file map** — what exists and what depends on what, drawn before adding to it.
-3. **Fetch and cache** — immutable timestamped pulls plus `manifest.jsonl`, which also
-   supplies the incremental retrieval an MLOps loop needs, and answers open item 6 by
-   letting two pulls be diffed.
-3. **Normalisation** — the single Contract 5 choke point: UTC, hourly, the two-resolution
-   selection, `curveType A03`, and gap counting.
-4. **First figures** — negative-price hours per year, average daily spread, residual load
-   against price. This closes the stage 0 checkpoint.
+1. **The data-quality note.** Where the 890 missing load-forecast hours fall — clustered in
+   particular months, or scattered — and what to do about them. This is a decision to write
+   down, not a `fillna` to bury in a feature function. It gates `features.py`.
+2. **Headline numbers in the README** — negative-price hours per year and average daily
+   spread, both regenerable by a documented command, per the Third Law.
+3. **First figures** — price history, negative hours per year, residual load against price.
+   This closes the stage 0 checkpoint.
 
-The `src/sources/` split has already earned itself: for most of 9 September SMARD worked
-and the API did not, and the layer above will neither know nor care which supplied the
-bytes.
+Then stage 1, and `features.py` — where the catalog stops being a declaration and starts
+being enforced.
+
+Two things earned their keep today. The `src/sources/` split: for most of 9 September SMARD
+worked and the API did not, and nothing above that layer knows or cares which supplied the
+bytes. And deliberate mutation: five injected bugs in the new save logic, five caught — the
+same technique that exposed a catalog leak the whole suite had shrugged at on 14 September.
