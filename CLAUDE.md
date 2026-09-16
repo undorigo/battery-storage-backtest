@@ -168,6 +168,34 @@ df["residual_load"] = df.load - df.wind - df.solar   # what thermal plants must 
 **Do not comment:** lines whose names already explain them, restatements that add nothing,
 or implementation details that belong in the commit message.
 
+### Standing Protocol — Learning Notes in Plain Language
+
+This project has two goals and the first one is learning. Something understood is worth
+more than something merely built, so what is learned gets written down — in language a
+reader from outside this field would follow on the first pass.
+
+**The daily recap.** A working session opens with an interview on the previous one: a
+handful of questions across market knowledge, the code, and how the work is done. Answers
+are corrected in writing. What comes out of it is appended to `docs/learnings.md` — one
+entry per idea, dated, never rewritten. That file is personal study material and is not
+committed.
+
+**The language.** Write the way Ginny Redish teaches. Short sentences. Everyday words.
+The point first.
+
+Never let a technical term do the explaining. Say the thing in plain words, then put the
+term in brackets, so the reader can look it up *once they already know what it means*.
+
+| Instead of | Write |
+|---|---|
+| Subsidy structures keep plants running below zero | Some plants earn per unit produced, so stopping costs them money (*subsidy structures*) |
+| `curveType A03` forward-fills absent positions | A missing row means "same as the row above", not "no data" (*curveType A03*) |
+| Fit the scaler on train only, to avoid leakage | Work out the average from the training years alone. Using every year lets the model peek at the future (*data leakage*) |
+
+This governs `docs/learnings.md`, the work log, and the README. It does **not** govern code
+comments — those follow the protocol above, and may name a term directly, because their
+reader is already inside the file.
+
 ### Standing Protocol — Commit & Push After Every Change
 
 Every completed change is committed and pushed immediately. Do not batch.
