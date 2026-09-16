@@ -23,19 +23,26 @@ FLAG = {"revised": "  <-- CHECK", "created": "", "unchanged": "", "extended": ""
 
 
 def main() -> int:
-    print("Pulling the full history for every series in the catalog.\n")
+    print("Pulling the full history for every series in the catalog.")
+    print("Roughly twenty minutes, most of it in actual generation.\n")
+
+    # Each line is written in two halves: the series name when its fetch starts,
+    # the verdict when it lands.  A carriage return would look neater live and
+    # illegible in a log, and a scheduled run only ever produces the log.
+    def starting(key: str) -> None:
+        print(f"  {key:<22}", end="", flush=True)
+
+    def finished(r) -> None:
+        print(f"{r.outcome:<11}{r.detail}{FLAG[r.outcome]}", flush=True)
 
     try:
-        results = data.pull(on_start=lambda k: print(f"  {k:<22} fetching…", end="\r", flush=True))
+        results = data.pull(on_start=starting, on_done=finished)
     except RuntimeError as exc:                     # no token: cannot start, not a failure
         print(exc)
         return 2
     except Exception as exc:                        # network, platform outage, bad response
         print(f"\nPull failed: {exc}")
         return 1
-
-    for r in results:
-        print(f"  {r.key:<22}{r.outcome:<11}{r.detail}{FLAG[r.outcome]}")
 
     revised = [r for r in results if r.needs_attention]
     print()

@@ -313,8 +313,14 @@ def pull(
     keys: list[str] | None = None,
     root: Path | None = None,
     on_start=None,
+    on_done=None,
 ) -> list[SaveResult]:
-    """Fetch every catalog item and cache it.  One result per series, in order."""
+    """Fetch every catalog item and cache it.  One result per series, in order.
+
+    Two callbacks rather than a return value alone, because a full pull takes about
+    twenty minutes and a caller that can only report at the end leaves the operator
+    watching a blank screen.  Printing still belongs to the caller.
+    """
     keys = list(cat.CATALOG) if keys is None else keys
     api = client()                                  # fails here if the token is missing
     results = []
@@ -326,5 +332,7 @@ def pull(
         result = save(frame, key, root)
         append_manifest(result, frame, root)
         results.append(result)
+        if on_done:
+            on_done(result)
 
     return results
