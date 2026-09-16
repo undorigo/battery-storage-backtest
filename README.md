@@ -95,14 +95,21 @@ Python 3.11.14, pinned in `.python-version`. Dependencies are pinned exactly in
 
 ## Structure
 
+[docs/architecture.md](docs/architecture.md) is the map — what each file is for, how they
+connect, and where to start reading. In short:
+
 ```
-src/config.py           split dates, EIC codes, battery parameters — single source of truth
-src/sources/entsoe.py   the data-item catalog: what is fetched, and what may reach a model
-src/data.py             caching and normalisation; the loaders everything else calls
-src/features.py         feature construction; enforces the availability rule
-src/models.py           training, benchmarks, quantile models
-src/backtest.py         dispatch optimiser and settlement
-src/evaluate.py         rMAE, Diebold-Mariano, pinball loss, capture rate
+BUILT
+  src/config.py            split dates, EIC codes, battery parameters — single source of truth
+  src/sources/entsoe.py    the data-item catalog: what is fetched, and what may reach a model
+  scripts/                 entry points — one per command in the justfile
+
+PLANNED
+  src/data.py              caching and normalisation; the loaders everything else calls
+  src/features.py          feature construction; enforces the availability rule
+  src/models.py            training, benchmarks, quantile models
+  src/backtest.py          dispatch optimiser and settlement
+  src/evaluate.py          rMAE, Diebold-Mariano, pinball loss, capture rate
 ```
 
 ## Scope
