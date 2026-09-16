@@ -606,9 +606,21 @@ inventing one would be putting a forecast into the record that nobody ever issue
 decision itself — and in particular whether the two isolated hours inside the validation
 and test years get the same treatment as the 2018 days — is for 17 September.
 
-**Checkpoint:** a second `just pull` reported `unchanged` for every series, with
-byte-identical fingerprints in the manifest and no archive directory created. That is the
-Third Law claim demonstrated rather than asserted.
+**Checkpoint passed.** A second `just pull`, 24 minutes, exit 0:
+
+```
+  day_ahead_price       unchanged  70,198 rows
+  load_forecast         unchanged  250,740 rows
+  wind_solar_forecast   unchanged  254,308 rows
+  actual_load           unchanged  254,292 rows
+  actual_generation     unchanged  254,308 rows
+```
+
+All five fingerprints in the manifest match their first-pull values exactly, and no archive
+directory was created — nothing was displaced because nothing had changed. That is the
+Third Law demonstrated rather than asserted, and it also gives the first data point on
+open item 4: over one day, ENTSO-E revised nothing in DE-LU 2018–2025. One observation is
+not a revision rate, but the mechanism to accumulate one now exists.
 
 ---
 
