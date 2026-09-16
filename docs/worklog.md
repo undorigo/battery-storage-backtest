@@ -585,9 +585,30 @@ products, and resampling rather than reshaping absorbed it. That closes a Danger
 measurement instead of assertion.
 
 And **`load_forecast` is missing 890 hours**, 1.4 % of the record, while also starting two
-hours late — 02:00 Berlin on 1 October 2018 rather than midnight. It is one of only two
-feature-eligible series, so this needs a written decision before `features.py`, not a
-silent `fillna`.
+hours late — 02:00 Berlin on 1 October 2018 rather than midnight.
+
+Where those hours fall settles what to do about them:
+
+| Year | Missing hours | | |
+|---|---|---|---|
+| **2018** | **840** | 25 separate gaps | median length **24 h**, longest 96 h |
+| 2022 | 48 | | |
+| 2023 | 1 | | |
+| 2024 | 1 | | |
+
+Only two isolated single hours in seven years. This is not 890 scattered holes needing
+careful imputation — it is roughly **37 whole delivery days**, almost all in the market's
+opening quarter, when TSO publication was evidently still settling down.
+
+That makes dropping them the honest option rather than the lazy one. A day with no
+published load forecast is a day this project genuinely could not have made a decision on;
+inventing one would be putting a forecast into the record that nobody ever issued. The
+decision itself — and in particular whether the two isolated hours inside the validation
+and test years get the same treatment as the 2018 days — is for 17 September.
+
+**Checkpoint:** a second `just pull` reported `unchanged` for every series, with
+byte-identical fingerprints in the manifest and no archive directory created. That is the
+Third Law claim demonstrated rather than asserted.
 
 ---
 
@@ -630,10 +651,11 @@ silent `fillna`.
    documents, the other 200. Needs pinning down before request chunking is built.
 3. **Coverage counted — 16 September** (HANDOVER open question 1). Price, wind/solar and
    actual load are near-complete: 7, 0 and 3 missing hours across seven years. **The load
-   forecast is missing 890 hours**, 1.4 % of the record, and starts two hours after every
-   other series. It is one of only two feature-eligible series, so how those hours are
-   handled is a decision to make in writing before `features.py`, not a `fillna` buried in
-   a feature function. Whether the gaps cluster in particular months is not yet known.
+   forecast is missing 890 hours**, but 840 of them fall in 2018 and they arrive as whole
+   days — 25 gaps, median 24 h. Roughly 37 delivery days, concentrated in the market's
+   opening quarter. The remaining decision is narrow: drop those days, and treat the two
+   isolated hours in 2023 and 2024 separately, since dropping a day from the test years
+   changes what is being measured rather than what is being learned from.
 4. **Revision behaviour** (HANDOVER open question 2): whether ENTSO-E overwrites published
    day-ahead values. The comparison in `src/data.py` now answers it by construction — a
    second pull reports `unchanged`, `extended` or `revised` per series. One data point so
@@ -656,12 +678,15 @@ silent `fillna`.
 
 ### Next
 
-Three of the five things that finish stage 0 are done: the pull runs twice, coverage is
-counted, and the data is on disk. What remains is roughly an hour:
+Two of the five things that finish stage 0 are done: the pull runs twice identically, and
+coverage is counted. What remains is roughly an hour, and 17 September opens with the one
+decision that gates the rest.
 
-1. **The data-quality note.** Where the 890 missing load-forecast hours fall — clustered in
-   particular months, or scattered — and what to do about them. This is a decision to write
-   down, not a `fillna` to bury in a feature function. It gates `features.py`.
+1. **Decide what happens to the missing load-forecast days.** The analysis is done; the
+   choice is not. Dropping ~37 days from the 2018 training quarter is one question. The two
+   isolated hours in 2023 and 2024 are a different one, because removing an hour from a
+   period being *measured* is not the same as removing it from a period being *learned
+   from*. Write it down before `features.py` reads it.
 2. **Headline numbers in the README** — negative-price hours per year and average daily
    spread, both regenerable by a documented command, per the Third Law.
 3. **First figures** — price history, negative hours per year, residual load against price.
