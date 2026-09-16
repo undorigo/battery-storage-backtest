@@ -85,7 +85,14 @@ just test                  # 40 contract tests — offline, no token needed
 
 cp .env.example .env       # then paste your ENTSO-E token into it
 just verify                # confirm the forecast series really are forecasts
+just pull                  # download the full history, ~30 MB
 ```
+
+`just pull` fetches the whole history every time and never overwrites what is already
+cached. Run it twice and every series reports `unchanged` — that is the reproducibility
+check, and it is why a revision on ENTSO-E's side cannot rewrite the data a published
+result rested on. Displaced copies are kept under `data/raw/archive/`, and every pull
+appends a line to `data/raw/manifest.csv`.
 
 `just` searches parent directories, so any of these work from anywhere in the project. The
 same commands are available in VS Code under *Tasks: Run Task*.
@@ -102,10 +109,10 @@ connect, and where to start reading. In short:
 BUILT
   src/config.py            split dates, EIC codes, battery parameters — single source of truth
   src/sources/entsoe.py    the data-item catalog: what is fetched, and what may reach a model
+  src/data.py              caching and normalisation; the loaders everything else calls
   scripts/                 entry points — one per command in the justfile
 
 PLANNED
-  src/data.py              caching and normalisation; the loaders everything else calls
   src/features.py          feature construction; enforces the availability rule
   src/models.py            training, benchmarks, quantile models
   src/backtest.py          dispatch optimiser and settlement

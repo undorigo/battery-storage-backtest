@@ -1,6 +1,9 @@
 """Single source of truth for the split, the market, the clock and the battery.
 
-Owner of Integration Contract 2 (The Split) and Contract 5 (Time and Resolution).
+Owner of Integration Contract 2 (The Split), and of the constants behind Contract 5
+(Time and Resolution) — src/data.py is where those constants are applied, the same
+way the catalog declares Contract 1 and features.py enforces it.
+
 Nothing here is derived at runtime from data; every value is a decision that was
 made once and must not drift.  Changing anything in this file invalidates every
 previously reported number, so the Transparency Protocol applies to every edit.

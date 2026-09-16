@@ -27,14 +27,12 @@ themselves, asserted offline in the test suite.
 
 from __future__ import annotations
 
-import os
 import sys
 
 import pandas as pd
-from dotenv import load_dotenv
 
 from src import config as cfg
-from src.sources import entsoe as cat
+from src import data
 
 # ── Window ────────────────────────────────────────────────────────────────────
 # Deliberately inside the training period.  Contract 2 keeps the test years for a
@@ -80,25 +78,22 @@ def _compare(name: str, forecast: pd.Series, actual: pd.Series) -> bool:
 def _actual_column(df: pd.DataFrame, tech: str) -> pd.Series:
     """Pick one technology's generation out of the actuals frame.
 
-    Actual generation arrives with MultiIndex columns because a technology can both
-    generate and consume — pumped storage does each in different hours.  Flattening
-    to the first level would collide those two, so the pair is addressed in full.
+    Actual generation arrives with two-level column names, because a technology can
+    both generate and consume — pumped storage does each in different hours.  Taking
+    only the first level would collide those two, so src.data joins the pair with
+    ' | ' and the generating half is addressed by its full name.
     """
-    if isinstance(df.columns, pd.MultiIndex):
-        return df[(tech, "Actual Aggregated")]
-    return df[tech]
+    generating = f"{tech} | Actual Aggregated"
+    return df[generating] if generating in df.columns else df[tech]
 
 
 def main() -> int:
-    load_dotenv(cfg.ROOT / ".env")                      # token never enters the repo
-    token = os.getenv("ENTSOE_API_KEY")
-    if not token:
-        print("ENTSOE_API_KEY missing — copy .env.example to .env and fill it in")
+    try:
+        client = data.client()                          # token, and the plain message if it is absent
+    except RuntimeError as exc:
+        print(exc)
         return 2
 
-    from entsoe import EntsoePandasClient                # after the token check, so that error surfaces first
-
-    client = EntsoePandasClient(api_key=token, timeout=90)   # platform can be slow
     print(f"Window: {START.date()} to {END.date()} (training period)\n")
     print(
         f"  {'series':<16}{'points':>8}{'step':>8}{'corr':>9}"
@@ -107,15 +102,13 @@ def main() -> int:
     print("  " + "-" * 88)
 
     def fetch(key: str):
-        """Call whatever the catalog says this item is fetched by.
+        """One catalog item over the verification window, on the project's clock.
 
-        Resolved through the catalog rather than named here, so that the request
-        parameters this script verifies are the same ones the pipeline will use.
-        Hardcoding the method would leave the audit trail and the thing audited
-        free to drift apart, each looking correct on its own.
+        Delegates to src.data, which is also what the pull uses.  Two definitions of
+        how this project calls ENTSO-E would be free to drift apart, and then this
+        script would be auditing a request path that nothing else takes.
         """
-        item = cat.get(key)
-        return getattr(client, item.query)(cfg.BIDDING_ZONE, start=START, end=END)
+        return data.normalise(data.fetch(client, key, start=START, end=END))
 
     ok = []
 

@@ -41,6 +41,11 @@ setup:
 test:
     {{py}} -m pytest tests/ -q
 
+# Download every series in the catalog. Needs network and a token.
+# Safe to re-run: never overwrites a pull, and reports anything ENTSO-E revised.
+pull:
+    {{py}} -m scripts.pull
+
 # Check the forecast series really are forecasts. Needs network and a token.
 verify:
     {{py}} -m scripts.verify_forecast_series

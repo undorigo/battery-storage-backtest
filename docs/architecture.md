@@ -54,15 +54,15 @@ Each file answers exactly one question. If you can't say which, it is doing too 
 |---|---|---|---|
 | **Settings** | `src/config.py` | What are the fixed facts of this project? | built |
 | **Library** | `src/sources/entsoe.py` | What may we ask for, and what may the model see? | built |
-| | `src/data.py` | How do we get it, keep it, and make it consistent? | next |
-| | `src/features.py` | What does the model get to look at? | planned |
+| | `src/data.py` | How do we get it, keep it, and make it consistent? | built |
+| | `src/features.py` | What does the model get to look at? | next |
 | | `src/models.py` | What will tomorrow's prices be? | planned |
 | | `src/backtest.py` | What should the battery do, and what did that earn? | planned |
 | | `src/evaluate.py` | How good was it? | planned |
-| **Buttons** | `scripts/verify_forecast_series.py` | Are these series really forecasts? | built |
-| | `scripts/pull.py` | Go and get the data. | next |
+| **Buttons** | `scripts/pull.py` | Go and get the data. | built |
+| | `scripts/verify_forecast_series.py` | Are these series really forecasts? | built |
 
-Three of nine exist. Everything marked *planned* is a name and an intention, nothing more.
+Five of nine exist. Everything marked *planned* is a name and an intention, nothing more.
 
 ---
 
@@ -140,7 +140,9 @@ a saved pull is never quietly overwritten would be impossible to keep.
 ## Where data lives
 
 ```
-data/raw/         exactly what ENTSO-E sent.  Written once, never edited.
+data/raw/         what ENTSO-E sent, on a UTC index, at the resolution it arrived in
+  archive/        copies displaced by a revision.  Never deleted.
+  manifest.csv    one line per series per pull
 data/interim/     part-way work
 data/processed/   the feature table the model trains on
 ```
@@ -148,6 +150,31 @@ data/processed/   the feature table the model trains on
 None of it is committed. It is rebuilt by a command. Any number reported in the README has
 to be reproducible from a clean copy of the repository — that is the Third Law, and it is
 what keeps the results honest.
+
+**The raw files keep their original resolution.** Converting to hourly happens in
+`load()`, every time, rather than being baked into the file. That way a normalisation bug
+is fixed by editing code, not by pulling again — and pulling again months later would get
+whatever ENTSO-E believes today, not what it said when the result was published.
+
+## A pull never overwrites
+
+ENTSO-E revises published history. A pull months after the last one can quietly rewrite the
+years a published result was built on, and nothing errors. So every save compares against
+what is already on disk, and there are four outcomes:
+
+| Outcome | What happened | Archived? |
+|---|---|---|
+| `created` | nothing was there before | — |
+| `unchanged` | byte-for-byte the same data | no |
+| `extended` | new rows on the end, nothing rewritten | **no** |
+| `revised` | **an existing value changed** | **yes** |
+
+The third row is the one that makes this practical. Appending is not overwriting, so
+reaching further forward in time does not fill the disk with copies. Only a genuine
+rewrite displaces anything.
+
+And the second row is the Third Law check: **run `just pull` twice and every series should
+say `unchanged`.** That is what "reproducible" means, made observable.
 
 ---
 
