@@ -52,6 +52,62 @@ Results are reported three ways, so the numbers mean something:
 The history starts in October 2018 because the DE-LU bidding zone did not exist before
 that date — Germany, Austria and Luxembourg shared a single zone and a single price.
 
+## What the market actually did
+
+Seven years of DE-LU day-ahead prices, 63,577 hours. Regenerate every figure below with
+`just explore`.
+
+![DE-LU day-ahead price, Oct 2018 to Dec 2025](reports/figures/README_price_history.png)
+
+Two numbers matter to a battery, and both moved in the same direction.
+
+![Negative-price hours and average daily spread, per year](reports/figures/README_negative_hours_and_spread.png)
+
+| Year | Hours below zero | Share | Deepest | Mean daily spread |
+|---|---|---|---|---|
+| 2018¹ | 27 | 1.2 % | −19 | 40.6 |
+| 2019 | 211 | 2.4 % | −90 | 30.1 |
+| 2020 | 298 | 3.4 % | −84 | 32.5 |
+| 2021 | 139 | 1.6 % | −69 | 80.3 |
+| 2022 | 69 | 0.8 % | −19 | **187.0** |
+| 2023 | 301 | 3.4 % | **−500** | 97.9 |
+| 2024 | 457 | 5.2 % | −135 | 111.2 |
+| 2025 | **576** | **6.6 %** | −250 | 124.1 |
+
+¹ October to December only.
+
+**Negative hours have risen more than twentyfold** — from 27 in the zone's first quarter to
+576 in 2025, when one hour in fifteen cleared below zero. One hour in 2023 reached the
+−500 €/MWh floor, the lowest the auction permits.
+
+**The daily spread has roughly quadrupled**, from about 30 €/MWh to about 124. Since a
+battery is paid for the spread and nothing else, that is the headline: the opportunity this
+project measures is several times larger than it was in 2019.
+
+Both trends break in 2021–22. Gas set the price during the energy crisis, so surplus power
+was rare and negative hours collapsed while the spread reached 187 €/MWh. That single
+interruption sits in the middle of the training period and matters more than its two years
+suggest.
+
+### Why the price is what it is
+
+![Residual load against price, coloured by year](reports/figures/README_residual_load_vs_price.png)
+
+Residual load — demand minus wind and solar, built only from forecasts published before gate
+closure — is the mechanism behind all of it. Where it turns negative, so does the price.
+
+But the relationship is **not one relationship**:
+
+| | Correlation with price |
+|---|---|
+| Pooled across all 62,684 hours | **0.44** |
+| Within a single year | 0.58 – **0.91** |
+
+The pooled figure is the weaker one, and that is the point. The same residual load cleared
+near 40 €/MWh in 2019 and above 300 in 2022, so a model fitted across the whole record is
+fitting several relationships at once. 2021 (0.58) and 2022 (0.62) are the years gas broke
+the link.
+
 ## Ground rules
 
 - **Every feature must have been knowable at the decision point.** Published TSO forecasts
@@ -89,7 +145,8 @@ just test                  # 40 contract tests — offline, no token needed
 
 cp .env.example .env       # then paste your ENTSO-E token into it
 just verify                # confirm the forecast series really are forecasts
-just pull                  # download the full history, ~30 MB
+just pull                  # download the full history, ~34 MB, about 20 minutes
+just explore               # the headline numbers above, and the figures
 ```
 
 `just pull` fetches the whole history every time and never overwrites what is already

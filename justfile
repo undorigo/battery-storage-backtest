@@ -50,6 +50,10 @@ pull:
 verify:
     {{py}} -m scripts.verify_forecast_series
 
+# Headline numbers and the README figures. Offline: reads the cache `just pull` filled.
+explore:
+    {{py}} -m scripts.explore
+
 # Clear caches and compiled files. Leaves data and the venv alone.
 clean:
     -find . -path ./.venv -prune -o -name '__pycache__' -type d -exec rm -rf {} + 2>/dev/null
