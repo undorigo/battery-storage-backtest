@@ -125,6 +125,26 @@ coincidence rather than a rule.
 
 ---
 
+## What the gap check cannot see
+
+The check finds holes **between** timestamps. It cannot see data missing from the start or
+the end of a series, because there is no step to be wider than.
+
+Three hours sit in that blind spot, all at the very beginning of the record:
+
+| Series | Starts | Late by |
+|---|---|---|
+| `load_forecast` | 2018-10-01 00:00 UTC | **2 hours** |
+| `actual_load` | 2018-09-30 23:00 UTC | **1 hour** |
+
+Both were checked by hand with a narrow request, and both are genuinely absent — the same
+answer as every other 2018 gap. So the blind spot has cost nothing so far.
+
+It is worth knowing about anyway. The end of a series is exactly where a future pull extends
+it, and that is the one place this check would not notice a value being dropped.
+
+---
+
 ## Actual load: three hours
 
 8 October, 28 October and 30 October 2018 — one hour each, scattered, in the opening weeks.
