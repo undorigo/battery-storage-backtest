@@ -257,6 +257,44 @@ def test_too_short_to_judge_reports_nothing():
     assert data.gap_windows(data.normalise(frame("2024-06-01", 2, "h"))) == []
 
 
+# ── The edges, which the gap check cannot see ─────────────────────────────────
+
+WIN_A = pd.Timestamp("2024-06-01", tz=cfg.TZ_MARKET)
+WIN_B = pd.Timestamp("2024-06-03", tz=cfg.TZ_MARKET)
+
+
+def test_a_series_covering_the_whole_window_has_no_edge_gaps():
+    df = data.normalise(frame("2024-06-01", 48, "h"))
+    assert data.edge_windows(df, WIN_A, WIN_B) == []
+
+
+def test_a_series_that_starts_late_is_noticed():
+    """Exactly the shape of the load forecast's two absent leading hours."""
+    df = data.normalise(frame("2024-06-01 02:00", 46, "h"))
+    windows = data.edge_windows(df, WIN_A, WIN_B)
+    assert len(windows) == 1
+    assert windows[0][1] == df.index.min()
+
+
+def test_a_series_that_stops_early_is_noticed():
+    df = data.normalise(frame("2024-06-01", 40, "h"))
+    windows = data.edge_windows(df, WIN_A, WIN_B)
+    assert len(windows) == 1
+    assert windows[0][0] == df.index.max()
+
+
+def test_stopping_one_step_short_is_not_an_edge_gap():
+    """The request is half-open: the final instant is a boundary, not a period."""
+    df = data.normalise(frame("2024-06-01", 48, "h"))          # last hour is 23:00 on the 2nd
+    assert data.edge_windows(df, WIN_A, WIN_B) == []
+
+
+def test_edge_check_respects_the_series_own_step():
+    """A quarter-hourly series stops 15 minutes short, not an hour."""
+    df = data.normalise(frame("2024-06-01", 192, "15min"))
+    assert data.edge_windows(df, WIN_A, WIN_B) == []
+
+
 class _FakeClient:
     """Stands in for entsoe-py. `fetch` resolves the method name through the catalog,
     so the name here is the contract being relied on, not an implementation detail."""
@@ -290,6 +328,16 @@ def test_backfill_never_overwrites_what_is_already_there():
     out, n = data.backfill(_FakeClient(disagrees), "day_ahead_price", holed)
     assert n == 1                                    # the hole, and only the hole
     assert out.loc[full.index[20]].iloc[0] == 1.0    # the value we held is untouched
+
+
+def test_backfill_recovers_a_late_start():
+    """The edge case the interior gap check is blind to, end to end."""
+    full = data.normalise(frame("2024-06-01", 48, "h", value=1.0))
+    late = full.iloc[2:]                                       # first two hours absent
+
+    out, n = data.backfill(_FakeClient(full), "day_ahead_price", late, WIN_A, WIN_B)
+    assert n == 2
+    assert out.index.min() == full.index.min()
 
 
 def test_backfill_on_a_complete_series_does_nothing():

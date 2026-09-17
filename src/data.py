@@ -210,14 +210,55 @@ def gap_windows(df: pd.DataFrame) -> list[tuple[pd.Timestamp, pd.Timestamp]]:
     return out
 
 
-def backfill(client, key: str, df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
+def edge_windows(
+    df: pd.DataFrame,
+    start: pd.Timestamp | None = None,
+    end: pd.Timestamp | None = None,
+) -> list[tuple[pd.Timestamp, pd.Timestamp]]:
+    """Spans where the series begins later or ends earlier than was asked for.
+
+    `gap_windows` compares each step to the one before it, so it is blind to data
+    missing from either end — there is no preceding step to be wider than.  That
+    blind spot sits exactly where a later pull extends the record, which is the one
+    place a dropped value would matter most and be hardest to notice.
+
+    A series legitimately stops one step short of the window it was asked for,
+    because the request is half-open: the final instant is a boundary, not a period.
+    So a short tail only counts when it exceeds the series' own step.
+    """
+    if len(df) < 3:
+        return []
+
+    step = df.index.to_series().diff().mode()
+    if step.empty:
+        return []
+    step = step.iloc[0]
+
+    lo = (PULL_START if start is None else start).tz_convert(cfg.TZ_STORAGE)
+    hi = (PULL_END if end is None else end).tz_convert(cfg.TZ_STORAGE)
+
+    out = []
+    if df.index.min() - lo >= step:                 # begins late
+        out.append((lo - step, df.index.min()))
+    if hi - df.index.max() > step:                  # ends early, beyond the half-open boundary
+        out.append((df.index.max(), hi))
+    return out
+
+
+def backfill(
+    client,
+    key: str,
+    df: pd.DataFrame,
+    start: pd.Timestamp | None = None,
+    end: pd.Timestamp | None = None,
+) -> tuple[pd.DataFrame, int]:
     """Re-fetch anything the chunked request dropped.  Returns the frame and a count.
 
     Existing values are never replaced — only absent timestamps are filled — so a
     repair cannot quietly rewrite data a result was built on.
     """
     recovered = []
-    for a, b in gap_windows(df):
+    for a, b in gap_windows(df) + edge_windows(df, start, end):
         try:                                        # a genuinely empty span raises; that is an answer
             patch = normalise(
                 fetch(client, key, start=a - pd.Timedelta(days=1), end=b + pd.Timedelta(days=1))
