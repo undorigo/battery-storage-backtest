@@ -176,6 +176,23 @@ rewrite displaces anything.
 And the second row is the Third Law check: **run `just pull` twice and every series should
 say `unchanged`.** That is what "reproducible" means, made observable.
 
+## A pull also repairs what the client library drops
+
+`entsoe-py` splits any request longer than a year into blocks, then removes each block's
+first timestamp, expecting it to duplicate the previous block's last one. The API returns
+half-open windows, so it does not — and a real value is deleted. Seven hours vanished from
+the price series that way before anyone counted them.
+
+So after fetching, every series is checked against its **own spacing** and anything missing
+is re-fetched in a narrow window. The check works from the data rather than from the
+library's block arithmetic, so it is not tied to the one defect that prompted it.
+
+A re-fetch that recovers nothing is useful too. It separates *we failed to fetch this* from
+*this was never published* — which is exactly the distinction a coverage count needs, and
+the reason the load-forecast gaps can be called genuine rather than assumed to be.
+
+What the history actually contains is recorded in [data-quality.md](data-quality.md).
+
 ---
 
 ## Two guards, doing different jobs

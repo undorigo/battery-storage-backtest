@@ -16,6 +16,7 @@ One row per working day. Follow the date link for the detail.
 | [14 Sep 2026](#d20260914) | Platform recovered, sub-second. All four forecast series verified against their actuals by measurement. Catalog written — Contract 1 becomes a testable field. Code review found five issues, two of them wrong assumptions in the tests themselves. |
 | [15 Sep 2026](#d20260915) | `just` replaced ad-hoc invocation. A proposal built on a hypothetical was dropped, and a protocol added to stop and ask instead. Eight open questions settled, including what finishes stage 0. |
 | [16 Sep 2026](#d20260916) | Daily recap ritual and plain-language protocol added. `main()` read, empty package marker dropped, repository map written. `src/data.py` and `just pull` built: the first real market data on disk. |
+| [17 Sep 2026](#d20260917) | SMARD ruled out as a gap filler by measurement. A silent data loss in `entsoe-py` found, traced, fixed — seven price hours recovered. Four mutants survived a green suite; two were dead code. Data-quality note written. |
 
 [Commits](#commits) · [Open items](#open-items) · [Next](#next)
 
@@ -621,6 +622,84 @@ directory was created — nothing was displaced because nothing had changed. Tha
 Third Law demonstrated rather than asserted, and it also gives the first data point on
 open item 4: over one day, ENTSO-E revised nothing in DE-LU 2018–2025. One observation is
 not a revision rate, but the mechanism to accumulate one now exists.
+
+---
+
+<a id="d20260917"></a>
+### 17 September 2026 — a silent data loss, found by counting
+
+**The question that started it.** Could the 37 missing load-forecast days be filled from
+SMARD? Answering it honestly meant checking rather than reasoning, and the check said no.
+
+SMARD carries actual consumption, residual load and forecast *generation* — but no
+consumption forecast at all. Twenty filters were correlated against ENTSO-E's load forecast
+over a known-good week. The closest, filter 410, scored 0.9932 correlation and **1,090 MW**
+mean error — almost exactly the forecast error measured on 14 September, which identifies it
+as *actual* load, the thing the forecast is trying to predict.
+
+Asking ENTSO-E directly for 2–6 October 2018 returned **8 rows out of 384**, while
+`actual_load` for the identical window returned all 384. The grid operators were publishing
+what happened and not what they had expected. The data is absent at source.
+
+There is also a Contract 1 argument that would apply even if a value existed somewhere: it
+would have to be shown public before noon on the previous day, and platforms show what they
+hold now rather than what they showed then. The same trap the project already avoids with
+weather data.
+
+**Then the coverage count paid for itself.** The price series was missing one hour on
+29 September of every year from 2019 to 2025 — same date, same hour, seven years running.
+The auction has cleared every hour since the market opened, so that was never market
+behaviour.
+
+It was our own pull. Traced to `entsoe-py`:
+
+> `year_limited` splits any request longer than a year into blocks, then strips each block's
+> first timestamp to avoid duplicating the previous block's last. ENTSO-E returns half-open
+> windows, so the previous block never held it — and the strip deletes the only copy.
+
+Demonstrated block by block: block 1 ends at 21:00 and lacks the hour; block 2 begins at
+22:00 and has it, then has it masked away by `index > _start`. The predicted boundaries —
+`(start − 1 day) + N years`, because the price query pads by a day first — match the seven
+losses exactly. Only the price series is affected; the four 15-minute series keep all four
+periods at every boundary.
+
+**Repaired generally rather than specifically.** Every series is now checked against its own
+spacing after fetching and anything missing is re-fetched. Working from the data rather than
+from the library's block arithmetic means the fix is not tied to the defect that prompted
+it — and a window that recovers nothing is itself evidence, separating *we failed to fetch*
+from *never published*.
+
+Re-run: `day_ahead_price extended +7 rows, 7 recovered`, everything else `unchanged`. The
+price series now has **zero** missing hours, and the 25 load-forecast windows recovered
+nothing, confirming those days are genuinely absent.
+
+**Mutation testing, and a lesson about it.** 74 tests green, then four deliberate bugs
+injected. **All four survived.**
+
+| Mutant | Why it lived |
+|---|---|
+| Let a gap redefine what is normal | a real missing test — no case had two gaps in a row |
+| Backfill overwrites existing values | dead code — an earlier filter already prevented it |
+| Backfill keeps duplicates | dead code — same reason |
+| Global average step instead of local | equivalent mutant for a regularly-spaced series |
+
+So: the consecutive-gap test was added, the dead deduplication line **deleted**, and the
+mutation re-run against the line that actually guards the property. Three of three caught,
+75 tests.
+
+The same lesson as the empty `__init__.py` in a different costume — a line that can never
+fire is a line nobody can check, which is how it gets trusted without being true. Writing a
+test is not the same as having one.
+
+**A design flaw caught by its own test.** The first gap detector compared each step to the
+series average. With 61,000 hourly rows and 8,800 quarter-hourly ones, that average
+describes neither half, and every hour of one of them looks like a gap. Comparing against
+the *preceding* step instead handles a resolution change correctly. The test that failed was
+the one written for the October 2025 switch.
+
+**`docs/data-quality.md` written** — coverage per series, every gap located, the three
+independent checks that the load-forecast days are genuinely absent, and the decisions. That
+is the fourth of stage 0's five criteria.
 
 ---
 

@@ -72,6 +72,10 @@ that date — Germany, Austria and Luxembourg shared a single zone and a single 
 ENTSO-E API access requires a free account plus a token request. No raw data is committed
 to this repository — the pull is reproducible from `src/data.py`.
 
+[docs/data-quality.md](docs/data-quality.md) records what the history actually contains:
+coverage per series, the gaps and what was decided about them, and seven hours the client
+library silently dropped before anyone counted.
+
 ## Running it
 
 Commands live in the [`justfile`](justfile). Run `just` with no argument for the menu.
