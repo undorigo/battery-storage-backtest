@@ -201,6 +201,104 @@ def test_missing_values_in_both_copies_are_not_a_change(tmp_path):
     assert data.save(df.copy(), KEY, root=tmp_path).outcome == "unchanged"
 
 
+# ── Finding what the chunked request dropped ──────────────────────────────────
+# entsoe-py splits requests longer than a year and strips each block's first
+# timestamp, assuming it duplicates the previous block's last.  ENTSO-E returns
+# half-open intervals, so it does not, and a real value is deleted.  Seven hours
+# went missing from the price series this way before anyone counted.
+
+
+def test_a_complete_series_has_no_gaps():
+    assert data.gap_windows(data.normalise(frame("2024-06-01", 48, "h"))) == []
+
+
+def test_one_missing_hour_is_found():
+    """The exact shape of the entsoe-py boundary defect."""
+    df = data.normalise(frame("2024-06-01", 48, "h"))
+    holed = df.drop(df.index[10])
+
+    windows = data.gap_windows(holed)
+    assert len(windows) == 1
+    a, b = windows[0]
+    assert a == df.index[9] and b == df.index[11]     # the hole lies strictly between
+
+
+def test_several_separate_gaps_are_found_separately():
+    df = data.normalise(frame("2024-06-01", 72, "h"))
+    holed = df.drop(df.index[[10, 30, 50]])
+    assert len(data.gap_windows(holed)) == 3
+
+
+def test_two_gaps_in_a_row_are_both_reported():
+    """A gap must not become the new normal, or the one after it goes unnoticed."""
+    df = data.normalise(frame("2024-06-01", 48, "h"))
+    holed = df.drop(df.index[[10, 12]])               # one surviving hour between two holes
+    assert len(data.gap_windows(holed)) == 2
+
+
+def test_a_wider_gap_is_one_window_not_many():
+    df = data.normalise(frame("2024-06-01", 72, "h"))
+    holed = df.drop(df.index[20:26])                  # six consecutive hours
+    windows = data.gap_windows(holed)
+    assert len(windows) == 1
+    assert windows[0][1] - windows[0][0] == pd.Timedelta(hours=7)
+
+
+def test_a_switch_to_finer_resolution_is_not_a_gap():
+    """October 2025: hourly becomes quarter-hourly. Smaller steps, not missing data."""
+    mixed = data.normalise(pd.concat([
+        frame("2025-09-30", 24, "h"),
+        frame("2025-10-01", 96, "15min"),
+    ]))
+    assert data.gap_windows(mixed) == []
+
+
+def test_too_short_to_judge_reports_nothing():
+    assert data.gap_windows(data.normalise(frame("2024-06-01", 2, "h"))) == []
+
+
+class _FakeClient:
+    """Stands in for entsoe-py. `fetch` resolves the method name through the catalog,
+    so the name here is the contract being relied on, not an implementation detail."""
+
+    def __init__(self, frame):
+        self._frame = frame
+
+    def query_day_ahead_prices(self, zone, start=None, end=None):
+        idx = self._frame.index
+        return self._frame.loc[(idx >= start) & (idx <= end)]
+
+
+def test_backfill_recovers_a_dropped_value():
+    full = data.normalise(frame("2024-06-01", 48, "h", value=1.0))
+    holed = full.drop(full.index[10])
+
+    out, n = data.backfill(_FakeClient(full), "day_ahead_price", holed)
+    assert n == 1
+    assert full.index[10] in out.index
+    assert len(out) == 48
+
+
+def test_backfill_never_overwrites_what_is_already_there():
+    """A repair that can rewrite history is the thing the archive exists to prevent."""
+    full = data.normalise(frame("2024-06-01", 48, "h", value=1.0))
+    holed = full.drop(full.index[10])
+
+    disagrees = full.copy()
+    disagrees.iloc[20, 0] = 999.0                    # source now claims a different value
+
+    out, n = data.backfill(_FakeClient(disagrees), "day_ahead_price", holed)
+    assert n == 1                                    # the hole, and only the hole
+    assert out.loc[full.index[20]].iloc[0] == 1.0    # the value we held is untouched
+
+
+def test_backfill_on_a_complete_series_does_nothing():
+    full = data.normalise(frame("2024-06-01", 48, "h"))
+    out, n = data.backfill(_FakeClient(full), "day_ahead_price", full)
+    assert n == 0
+    assert out.equals(full)
+
+
 # ── Fingerprints and the manifest ─────────────────────────────────────────────
 
 

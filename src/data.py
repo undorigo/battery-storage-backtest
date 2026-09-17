@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import hashlib
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -165,6 +165,80 @@ def detected_resolution(df: pd.DataFrame) -> str:
     return f"{int(step.iloc[0].total_seconds() // 60)}min" if len(step) else "?"
 
 
+# ── Backfill: the chunked request drops a value at every internal boundary ────
+# entsoe-py splits any request longer than a year, then strips each block's first
+# timestamp to avoid duplicating the previous block's last one.  ENTSO-E returns
+# half-open intervals, so there is no duplicate — and the strip deletes a real
+# value.  Seven hours vanished from the price series that way, one per boundary,
+# every one of them returned when asked for directly.
+#
+# Repaired here rather than worked around.  Gaps are found from the series' own
+# spacing rather than from the library's block arithmetic, so this catches any
+# dropped timestamp rather than only the defect we happened to notice — and a
+# window that recovers nothing proves the data is genuinely absent at source,
+# which is the distinction the coverage count needs.
+
+def gap_windows(df: pd.DataFrame) -> list[tuple[pd.Timestamp, pd.Timestamp]]:
+    """Spans where the index skips a period it should have had.
+
+    The hole lies strictly between each returned pair.
+
+    A step counts as a gap when it is at least twice the step before it, which is
+    what a skipped period looks like.  The comparison is against the *preceding*
+    step rather than the series average, because the price series changes
+    resolution partway through: a single average over 61,000 hourly rows and 8,800
+    quarter-hourly ones describes neither half, and would call every hour of one
+    half a gap.  A gap does not become the new normal, so several in a row are all
+    reported.
+
+    A series that ever went the other way — fine to coarse — would have its
+    transition reported once as a false positive.  That costs one request that
+    recovers nothing, which is a cheap way to be wrong.
+    """
+    if len(df) < 3:
+        return []
+
+    out: list[tuple[pd.Timestamp, pd.Timestamp]] = []
+    usual = None
+    for t, step in df.index.to_series().diff().items():
+        if pd.isna(step):
+            continue
+        if usual is not None and step >= 2 * usual:
+            out.append((t - step, t))
+            continue                                # a gap must not redefine "usual"
+        usual = step
+    return out
+
+
+def backfill(client, key: str, df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
+    """Re-fetch anything the chunked request dropped.  Returns the frame and a count.
+
+    Existing values are never replaced — only absent timestamps are filled — so a
+    repair cannot quietly rewrite data a result was built on.
+    """
+    recovered = []
+    for a, b in gap_windows(df):
+        try:                                        # a genuinely empty span raises; that is an answer
+            patch = normalise(
+                fetch(client, key, start=a - pd.Timedelta(days=1), end=b + pd.Timedelta(days=1))
+            )
+        except Exception:
+            continue
+        new = patch.reindex(columns=df.columns)     # column order may differ between calls
+        recovered.append(new[~new.index.isin(df.index)])
+
+    extra = pd.concat(recovered) if recovered else pd.DataFrame()
+    extra = extra[~extra.index.duplicated(keep="first")] if len(extra) else extra
+    if not len(extra):
+        return df, 0
+
+    # The `~isin` filter above is the whole guarantee: `extra` holds only timestamps
+    # the frame does not already have, so the merge cannot replace a value.  A second
+    # dedup here would never fire — and a line that can never fire is one nobody can
+    # check, which is how it ends up trusted without being true.
+    return pd.concat([df, extra]).sort_index(), len(extra)
+
+
 # ── Reading ───────────────────────────────────────────────────────────────────
 
 def load_raw(key: str, root: Path | None = None) -> pd.DataFrame:
@@ -201,6 +275,7 @@ class SaveResult:
     changed: int = 0
     archived: Path | None = None
     detail: str = ""
+    recovered: int = 0            # values the chunked request dropped and backfill restored
 
     @property
     def needs_attention(self) -> bool:
@@ -329,7 +404,13 @@ def pull(
         if on_start:
             on_start(key)
         frame = normalise(fetch(api, key))
+        frame, recovered = backfill(api, key, frame)    # repair what the chunking dropped
         result = save(frame, key, root)
+        if recovered:
+            result = replace(
+                result, recovered=recovered,
+                detail=f"{result.detail}, {recovered} recovered",
+            )
         append_manifest(result, frame, root)
         results.append(result)
         if on_done:
