@@ -75,42 +75,102 @@ and *this was never published*.
 Almost all of it is the market's opening quarter, when publication was evidently still
 settling down. The rest is two isolated days and two isolated hours in seven years.
 
-### The data is genuinely absent, not lost in transit
+### ENTSO-E genuinely does not have it
 
-Three separate checks:
+Four checks, the last of which is conclusive:
 
-1. **Asked ENTSO-E directly** for 2–6 October 2018: **8 rows came back out of 384.** For the
-   identical window, `actual_load` returned all 384. The grid operators were publishing what
-   happened, and not what they had expected to happen.
-2. **Re-fetched all 25 gaps** during the pull. **Nothing was recovered** — which, after the
-   price bug above, is a meaningful negative result rather than an assumption.
-3. **Checked SMARD**, the German regulator's platform, as an alternative source. It carries
-   actual consumption, residual load and forecast *generation* — but **no consumption
-   forecast at all**. Twenty filters were correlated against the ENTSO-E series; the closest
-   was filter 410 at 0.9932 correlation and 1,090 MW mean error, which is almost exactly the
-   forecast error measured in September. That identifies it as *actual* load — the thing the
-   forecast is trying to predict, not the forecast.
+1. **Re-fetched all 25 gaps** during the pull, in narrow windows. Nothing came back — which,
+   after the price bug above, is a meaningful negative result rather than an assumption.
+2. **Checked SMARD**, the German regulator's platform. It carries actual consumption,
+   residual load and forecast *generation* — but **no consumption forecast at all**. Twenty
+   filters were correlated against the ENTSO-E series; the closest was filter 410 at 0.9932
+   and 1,090 MW mean error, which is almost exactly the forecast error measured in
+   September. That identifies it as *actual* load, not the forecast.
+3. **Asked ENTSO-E's REST API directly**, bypassing the client library entirely. The reply
+   is explicit:
 
-### Even a value from elsewhere would not have helped
+   > `Acknowledgement_MarketDocument` — *"No matching data found for Data item
+   > DAY_AHEAD_TOTAL_LOAD_FORECAST_R3 [6.1.B]"*
 
-Suppose another platform did hold a number for 2 October 2018. To use it we would have to
-show it was published **before noon on 1 October 2018**. Platforms show what they hold now,
-not what they showed then.
+   For the identical window, *actual* load returned 384 points. ENTSO-E has the outcome and
+   not the expectation.
 
-This is the same trap the project already avoids with weather data: a source that looks like
-an archive of forecasts but is really a reconstruction after the fact.
+4. The control window either side returns 192 points normally, so this is the data and not
+   the request.
 
-### Decision
+---
 
-**Drop the affected delivery days from training.**
+## The days are available elsewhere — deferred, not dismissed
 
-A day with no published load forecast is a day this project genuinely could not have made a
-decision on. Dropping it represents what happened. Filling it in would put a forecast into
-the record that nobody ever issued, and the model would learn from fiction.
+**Energy-Charts (Fraunhofer ISE) has them.** This was checked rather than assumed, and it
+changes what "missing" means: the data is absent from *our source*, not from the world.
 
-The gaps are whole days, so dropping leaves no interpolation seam. The cost is about 37 days
-out of roughly 1,550 training days — under 2.5 % — and `HISTORY_START` stays at the market's
-real first day.
+### It is the same series
+
+| Check | Result |
+|---|---|
+| Does it cover the gaps? | **yes** — 480 quarter-hourly values across 2018-10-02..06 |
+| `de` alone against ENTSO-E | **549 MW short**, every hour — that is Luxembourg |
+| **`de` + `lu` against ENTSO-E DE-LU** | **MAE 0.025 MW**, worst deviation 0.1 MW |
+
+On a 55,000 MW series that is rounding error. Same data item, established the same way the
+SMARD price filter was established.
+
+### It behaves like a forecast, not like hindsight
+
+The gap-day values were put through the same test `scripts/verify_forecast_series.py`
+applies to ENTSO-E, comparing them against what actually happened:
+
+| Window | corr | MAE | **exact matches** |
+|---|---|---|---|
+| 2018-10-02..06 *(gap)* | 0.9740 | 781 MW | **0** |
+| 2022-02-22..24 *(gap)* | 0.9702 | 1,440 MW | **0** |
+| 2019-03-04..11 *(control)* | 0.9896 | 2,755 MW | **0** |
+| *ENTSO-E's own forecast, control week* | 0.9895 | 2,748 MW | 0 |
+
+A reconstruction from actuals would show near-zero error and match at every point. Not one
+point matches, and the error sits in the normal range for a load forecast. The control week
+tracks ENTSO-E's own figures to within 7 MW, which points to the same publication chain
+rather than a re-derivation.
+
+**What remains unprovable:** that Energy-Charts archived these before gate closure rather
+than obtaining them from the TSOs later. That is equally unprovable for ENTSO-E's own
+history, and the evidence above is as far as this can be taken without asking Fraunhofer.
+
+### Decision: drop the days for now, and revisit after stage 1
+
+**This is a deferral, not a dismissal.** The days are droppable *and* recoverable, and the
+question of which is better is one the model can answer better than an argument can.
+
+| | |
+|---|---|
+| **Now** | Drop the ~37 affected delivery days from training |
+| **Revisit** | End of stage 1, once there is a measured rMAE |
+| **Trigger** | Errors concentrated in early data, or a training set that feels short |
+| **If we act** | Add `src/sources/energy_charts.py`; roughly an hour, validation already done |
+
+The reasoning for dropping in the meantime is unchanged: the gaps are whole days, so
+dropping leaves no interpolation seam, and it costs about 37 of roughly 1,550 training days
+— under 2.5 %, from the market's least representative quarter.
+
+The reasoning for recording this so carefully is that **the difference between "we dropped
+data" and "we dropped data knowing exactly how to get it back" is the difference between an
+oversight and a decision.**
+
+### The recipe, so acting on it later is cheap
+
+```
+GET https://api.energy-charts.info/v2/public_power_forecast
+      ?country=de        (and again with lu, then sum)
+      &production_type=load
+      &forecast_type=day-ahead
+      &start=YYYY-MM-DD&end=YYYY-MM-DD
+
+Response: data[].timestamp (local, tz-aware) and data[].values.load, MW, PT15M
+Rate limited — HTTP 429 on rapid successive calls, so pace them.
+Validate any new window the same way: de+lu against ENTSO-E where both exist,
+then the forecast-versus-actual test above.
+```
 
 **Interpolate the two single hours in 2023 and 2024.**
 
@@ -176,7 +236,25 @@ at 1 MW is the mean price times 1 MWh, not the sum.
 | Finding | Decision |
 |---|---|
 | 7 price hours dropped by the library | **Recovered.** Check is permanent, in `src/data.py` |
-| ~37 load-forecast days absent, mostly Oct–Dec 2018 | **Drop those delivery days** from training |
+| ~37 load-forecast days absent from ENTSO-E | **Drop for now — revisit after stage 1.** Available from Energy-Charts, validated to 0.03 MW, provenance tested |
 | 2 load-forecast hours in 2023 and 2024 | **Interpolate.** They fall in the measured period |
 | 3 actual-load hours, Oct 2018 | No action. Not a feature |
+| 3 leading hours, start of record | No action. Absent at source |
 | Quarter-hourly from Oct 2025 | Averaged to hourly at load time. No special case |
+
+---
+
+## One thing to carry into stage 2
+
+The load forecast's bias is **not stable over time**. It is not a fixed offset to be
+subtracted once:
+
+| Week | Mean error, forecast minus actual |
+|---|---|
+| March 2019 | **−2,748 MW** — under-forecast in every single hour |
+| June 2022 | **+195 MW** |
+
+Something changed between those dates — the forecasting method, or the definition of what
+the actual figure counts. Either way, a model trained across the boundary sees two different
+relationships wearing the same column name. Worth understanding before stage 2 chooses a
+layout, and worth remembering if early-period errors turn out to be large.

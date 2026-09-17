@@ -697,9 +697,34 @@ describes neither half, and every hour of one of them looks like a gap. Comparin
 the *preceding* step instead handles a resolution change correctly. The test that failed was
 the one written for the October 2025 switch.
 
-**`docs/data-quality.md` written** — coverage per series, every gap located, the three
-independent checks that the load-forecast days are genuinely absent, and the decisions. That
-is the fourth of stage 0's five criteria.
+**A question that reversed a conclusion.** Asked whether the missing data could be pulled
+straight from the API rather than through the library — since the library was the problem
+once already. It could not: ENTSO-E's REST endpoint answers *"No matching data found for
+Data item DAY_AHEAD_TOTAL_LOAD_FORECAST_R3"* while returning 384 points of actual load for
+the same window. The absence is real.
+
+But the same question pointed at Energy-Charts, and **Energy-Charts has the days**. Two
+tests before believing it:
+
+- `de` + `lu` reproduces ENTSO-E's DE-LU load forecast to **0.025 MW** mean error. Using
+  `de` alone leaves a flat 549 MW shortfall, which is Luxembourg — a reminder that a 0.9999
+  correlation says nothing about a constant offset.
+- The gap-day values score 0.974 against what actually happened, with 781 MW error and
+  **zero exact matches**. A reconstruction from actuals would match everywhere. This does
+  not, so it is a real forecast.
+
+**Deferred rather than decided.** The days stay dropped for stage 1, and the question is
+revisited once there is a measured rMAE rather than an argument. Open item 9 holds the
+trigger; `docs/data-quality.md` holds the evidence and the API recipe, so acting later costs
+an hour rather than a fresh investigation.
+
+**A finding for stage 2.** The load forecast's bias is not stable: −2,748 MW in March 2019,
+under-forecasting every hour, against +195 MW in June 2022. A model trained across that
+boundary sees two different relationships sharing one column name.
+
+**`docs/data-quality.md` written** — coverage per series, every gap located, four independent
+checks on the absent days, the Energy-Charts evidence, and the decisions. That is the fourth
+of stage 0's five criteria.
 
 ---
 
@@ -741,12 +766,33 @@ is the fourth of stage 0's five criteria.
 2. **Document-count cap unknown.** ENTSO-E's own articles disagree — one says 100 matching
    documents, the other 200. Needs pinning down before request chunking is built.
 3. **Coverage counted — 16 September** (HANDOVER open question 1). Price, wind/solar and
-   actual load are near-complete: 7, 0 and 3 missing hours across seven years. **The load
-   forecast is missing 890 hours**, but 840 of them fall in 2018 and they arrive as whole
-   days — 25 gaps, median 24 h. Roughly 37 delivery days, concentrated in the market's
-   opening quarter. The remaining decision is narrow: drop those days, and treat the two
-   isolated hours in 2023 and 2024 separately, since dropping a day from the test years
-   changes what is being measured rather than what is being learned from.
+   actual load are near-complete: 0, 0 and 3 missing hours across seven years after the
+   backfill. **The load forecast is missing 890 hours**, but 840 fall in 2018 and they
+   arrive as whole days — roughly 37 delivery days from the market's opening quarter.
+   Dropped for now; see item 9, which is the decision to come back to.
+9. **REVISIT AFTER STAGE 1 — the 37 dropped load-forecast days.** *(opened 17 September)*
+
+   The days are missing from ENTSO-E but **available from Energy-Charts**, and that source
+   has been validated rather than merely noticed:
+
+   - `de` + `lu` reproduces ENTSO-E's DE-LU load forecast to **0.025 MW** mean error, worst
+     deviation 0.1 MW, over two separate control weeks. It is the same data item.
+   - The gap-day values pass the Contract 1 provenance test: compared against what actually
+     happened they score 0.974 correlation, 781 MW error and **zero exact matches**. A
+     reconstruction from actuals would match at every point. This does not.
+
+   So the choice is genuine, and it is deliberately not being made yet. Dropping costs about
+   2.5 % of training days from the least representative quarter of the record; adding a
+   second source costs `src/sources/energy_charts.py`, its caching and its tests, and
+   CLAUDE.md warns specifically against adding sources without a requirement.
+
+   **Trigger for revisiting:** stage 1 errors concentrated in early data, or a training set
+   that proves too short. **Decide with a measured rMAE rather than in advance.**
+
+   The full evidence and the exact API recipe are in `docs/data-quality.md`, so acting on
+   this later is an hour's work and not a fresh investigation. Recorded at this length on
+   purpose: dropping data while knowing exactly how to get it back is a decision, and
+   dropping it without knowing is an oversight. This is meant to stay the former.
 4. **Revision behaviour** (HANDOVER open question 2): whether ENTSO-E overwrites published
    day-ahead values. The comparison in `src/data.py` now answers it by construction — a
    second pull reports `unchanged`, `extended` or `revised` per series. One data point so
