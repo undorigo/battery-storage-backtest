@@ -168,6 +168,34 @@ df["residual_load"] = df.load - df.wind - df.solar   # what thermal plants must 
 **Do not comment:** lines whose names already explain them, restatements that add nothing,
 or implementation details that belong in the commit message.
 
+### Standing Protocol — Build Evidence, Not Volume
+
+This repository is read by two audiences: the person building it, and whoever is deciding
+whether to hire them. The second audience does not change what gets built. It changes the
+tiebreaker when a choice is genuinely open.
+
+**The tiebreaker:** prefer the option a reader can check.
+
+That is not the same as the option that looks more impressive. A polished repository with a
+leaked feature is worth less than nothing, because it demonstrates exactly the failure the
+work is supposed to guard against.
+
+**What counts as evidence.** Not the number of models, features, markets or lines of code.
+The things that cannot be faked by adding more:
+
+- a backtest whose information boundary holds when someone goes looking
+- a number that regenerates from a clean clone by a documented command
+- a decision recorded with the alternatives that were rejected, and why
+- a bug caught by a test written to catch it, verified by reintroducing the bug
+- a limit stated plainly instead of hidden — including "this dataset cannot answer that"
+
+**What this does not license.** More scope, more sources, more architectures. The Second Law
+still governs. A project that sprawls in order to look substantial is the failure this
+protocol exists to prevent, not a use of it.
+
+**The one-line version:** the differentiator is judgement, and judgement is only visible when
+the reasoning is written down next to the result.
+
 ### Standing Protocol — Learning Notes in Plain Language
 
 This project has two goals and the first one is learning. Something understood is worth
