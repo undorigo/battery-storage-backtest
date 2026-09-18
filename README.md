@@ -66,18 +66,20 @@ Two numbers put a figure on the band.
 
 ![Negative-price hours and average daily spread, per year](reports/figures/README_negative_hours_and_spread.png)
 
-| Year | Hours below zero | Share | Deepest | Mean daily spread |
-|---|---|---|---|---|
-| 2018¹ | 27 | 1.2 % | −19 | 40.6 |
-| 2019 | 211 | 2.4 % | −90 | 30.1 |
-| 2020 | 298 | 3.4 % | −84 | 32.5 |
-| 2021 | 139 | 1.6 % | −69 | 80.3 |
-| 2022 | 69 | 0.8 % | −19 | **187.0** |
-| 2023 | 301 | 3.4 % | **−500** | 97.9 |
-| 2024 | 457 | 5.2 % | −135 | 111.2 |
-| 2025 | **576** | **6.6 %** | −250 | 124.1 |
+| Year | Hours below zero | Share | Deepest | Mean daily spread | Days not worth cycling² |
+|---|---|---|---|---|---|
+| 2018¹ | 27 | 1.2 % | −19 | 40.6 | 2 |
+| 2019 | 211 | 2.4 % | −90 | 30.1 | **26** |
+| 2020 | 298 | 3.4 % | −84 | 32.5 | 12 |
+| 2021 | 139 | 1.6 % | −69 | 80.3 | 2 |
+| 2022 | 69 | 0.8 % | −19 | **187.0** | 1 |
+| 2023 | 301 | 3.4 % | **−500** | 97.9 | **0** |
+| 2024 | 457 | 5.2 % | −135 | 111.2 | **0** |
+| 2025 | **576** | **6.6 %** | −250 | 124.1 | 1 |
 
 ¹ October to December only.
+² Days where the best hour did not beat the cheapest hour by enough to cover round-trip
+losses and wear — so the right answer was to stay idle, even knowing the prices in advance.
 
 **Negative hours have risen more than twentyfold** — from 27 in the zone's first quarter to
 576 in 2025, when one hour in fifteen cleared below zero. One hour in 2023 reached the
@@ -97,6 +99,12 @@ second kind of spread is worth more per euro than the first.
 period. What caused it is not visible in this data — these files hold prices, load and
 weather forecasts, and no fuel or carbon prices at all. The interruption is treated here as
 something the model has to survive, not something this repository can explain.
+
+**The last column narrows the question this project has to answer.** In 2019 there were 26
+days when a battery with perfect foresight should have stayed idle. Across 2023–2025 there
+was one. So *whether* to trade is no longer a real decision — it is always yes. What is left
+is **which hours, and how many cycles**, and that is a harder question than the one it
+replaced.
 
 ### Why the price is what it is
 
@@ -191,7 +199,7 @@ brew install just          # or: curl -sSf https://just.systems/install.sh | bas
 
 git clone <this repo> && cd battery-storage-backtest
 just setup                 # create the venv, install pinned dependencies
-just test                  # 40 contract tests — offline, no token needed
+just test                  # 81 contract tests — offline, no token needed
 
 cp .env.example .env       # then paste your ENTSO-E token into it
 just verify                # confirm the forecast series really are forecasts

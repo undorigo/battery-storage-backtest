@@ -58,15 +58,25 @@ def negative_hours(price: pd.Series) -> pd.DataFrame:
 
 
 def daily_spread(price: pd.Series) -> pd.DataFrame:
-    """Highest minus lowest price within each delivery day, averaged per year."""
+    """Highest minus lowest price within each delivery day, averaged per year.
+
+    The last column asks a blunter question: was the day worth cycling at all?  A
+    battery gets back 81 % of what it stores and pays for the wear, so the day's
+    best hour has to beat its cheapest hour by more than those two together.  Days
+    that fail the test are days where the right answer was to do nothing.
+    """
     day = price.groupby(price.index.normalize())       # local calendar days
-    spread = day.max() - day.min()
+    low, high = day.min(), day.max()
+    spread = high - low
+    breakeven = low / cfg.BATTERY.round_trip_efficiency + cfg.BATTERY.cycle_cost_eur_per_mwh
+    idle = high <= breakeven                           # nothing to earn, even knowing the day
     by_year = spread.groupby(spread.index.year)
     return pd.DataFrame({
         "mean": by_year.mean(),
         "median": by_year.median(),
         "widest": by_year.max(),
         "days": by_year.size(),
+        "idle": idle.groupby(idle.index.year).sum(),
     })
 
 
@@ -233,8 +243,9 @@ def main() -> int:
                       ["{:,.0f}", "{:.1f} %", "{:,.2f}", "{:,.0f}"]))
 
     print("\n\nAverage daily spread\n")
-    print(as_markdown(spread, ["Year", "Mean spread", "Median", "Widest day", "Days"],
-                      ["{:,.1f}", "{:,.1f}", "{:,.1f}", "{:,.0f}"]))
+    print(as_markdown(spread, ["Year", "Mean spread", "Median", "Widest day", "Days",
+                               "Days not worth cycling"],
+                      ["{:,.1f}", "{:,.1f}", "{:,.1f}", "{:,.0f}", "{:,.0f}"]))
 
     cfg.FIGURES.mkdir(parents=True, exist_ok=True)
     figure_history(price, cfg.FIGURES / "README_price_history.png")
