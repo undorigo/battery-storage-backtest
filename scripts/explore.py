@@ -100,60 +100,120 @@ def figure_history(price: pd.Series, path):
 
 
 def figure_trends(neg: pd.DataFrame, spread: pd.DataFrame, path):
-    """The two headline numbers side by side, because the question is whether they move."""
+    """The two headline numbers side by side, because the question is whether they move.
+
+    The first bar is a quarter, not a year — the bidding zone only began in October
+    2018 — so it is hatched and faded.  A footnote alone is not enough: a chart gets
+    screenshotted away from its caption, and a short bar next to seven full ones
+    reads as a low year rather than a partial one.
+    """
     fig, (a, b) = plt.subplots(1, 2, figsize=(11, 3.8))
-    a.bar(neg.index, neg["hours"], color="#b4433a", width=0.62)
-    a.set_title("Hours cleared below zero", loc="left", fontsize=10)
-    a.set_ylabel("hours per year")
-    b.bar(spread.index, spread["mean"], color="#1f3a5f", width=0.62)
-    b.set_title("Average daily spread (highest − lowest)", loc="left", fontsize=10)
-    b.set_ylabel("EUR/MWh")
-    for ax in (a, b):
+    panels = ((a, neg["hours"], "#b4433a", "Hours cleared below zero", "hours per year"),
+              (b, spread["mean"], "#1f3a5f", "Average daily spread (highest − lowest)", "EUR/MWh"))
+    partial = neg.index.min()                       # the only year not covered in full
+    for ax, values, colour, title, ylabel in panels:
+        bars = ax.bar(values.index, values, color=colour, width=0.62)
+        bars[0].set(alpha=0.45, hatch="///", edgecolor="white")   # October-December only
+        ax.set_title(title, loc="left", fontsize=10)
+        ax.set_ylabel(ylabel)
         ax.spines[["top", "right"]].set_visible(False)
         ax.set_xticks(neg.index)
         ax.tick_params(labelsize=8)
-    fig.tight_layout(); fig.savefig(path, dpi=140); plt.close(fig)
+    fig.tight_layout(rect=(0, 0.06, 1, 1))          # leave a strip for the footnote
+    fig.text(0.008, 0.02, f"{partial} covers October–December only, and is not comparable "
+             f"to the full years beside it", fontsize=7.5, color="#666666")
+    fig.savefig(path, dpi=140); plt.close(fig)
 
 
-def figure_residual(path) -> str:
-    """Price against what thermal plants must cover — the mechanism behind the rest.
+def residual_frame() -> pd.DataFrame:
+    """Residual load beside the price it cleared at, in GW and EUR/MWh.
 
     Residual load is demand minus wind and solar, built entirely from forecasts
-    published before gate closure.  It is the single strongest driver of the price
-    and the reason no weather source is needed.
+    published before gate closure — so this frame would have been available at the
+    decision point, and nothing downstream of it leaks.
     """
     load = data.load("load_forecast").iloc[:, 0]
     ws = data.load("wind_solar_forecast")
     price = data.load("day_ahead_price").iloc[:, 0]
 
     residual = load - ws["Wind Onshore"] - ws["Wind Offshore"] - ws["Solar"]
-    both = pd.concat([local(residual).rename("residual"), local(price).rename("price")],
+    return pd.concat([local(residual).rename("residual") / 1000,      # MW to GW, once, here
+                      local(price).rename("price")],
                      axis=1, join="inner").dropna()
 
-    # Coloured by year on purpose.  Pooling seven years hides the finding: the same
-    # residual load cleared near 40 EUR/MWh in 2019 and near 300 in 2022, so the
-    # cloud is several relationships stacked rather than one scattered.
-    fig, ax = plt.subplots(figsize=(7.4, 4.8))
+
+def fit(part: pd.DataFrame) -> tuple[float, float]:
+    """Slope and intercept of the least-squares line through one year.
+
+    Written out rather than imported: for a single predictor the slope is just
+    covariance over variance, and that is not worth a dependency.  The slope is the
+    number a forecaster cares about — how many EUR/MWh one GW of error is worth.
+    """
+    slope = part.residual.cov(part.price) / part.residual.var()
+    return slope, part.price.mean() - slope * part.residual.mean()
+
+
+# ── Residual load against price ───────────────────────────────────────────────
+# The one figure that says why a model must not be fitted across all seven years at
+# once.  Each year gets its own colour and its own fitted line, so the claim — that
+# this is several relationships stacked, not one scattered — is something a reader
+# can check instead of taking on trust.  The price window is clipped because 26 of
+# 63,000 hours would otherwise stretch the axis over empty space and squash the
+# region where almost every hour actually sits.
+
+PRICE_WINDOW = (-150.0, 600.0)                      # the band nearly every hour falls in
+
+
+def figure_residual(both: pd.DataFrame, path) -> pd.DataFrame:
+    fig, ax = plt.subplots(figsize=(7.8, 5.0))
     years = sorted(both.index.year.unique())
     colours = plt.cm.viridis([i / max(len(years) - 1, 1) for i in range(len(years))])
+
+    rows = {}
     for colour, year in zip(colours, years):
         part = both[both.index.year == year]
-        ax.scatter(part.residual / 1000, part.price, s=1.6, alpha=0.10,
+        ax.scatter(part.residual, part.price, s=1.6, alpha=0.10,
                    color=colour, edgecolors="none", rasterized=True, label=str(year))
+        slope, intercept = fit(part)
+        span = part.residual.quantile([0.01, 0.99])          # never draw where no data is
+        ax.plot(span, intercept + slope * span, color=colour, lw=2.0,
+                solid_capstyle="round", zorder=3)
+        rows[year] = {"slope": slope, "corr": part.residual.corr(part.price), "hours": len(part)}
+
     ax.axhline(0, color="#b4433a", lw=0.9, ls="--")
-    ax.set_xlabel("residual load (GW)  =  demand − wind − solar")
+    ax.set_ylim(*PRICE_WINDOW)
+    ax.set_xlabel("residual load (GW)  =  demand − wind − solar forecast")
     ax.set_ylabel("day-ahead price (EUR/MWh)")
-    ax.set_title("What thermal plants must cover, against what it cost", loc="left", fontsize=10)
+    ax.set_title("The same residual load cleared at very different prices",
+                 loc="left", fontsize=10.5)
     ax.spines[["top", "right"]].set_visible(False)
-    leg = ax.legend(frameon=False, fontsize=8, markerscale=6, loc="upper left")
+    leg = ax.legend(frameon=False, fontsize=8, markerscale=6, loc="upper left",
+                    title="line = least squares fit for that year", title_fontsize=7.5)
+    leg._legend_box.align = "left"
     for handle in leg.legend_handles:
         handle.set_alpha(1)
+
+    outside = int(((both.price < PRICE_WINDOW[0]) | (both.price > PRICE_WINDOW[1])).sum())
+    ax.text(0.995, 0.015, f"{outside} of {len(both):,} hours fall outside this price window",
+            transform=ax.transAxes, ha="right", fontsize=7, color="#777777")
     fig.tight_layout(); fig.savefig(path, dpi=140); plt.close(fig)
 
-    per_year = both.groupby(both.index.year).apply(
-        lambda d: d.residual.corr(d.price), include_groups=False
-    )
-    return both, per_year
+    return pd.DataFrame(rows).T
+
+
+def negative_price_mechanism(both: pd.DataFrame) -> dict:
+    """Do prices only go below zero once wind and solar exceed demand?
+
+    They do not, and the gap is the finding.  Four fifths of negative hours still
+    needed several GW from something else, so the surplus is not the whole story —
+    but this dataset holds no plant-level costs and cannot say what the rest is.
+    """
+    neg = both[both.price < 0]
+    return {
+        "hours": len(neg),
+        "with_surplus": int((neg.residual < 0).sum()),   # wind and solar alone beat demand
+        "median_residual": neg.residual.median(),        # still positive, and that is the point
+    }
 
 
 def main() -> int:
@@ -179,16 +239,28 @@ def main() -> int:
     cfg.FIGURES.mkdir(parents=True, exist_ok=True)
     figure_history(price, cfg.FIGURES / "README_price_history.png")
     figure_trends(neg, spread, cfg.FIGURES / "README_negative_hours_and_spread.png")
-    both, per_year = figure_residual(cfg.FIGURES / "README_residual_load_vs_price.png")
+
+    both = residual_frame()
+    per_year = figure_residual(both, cfg.FIGURES / "README_residual_load_vs_price.png")
 
     print("\n\nResidual load against price\n")
-    print(f"pooled over all {len(both):,} hours: {both.residual.corr(both.price):.3f}")
-    print("within each year:")
-    for year, corr in per_year.items():
-        print(f"   {year}   {corr:.3f}")
-    print("\nThe pooled figure is the weaker one, and that is the finding: the same")
-    print("residual load cleared at very different prices in different years, so a")
-    print("model fitted across the whole record is fitting several relationships.")
+    print(as_markdown(per_year, ["Year", "Slope (EUR/MWh per GW)", "Correlation", "Hours"],
+                      ["{:,.2f}", "{:.3f}", "{:,.0f}"]))
+    print(f"\npooled across all {len(both):,} hours: "
+          f"{both.residual.corr(both.price):.3f}")
+    print("\nThe pooled correlation is the weaker one, and that is the finding: the same")
+    print("residual load cleared at very different prices in different years, so a model")
+    print("fitted across the whole record is fitting several relationships at once.")
+    print("The slope is the part that moved — one GW is worth roughly three times what")
+    print("it was in 2019, so the same forecast error now costs three times as much.")
+
+    # A claim worth checking rather than assuming: negative prices are usually read
+    # as "wind and solar made more than the country needed".  Mostly they are not.
+    mech = negative_price_mechanism(both)
+    print(f"\nOf {mech['hours']:,} negative-price hours, {mech['with_surplus']:,} "
+          f"({mech['with_surplus'] / mech['hours'] * 100:.0f} %) had residual load below zero.")
+    print(f"The median negative-price hour still needed {mech['median_residual']:.1f} GW "
+          f"from something other than wind and solar.")
 
     print(f"\nFigures written to {cfg.FIGURES.relative_to(cfg.ROOT)}/")
     return 0

@@ -59,7 +59,10 @@ Seven years of DE-LU day-ahead prices, 63,577 hours. Regenerate every figure bel
 
 ![DE-LU day-ahead price, Oct 2018 to Dec 2025](reports/figures/README_price_history.png)
 
-Two numbers matter to a battery, and both moved in the same direction.
+The average went up and came back. The variation went up and stayed — the shaded band never
+returns to its 2019 width. **A battery is paid for the band, not the line.**
+
+Two numbers put a figure on the band.
 
 ![Negative-price hours and average daily spread, per year](reports/figures/README_negative_hours_and_spread.png)
 
@@ -84,33 +87,76 @@ Two numbers matter to a battery, and both moved in the same direction.
 battery is paid for the spread and nothing else, that is the headline: the opportunity this
 project measures is several times larger than it was in 2019.
 
-Both trends break in 2021–22. Gas set the price during the energy crisis, so surplus power
-was rare and negative hours collapsed while the spread reached 187 €/MWh. That single
-interruption sits in the middle of the training period and matters more than its two years
-suggest.
+**The two columns are not the same story twice.** 2025 has more negative hours than 2022
+(576 against 69) but a smaller spread (124 against 187). So what produced the spread changed:
+in 2022 the expensive hours were extremely expensive; in 2025 the cheap hours are extremely
+cheap. A battery keeps 81 % of what it stores but 100 % of what it is paid to take, so the
+second kind of spread is worth more per euro than the first.
+
+2021–22 interrupts both columns, and that interruption sits in the middle of the training
+period. What caused it is not visible in this data — these files hold prices, load and
+weather forecasts, and no fuel or carbon prices at all. The interruption is treated here as
+something the model has to survive, not something this repository can explain.
 
 ### Why the price is what it is
 
-![Residual load against price, coloured by year](reports/figures/README_residual_load_vs_price.png)
+The strongest single driver is **residual load** — demand minus wind and solar, built only
+from forecasts published before gate closure. It is what has to be covered by something other
+than the weather.
 
-Residual load — demand minus wind and solar, built only from forecasts published before gate
-closure — is the mechanism behind all of it. Where it turns negative, so does the price.
+Fitting a straight line through each year separately gives two numbers. The slope says how
+many €/MWh one GW of residual load is worth. The correlation says how tightly the two move
+together.
 
-But the relationship is **not one relationship**:
+| Year | Slope (€/MWh per GW) | Correlation | Hours |
+|---|---|---|---|
+| 2018¹ | 1.28 | 0.910 | 1,367 |
+| 2019 | **1.12** | 0.848 | 8,760 |
+| 2020 | 1.16 | 0.828 | 8,784 |
+| 2021 | 3.53 | **0.583** | 8,760 |
+| 2022 | **7.10** | 0.623 | 8,712 |
+| 2023 | 3.09 | 0.883 | 8,759 |
+| 2024 | 2.99 | 0.775 | 8,783 |
+| 2025 | 3.12 | 0.871 | 8,759 |
+| **Pooled** | — | **0.440** | 62,684 |
 
-| | Correlation with price |
+¹ October to December only.
+
+**The pooled correlation is the weakest number in the table, and that is the finding.** Each
+year on its own holds together far better than all of them together. So this is several
+relationships stacked, not one relationship scattered — and a model fitted across the whole
+record is averaging markets that behaved differently.
+
+![Residual load against price, one fitted line per year](reports/figures/README_residual_load_vs_price.png)
+
+**The slope roughly tripled and stayed tripled** — about 1.1 before 2021, about 3.1 since 2023.
+One GW of residual load is worth three times what it was in 2019, which is the same as saying
+a forecast error of one GW now costs three times as much.
+
+**2021 and 2022 are the two years that fit badly** (0.58 and 0.62), and 2022 is also the
+steepest by a distance. In those years something other than residual load was doing much of
+the work, and **this dataset cannot say what** — it holds no fuel or carbon prices. Whether to
+add them is an open scope question, held until the model shows whether it needs them.
+
+Both awkward years sit inside the training period. The test years fit well and share a slope.
+That is the shape of the problem stage 2 has to deal with.
+
+### What negative prices are not
+
+Negative prices are usually explained as wind and solar making more than the country needed.
+Mostly they are not:
+
+| Of 2,053 hours that cleared below zero | |
 |---|---|
-| Pooled across all 62,684 hours | **0.44** |
-| Within a single year | 0.58 – **0.91** |
+| Wind and solar alone exceeded demand | 424 (**21 %**) |
+| Median residual load during those hours | **+5.1 GW** |
 
-The pooled figure is the weaker one, and that is the point. The same residual load cleared
-near 40 €/MWh in 2019 and above 300 in 2022, so a model fitted across the whole record is
-fitting several relationships at once.
+Four fifths of the time the system still needed several GW from something else, and the price
+went below zero anyway. Something kept generating that would have lost more by stopping
+(*must-run generation*).
 
-The weakest years are 2021 (0.58) and 2022 (0.62). In those years something other than
-residual load was doing most of the work, and **this dataset cannot say what** — it holds no
-fuel or carbon prices. Whether to add them is an open scope question, held until the model
-shows whether it needs them.
+Naming the cause is beyond this dataset. Counting the hours is not, and the count is enough to
+rule out the simple explanation.
 
 ## Ground rules
 
