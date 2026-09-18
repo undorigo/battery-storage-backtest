@@ -220,9 +220,15 @@ term in brackets, so the reader can look it up *once they already know what it m
 | `curveType A03` forward-fills absent positions | A missing row means "same as the row above", not "no data" (*curveType A03*) |
 | Fit the scaler on train only, to avoid leakage | Work out the average from the training years alone. Using every year lets the model peek at the future (*data leakage*) |
 
-This governs `docs/learnings.md`, the work log, and the README. It does **not** govern code
-comments — those follow the protocol above, and may name a term directly, because their
-reader is already inside the file.
+**This is the default for explanation everywhere**, not only for what gets written to disk:
+`docs/learnings.md`, the work log, the README, and any explanation given during a working
+session. If a concept is being explained rather than used, it is explained this way without
+being asked.
+
+It does **not** govern code comments — those follow the protocol above, and may name a term
+directly, because their reader is already inside the file. Nor does it govern a term already
+established earlier in the same session: plain language is for the first encounter, and
+repeating the scaffolding after that is its own kind of noise.
 
 ### Standing Protocol — Commit & Push After Every Change
 
