@@ -17,7 +17,7 @@ One row per working day. Follow the date link for the detail.
 | [15 Sep 2026](#d20260915) | `just` replaced ad-hoc invocation. A proposal built on a hypothetical was dropped, and a protocol added to stop and ask instead. Eight open questions settled, including what finishes stage 0. |
 | [16 Sep 2026](#d20260916) | Daily recap ritual and plain-language protocol added. `main()` read, empty package marker dropped, repository map written. `src/data.py` and `just pull` built: the first real market data on disk. |
 | [17 Sep 2026](#d20260917) | SMARD ruled out as a gap filler by measurement. A silent data loss in `entsoe-py` found, traced, fixed — seven price hours recovered. Four mutants survived a green suite; two were dead code. Data-quality note written. Stage 0 closed. |
-| [18 Sep 2026](#d20260918) | Residual load measured: mean down 16 %, peak down 2 %. Market analysis — ancillary services are saturating and pushing value onto wholesale, which makes forecast quality the whole competitive surface. |
+| [18 Sep 2026](#d20260918) | Residual load measured: mean down 16 %, peak down 2 %. Market analysis — ancillary services are saturating and pushing value onto wholesale, which makes forecast quality the whole competitive surface. Figures read: the slope tripled, a negative-price claim was wrong, and stage 3 rescoped to which hours rather than whether to act. |
 
 [Commits](#commits) · [Open items](#open-items) · [Next](#next)
 
@@ -938,17 +938,94 @@ conventions. Three things follow, and they are close to unpublished:
 **This moves stage 3 from a technical exercise to the commercially load-bearing stage.**
 Quantile forecasts are not a refinement of stage 1; they are what the third point needs.
 
+#### Reading the three figures, which changed three things
+
+The figures had been produced at the end of 17 September and never discussed. Reading them
+properly cost an hour and was worth more than that, because two claims sitting under them did
+not survive and a third number was never computed at all.
+
+**The residual-load figure asserted its own finding.** It showed seven years in seven colours
+and the caption said they were several relationships rather than one. A reader had to take
+that on trust — a colour gradient over 62,684 half-transparent points is not evidence of
+anything. Fitting one least-squares line per year makes the claim checkable, and the line that
+appears is a better result than the correlation table underneath it:
+
+| Years | Slope (EUR/MWh per GW) | Correlation |
+|---|---|---|
+| 2018–2020 | 1.1 – 1.3 | 0.83 – 0.91 |
+| 2021–2022 | 3.5 – 7.1 | 0.58 – 0.62 |
+| 2023–2025 | 3.0 – 3.1 | 0.78 – 0.88 |
+
+The correlation was the wrong number to lead with. Within the recent years the fit is *good* —
+0.88, 0.78, 0.87 — so the relationship is not unstable now. What moved is the **slope**, which
+roughly tripled and stayed tripled. One GW of residual load is worth three times what it was
+in 2019, which is the same sentence as: a forecast error of one GW now costs three times as
+much. That is a more useful thing to know before building a model than "the correlation is
+0.44 pooled".
+
+The instability is confined to 2021–22, and those two years sit inside the training period
+while the test years fit well and share a slope. That is the exact shape stage 2 has to handle.
+
+**A claim under the figure was wrong.** The README said *"where residual load turns negative,
+so does the price"*. Counting it: of 2,053 negative-price hours, **424 (21 %)** had negative
+residual load. The median negative-price hour still needed **+5.1 GW** from something other
+than wind and solar. So prices go below zero long before the country runs out of demand, and
+the tidy explanation — renewables made more than was needed — covers a fifth of the cases.
+
+Naming what does the rest is beyond this dataset; it holds no plant-level costs. Counting the
+hours is not beyond it, and the count is enough to retire the simple story. The figure title
+carried the same overreach — *"What thermal plants must cover, against what it cost"* — and is
+now the finding instead: *"The same residual load cleared at very different prices"*.
+
+This is the third time a mechanism has been asserted that this data cannot support, after the
+gas-price framing on 18 September. A leftover copy of that one was still in the README, found
+while fixing this. The pattern is specific enough to name: **the error arrives as a causal
+connective**, in a *because* or a *so does* bolted onto a number that was measured correctly.
+The number is checked; the clause after it is not.
+
+**The spread columns are not one story twice.** 2025 has more negative hours than 2022 (576
+against 69) and a *smaller* spread (124 against 187). So what produces the spread changed —
+in 2022 the expensive hours were extreme, in 2025 the cheap hours are. For a battery these are
+not equivalent: it recovers 81 % of what it stores but 100 % of what it is paid to absorb, so
+spread made of negative prices is worth more per euro than spread made of high ones.
+
+#### Stage 3 rescoped: which hours, not whether to act
+
+Earlier today stage 3 was justified partly by *"with a compressed spread the real question is
+whether a day is worth cycling for"*. Checking it against the battery parameters already in
+`config.py` — 81 % round trip, 8 EUR/MWh wear — the decision has almost stopped existing:
+
+| | Days a battery with perfect foresight should have stayed idle |
+|---|---|
+| 2019 | 26 |
+| 2020 | 12 |
+| 2023–2025 | **1, across three years** |
+
+A day where doing nothing was right used to happen monthly. Now it happens once every three
+years. **So "whether to act" is not a live question, and stage 3 must not be built around it.**
+
+What remains is harder, not easier: *which* hours, and *how many* cycles. Two cycles a day
+earn more than one only if the second spread clears the wear cost, and that is a judgement
+made under uncertainty about a spread that has not happened yet. A point forecast commits to
+one answer; a distribution can say how likely the second cycle is to be worth its degradation.
+That is a real use for quantiles, and unlike the discarded one it survives the linearity
+argument from earlier today — because the cycle count enters through the wear cost, which is
+where the objective stops being a straight line.
+
+The column is now in `just explore`, so the number that rescoped a stage regenerates with
+everything else rather than sitting in a log.
+
 ---
 
 ### Next
 
 **Stage 0 is closed. Stage 1 begins: a first model against a naive benchmark, judged by rMAE.**
 
-18 September opens by reading the three figures together. They were produced at the end of a
-long session and have not been discussed, and the regime finding deserves more than the
-paragraph it currently has.
+The figures have now been read, and the two claims that did not survive are corrected. Stage 1
+starts from a cleaner description of the market than it would have done yesterday: the slope
+tripled, the recent years fit well, and the awkward years are inside the training period.
 
-Then stage 1, in order:
+Stage 1, in order:
 
 1. **`src/features.py`** — where the catalog stops declaring Contract 1 and starts enforcing
    it. One row per delivery hour, every column knowable at noon on D-1: the two forecasts at
