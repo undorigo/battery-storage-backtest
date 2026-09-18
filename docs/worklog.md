@@ -5,6 +5,12 @@ last. Written for a reader who was not present: what changed, and why it changed
 Decisions belong here with their reasoning; `CLAUDE.md` holds the standing rules and
 `HANDOVER.md` the decisions settled before any code existed.
 
+**The stage plan lives outside this repository**, as a private page:
+<https://claude.ai/code/artifact/9f662615-dd72-4326-8695-6ab1f2151b59>. It holds the six
+stages, the schedule, and the reasoning behind each — the forward-looking half of what this
+file records backwards. Recorded here because until 18 September it was findable only by
+scrolling back through a chat transcript, which is not a location.
+
 ## Contents
 
 One row per working day. Follow the date link for the detail.
@@ -805,6 +811,31 @@ It is a presentation of `just explore` output, never a source of a number.
 | `37cdfd6` | 15 Sep | Add a Makefile and editor tasks as the project's command menu |
 | `8473e76` | 15 Sep | Replace the Makefile with a justfile |
 | `3902e02` | 15 Sep | Add a standing protocol to align before building |
+| `0eda6ff` | 15 Sep | Record eight settled decisions and the stop that prompted them |
+| `05cafc8` | 15 Sep | Restate stage 0's finish line and the order of what remains |
+| `45a7500` | 16 Sep | Record what is understood, not only what is done |
+| `56fa937` | 16 Sep | Drop the empty package marker from scripts/ |
+| `1e1ed38` | 16 Sep | Correct a comment that described a flag the script lacks |
+| `7486057` | 16 Sep | Add a map of the repository for first-time readers |
+| `999af24` | 16 Sep | Fetch and cache the catalog without ever overwriting a pull |
+| `c372072` | 16 Sep | Report each series as it lands rather than all at the end |
+| `cbc4992` | 16 Sep | Record the first pull, and what the data turned out to contain |
+| `dcbf3d9` | 16 Sep | Locate the load-forecast gaps, which narrows the decision |
+| `cd811ec` | 16 Sep | Record the reproducibility checkpoint passing |
+| `92ee29b` | 17 Sep | Recover the values the chunked request silently drops |
+| `8aece32` | 17 Sep | Record what the seven years of data actually contain |
+| `9148a66` | 17 Sep | Note the blind spot in the gap check |
+| `7552599` | 17 Sep | Check the ends of a series, not only the middle |
+| `68b6f03` | 17 Sep | Record that the dropped days are recoverable, and defer the choice |
+| `d4dbb2b` | 17 Sep | Report what seven years of prices actually did |
+| `d612f98` | 17 Sep | Close stage 0 |
+| `486db52` | 18 Sep | Record where the value goes as storage capacity grows |
+| `76c9c5c` | 18 Sep | Report what the data shows, not what it suggests |
+| `8b4f583` | 18 Sep | Make checkability the tiebreaker when a choice is open |
+| `48d2cce` | 18 Sep | Make plain language the default for explaining, not only for writing |
+| `e83a5c3` | 18 Sep | Draw the per-year fit, and count what negative prices actually are |
+| `20f2dfa` | 18 Sep | Count the days a battery should have stayed idle |
+| `165ff65` | 18 Sep | Record what reading the figures changed |
 
 ---
 
@@ -1015,17 +1046,59 @@ where the objective stops being a straight line.
 The column is now in `just explore`, so the number that rescoped a stage regenerates with
 everything else rather than sitting in a log.
 
+#### Closing the day: the plan had no address
+
+Asked where the project plan lives, the honest answer was *"in a chat transcript"*. It exists
+as a private page and nothing in the repository pointed at it. Six stages, a schedule and the
+reasoning behind both, reachable only by scrolling.
+
+That is the same failure as an unreproducible number, one level up. A link now sits at the top
+of this file. Whether the plan should instead live in the repository as a file is a real
+question and is deliberately not answered today — it would be the seventh document, and
+`CLAUDE.md` is explicit that a new file gets asked about rather than added.
+
+The commit table was also three days stale, ending at 15 September while twenty-five commits
+had landed since. Refreshed from `git log`. Worth noting as a pattern rather than a chore:
+**the parts of a document nobody reads are the parts that rot**, and both of today's
+housekeeping items were in that category.
+
 ---
 
-### Next
+### Next — Monday 21 September 2026
 
 **Stage 0 is closed. Stage 1 begins: a first model against a naive benchmark, judged by rMAE.**
 
-The figures have now been read, and the two claims that did not survive are corrected. Stage 1
-starts from a cleaner description of the market than it would have done yesterday: the slope
-tripled, the recent years fit well, and the awkward years are inside the training period.
+Open with the recap interview. Eight questions are drafted below, weighted toward what was
+decided this week rather than what was typed — the market reasoning, the two corrections, and
+why the benchmark comes before the model.
 
-Stage 1, in order:
+#### Recap questions for Monday
+
+*Market*
+
+1. The slope between residual load and price roughly tripled between 2019 and 2024. Why does
+   that matter to someone building a forecast, rather than to someone studying the market?
+2. 2025 had more negative hours than 2022 but a smaller daily spread. What changed about where
+   the spread comes from, and why does a battery care which of the two it is?
+3. Most negative-price hours happen while the system still needs several GW from conventional
+   plants. What keeps those plants running, and what does this dataset let us say about it?
+
+*The code*
+
+4. `just pull` runs twice and reports `unchanged` both times. What would have to go wrong for
+   it to report `revised`, and why is that word a warning rather than a status?
+5. `features.py` does not exist yet. Name two columns that will go in it, and one that would
+   be easy to add and would invalidate every result downstream.
+
+*How the work is done*
+
+6. Why does the naive benchmark get built before the model, and not after?
+7. Three times this week a correct number carried an incorrect explanation. What is the
+   common shape of that mistake, and what is the cheapest way to catch it?
+8. Stage 3 was justified on Friday morning by a question that turned out to be dead. What was
+   the test that killed it, and what does that suggest about scoping a stage?
+
+#### Then stage 1, in order:
 
 1. **`src/features.py`** — where the catalog stops declaring Contract 1 and starts enforcing
    it. One row per delivery hour, every column knowable at noon on D-1: the two forecasts at
@@ -1038,6 +1111,13 @@ Stage 1, in order:
    without a baseline, nothing built to fix the two-regime problem can be shown to fix it.
 
 Open item 9 — the 37 dropped days — is revisited once step 3 produces a number.
+
+**One question to settle before step 1 starts**, because it changes what `features.py` builds:
+the training years and the test years now measurably differ — slope 1.1 against 3.1 — and the
+two worst-fitting years sit inside training. The stage plan says no regime handling in stage 1,
+deliberately, so that stage 2 has a baseline to beat. That still holds. But it is worth
+deciding on Monday whether the *first* model trains on the full record or on 2023 onward, and
+recording the reason either way. Both are defensible; only one of them is written down.
 
 Three things have earned their keep. The `src/sources/` split: for most of 9 September SMARD
 worked and the API did not, and nothing above that layer knows or cares which supplied the
