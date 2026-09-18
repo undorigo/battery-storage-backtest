@@ -16,7 +16,8 @@ One row per working day. Follow the date link for the detail.
 | [14 Sep 2026](#d20260914) | Platform recovered, sub-second. All four forecast series verified against their actuals by measurement. Catalog written — Contract 1 becomes a testable field. Code review found five issues, two of them wrong assumptions in the tests themselves. |
 | [15 Sep 2026](#d20260915) | `just` replaced ad-hoc invocation. A proposal built on a hypothetical was dropped, and a protocol added to stop and ask instead. Eight open questions settled, including what finishes stage 0. |
 | [16 Sep 2026](#d20260916) | Daily recap ritual and plain-language protocol added. `main()` read, empty package marker dropped, repository map written. `src/data.py` and `just pull` built: the first real market data on disk. |
-| [17 Sep 2026](#d20260917) | SMARD ruled out as a gap filler by measurement. A silent data loss in `entsoe-py` found, traced, fixed — seven price hours recovered. Four mutants survived a green suite; two were dead code. Data-quality note written. |
+| [17 Sep 2026](#d20260917) | SMARD ruled out as a gap filler by measurement. A silent data loss in `entsoe-py` found, traced, fixed — seven price hours recovered. Four mutants survived a green suite; two were dead code. Data-quality note written. Stage 0 closed. |
+| [18 Sep 2026](#d20260918) | Residual load measured: mean down 16 %, peak down 2 %. Market analysis — ancillary services are saturating and pushing value onto wholesale, which makes forecast quality the whole competitive surface. |
 
 [Commits](#commits) · [Open items](#open-items) · [Next](#next)
 
@@ -855,6 +856,83 @@ It is a presentation of `just explore` output, never a source of a number.
    constant stays as a named hazard, like `DE_AT_LU_EIC`, but it is documentation now
    rather than a promise. `GATE_CLOSURE_LOCAL`, `INTERIM` and `PROCESSED` are still
    waiting for `features.py`.
+
+<a id="d20260918"></a>
+### 18 September 2026 — where the money actually is
+
+**Residual load, measured across our own seven years.** Wind and solar rose from 34 % of
+demand to 43 %. What that did to residual load — demand minus wind minus solar, the thing
+dispatchable plant must cover:
+
+| | 2019 | 2025 | |
+|---|---|---|---|
+| Mean | 36.4 GW | 30.6 GW | **−16 %** |
+| Minimum | −5.0 GW | −11.7 GW | more than doubled |
+| **95th percentile** | 54.9 GW | **53.9 GW** | **−2 %** |
+| Hours below zero | 8 | 188 | ×23 |
+
+**Nine points of renewable share bought one gigawatt off the peak.** Solar does not help at
+six in the evening in December, and neither does wind in a windless week. So renewables
+*widen* the distribution rather than shifting it down: the floor falls away, the ceiling
+stays. That is the structural reason daily spreads quadrupled, and it is still running.
+
+A second observation from the same data: in 2025 the price was negative for **576 hours**
+while residual load was negative for only **188**. Prices go below zero roughly three times
+more often than supply genuinely exceeds demand — the rest is inflexibility, which is the
+mechanism rather than the arithmetic.
+
+And a warning for stage 1: mean residual load was ~36 GW across the training years and ~30 GW
+across the test years. **The input distribution has moved, not only the price relationship.**
+That is a second regime shift, slower than the gas one, running through the whole record.
+
+---
+
+**Market analysis — what happens to this opportunity as competitors enter.** Asked whether
+battery arbitrage cannibalises itself. It does, and the current figures are sharper than
+expected.
+
+| German grid-scale BESS | |
+|---|---|
+| End 2025 | 2.4 GW (+842 MW, strongest year to that point) |
+| First half of 2026 alone | **+888 MW** — more than all of 2025 |
+| Expected end 2026 | **5.7 GW** |
+
+German TSOs procure roughly 2 GW of aFRR. About 580 MW of battery capacity is pre-qualified
+today; if 35 % of the expected end-2026 fleet qualifies, **batteries alone fill the entire
+procurement.** In July 2026, aFRR-up capacity prices fell **35 % in a single month** to about
+€10/MW/h, and German BESS revenues fell to €205k/MW/year.
+
+**This reversed the working assumption.** The expectation was that arbitrage would be
+compressed and ancillary services would be the escape. The opposite is happening: ancillary
+services are saturating first and pushing value *onto* the wholesale markets. Projections
+have 2-hour revenues roughly halving to ~€125k/MW by 2030, with **wholesale arbitrage at
+95 % of the total.**
+
+So compression does not make this project less relevant. It makes forecast quality the whole
+competitive surface: when arbitrage is nearly all the revenue and the spread is thin, the
+marginal euro comes from ranking hours better than the next participant.
+
+For scale, the largest adjacent pool is congestion: German grid congestion management cost
+**€3.07 billion in 2025**, up from €187 million a decade ago. But Germany is one price zone
+by design, so that is reached through regulated redispatch and TSO procurement, not trading.
+
+**The gap worth aiming at.** The industry reports revenue per MW. That figure falls when the
+market compresses *and* when a forecast is poor, and it cannot distinguish them. Capture rate
+can, because its denominator is perfect foresight on the same asset under the same
+conventions. Three things follow, and they are close to unpublished:
+
+1. **Separating market conditions from forecast skill.** As revenue per MW halves, every
+   operator needs to know which half was theirs.
+2. **When a better forecast stops being worth anything.** rMAE against capture rate answers
+   it, and it is the question that sets a forecasting budget.
+3. **Probabilistic forecasts driving the decision to act at all.** With a compressed spread
+   the real question is whether a day is worth cycling for — a decision under uncertainty,
+   where a point forecast is the wrong instrument.
+
+**This moves stage 3 from a technical exercise to the commercially load-bearing stage.**
+Quantile forecasts are not a refinement of stage 1; they are what the third point needs.
+
+---
 
 ### Next
 
