@@ -757,8 +757,14 @@ interruption sits in the middle of the training period.
 0.91 within any single year, but only **0.44** pooled across all of them. A pooled
 correlation lower than every year inside it is the signature of several relationships
 stacked on one another — the same residual load cleared near 40 EUR/MWh in 2019 and above
-300 in 2022. The weakest years are 2021 (0.58) and 2022 (0.62), exactly when gas rather than
-residual load set the price.
+300 in 2022. The weakest years are 2021 (0.58) and 2022 (0.62) — years in which something
+other than residual load was doing most of the work.
+
+**What that something was, this dataset cannot say.** It holds prices, demand and renewable
+output, and no fuel or carbon prices at all. The obvious candidate is plausible and untested,
+and writing it down as a finding would be importing an explanation rather than measuring one.
+Whether to collect the data that would test it is an open scope question, held until the
+model shows whether it needs it.
 
 So the training window holds at least two regimes, and the test years resemble neither
 exactly. No strategy for this yet, on purpose: stage 1 fits everything with no special
@@ -883,7 +889,7 @@ mechanism rather than the arithmetic.
 
 And a warning for stage 1: mean residual load was ~36 GW across the training years and ~30 GW
 across the test years. **The input distribution has moved, not only the price relationship.**
-That is a second regime shift, slower than the gas one, running through the whole record.
+That is a second regime shift, slower than the 2021–22 one, running through the whole record.
 
 ---
 

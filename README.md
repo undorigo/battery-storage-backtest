@@ -105,8 +105,12 @@ But the relationship is **not one relationship**:
 
 The pooled figure is the weaker one, and that is the point. The same residual load cleared
 near 40 €/MWh in 2019 and above 300 in 2022, so a model fitted across the whole record is
-fitting several relationships at once. 2021 (0.58) and 2022 (0.62) are the years gas broke
-the link.
+fitting several relationships at once.
+
+The weakest years are 2021 (0.58) and 2022 (0.62). In those years something other than
+residual load was doing most of the work, and **this dataset cannot say what** — it holds no
+fuel or carbon prices. Whether to add them is an open scope question, held until the model
+shows whether it needs them.
 
 ## Ground rules
 
