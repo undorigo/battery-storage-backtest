@@ -92,8 +92,20 @@ project measures is several times larger than it was in 2019.
 **The two columns are not the same story twice.** 2025 has more negative hours than 2022
 (576 against 69) but a smaller spread (124 against 187). So what produced the spread changed:
 in 2022 the expensive hours were extremely expensive; in 2025 the cheap hours are extremely
-cheap. A battery keeps 81 % of what it stores but 100 % of what it is paid to take, so the
-second kind of spread is worth more per euro than the first.
+cheap. **The second kind is worth more**, and the reason is the round-trip loss changing sign.
+
+To deliver 1 MWh, a battery must buy 1 ÷ 0.81 = 1.235 MWh — so the charging price is always
+multiplied by 1.235. Against a positive price that works against you; against a negative price
+it works for you. Three days with an identical headline spread of 100 €/MWh:
+
+| Charge at | Discharge at | Earned per MWh delivered |
+|---|---|---|
+| 100 | 200 | 68.5 |
+| 0 | 100 | 92.0 |
+| −50 | 50 | **103.7** |
+
+Same spread, and half as much again from the third day as the first. A negative hour is worth
+more than its face value; an expensive hour has to overcome the loss rather than profit by it.
 
 2021–22 interrupts both columns, and that interruption sits in the middle of the training
 period. What caused it is not visible in this data — these files hold prices, load and
