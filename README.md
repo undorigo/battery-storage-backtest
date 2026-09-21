@@ -38,6 +38,26 @@ Results are reported three ways, so the numbers mean something:
 
 **Capture rate = model revenue ÷ ceiling.**
 
+## Where this is going
+
+Six stages. Each one ends on a number, and no stage starts before the previous number exists —
+so a claim can always be traced back to the run that produced it.
+
+| Stage | Delivers | Headline number | |
+|---|---|---|---|
+| 0 | Reproducible data pull, split locked | negative hours, daily spread | **done** 17 Sep 2026 |
+| 1 | First model against a naive benchmark | rMAE | **in progress** |
+| 2 | LEAR, layout, decomposition | rMAE per variant, DM significance | |
+| 3 | Quantile forecasts | pinball loss, coverage | |
+| 4 | MILP dispatch optimiser, revenue | **capture rate** | |
+| 5 | Drift monitoring, scheduled run | reproducibility | |
+
+Stage 4 is the one the rest exists for. Everything before it makes the capture rate mean
+something; without stages 0–3 it would be a number with no provenance.
+
+**Currently:** building `src/features.py`, then the naive benchmark — the same hour one week
+earlier — and a first rMAE against it.
+
 ## Setup
 
 | | |
