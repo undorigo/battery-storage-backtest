@@ -992,7 +992,11 @@ The correlation was the wrong number to lead with. Within the recent years the f
 0.88, 0.78, 0.87 — so the relationship is not unstable now. What moved is the **slope**, which
 roughly tripled and stayed tripled. One GW of residual load is worth three times what it was
 in 2019, which is the same sentence as: a forecast error of one GW now costs three times as
-much. That is a more useful thing to know before building a model than "the correlation is
+much. *(Corrected 22 September — that second sentence is wrong. Bids are placed against the
+published forecast, so a forecast that turns out wrong is settled in balancing, not in this
+auction. What a steeper slope punishes is a model carrying a relationship learned from years
+that no longer apply: fitted on 2019–20 and asked about an ordinary 40 GW day in 2024–25 it
+answers 39 EUR/MWh where the answer is 114.)* That is a more useful thing to know before building a model than "the correlation is
 0.44 pooled".
 
 The instability is confined to 2021–22, and those two years sit inside the training period
