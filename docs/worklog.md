@@ -24,6 +24,7 @@ One row per working day. Follow the date link for the detail.
 | [16 Sep 2026](#d20260916) | Daily recap ritual and plain-language protocol added. `main()` read, empty package marker dropped, repository map written. `src/data.py` and `just pull` built: the first real market data on disk. |
 | [17 Sep 2026](#d20260917) | SMARD ruled out as a gap filler by measurement. A silent data loss in `entsoe-py` found, traced, fixed — seven price hours recovered. Four mutants survived a green suite; two were dead code. Data-quality note written. Stage 0 closed. |
 | [18 Sep 2026](#d20260918) | Residual load measured: mean down 16 %, peak down 2 %. Market analysis — ancillary services are saturating and pushing value onto wholesale, which makes forecast quality the whole competitive surface. Figures read: the slope tripled, a negative-price claim was wrong, and stage 3 rescoped to which hours rather than whether to act. |
+| [21 Sep 2026](#d20260921) | Recap interview: two answers wrong, one produced a repo correction. Stage plan given an address in the README. Training window decided by measurement. `features.py` built — Contract 1 enforced rather than declared, 9/9 mutants caught. |
 
 [Commits](#commits) · [Open items](#open-items) · [Next](#next)
 
@@ -1064,64 +1065,182 @@ housekeeping items were in that category.
 
 ---
 
-### Next — Monday 21 September 2026
+<a id="d20260921"></a>
+### 21 September 2026 — the contract stops being a comment
 
-**Stage 0 is closed. Stage 1 begins: a first model against a naive benchmark, judged by rMAE.**
+#### Recap interview: eight questions, two wrong answers, one repo correction
 
-Open with the recap interview. Eight questions are drafted below, weighted toward what was
-decided this week rather than what was typed — the market reasoning, the two corrections, and
-why the benchmark comes before the model.
+The market questions went well. Congestion came up unprompted as a reason conventional
+plants keep running through a negative price — the copper-plate-versus-reality framing,
+which is a system-operations answer rather than a market-theory one and better than the
+question deserved. The two-regime point went past what was asked, into what a battery
+should *do* about it.
 
-#### Recap questions for Monday
+Two answers were wrong and both are worth keeping.
+
+**`revised` was read as a fetch failure.** It is the opposite: a failure raises an
+exception, and `revised` means ENTSO-E returned a *different value* for a timestamp already
+cached. That is published history moving underneath a number, which is why the displaced
+copy is archived rather than overwritten.
+
+**The naive benchmark was justified as a business case.** It is a denominator. An error of
+15 EUR/MWh is neither good nor bad until divided by what zero effort achieves. Building it
+first also removes a temptation — choose the benchmark after seeing your own score and
+there is quiet pressure to choose a weak one.
+
+**And one answer corrected the repository.** Asked why 2025's spread is smaller than 2022's,
+the answer said both the highs and lows are less extreme now. Checking it: the lows are
+*more* extreme (deepest hour −19 in 2022, −250 in 2025), and relative to the price level the
+spread nearly doubled — 0.79 of the mean in 2022 against 1.39 in 2025.
+
+That prompted re-checking a claim written on 18 September: *"a battery keeps 81 % of what it
+stores but 100 % of what it is paid to take."* The conclusion was right and the mechanism was
+wrong. To deliver 1 MWh a battery must buy 1 ÷ 0.81 = 1.235 MWh, so the charging price is
+always **multiplied** by 1.235 — which hurts above zero and helps below it. Three days with
+an identical spread of 100 EUR/MWh earn 68.5, 92.0 and 103.7 depending only on where the
+spread sits relative to zero. Corrected in the README and the prices page.
+
+#### The stage plan got an address
+
+Asked on Friday where the plan lives, the honest answer was "a chat transcript". Four options
+were weighed; the deciding factor was that **two copies drift**, which this project had just
+demonstrated twice in a week — a commit table three days stale, and a wrong sentence surviving
+in four places after being "fixed".
+
+So the README gained a six-row table carrying *status only*, and the reasoning stayed in one
+place. A markdown copy of the full plan was rejected for exactly the reason it looked
+attractive: it would have to be kept in step with something else.
+
+#### The training window, decided by measurement rather than argument
+
+The Friday framing was sloppy — "full record or 2023 onward" is not a choice, because 2023 is
+the validation set. Contract 2 locks training to Oct 2018 – Dec 2022. The real question was
+whether to use all of that window or a recent slice.
+
+| Window | Hours | Mean | SD | Slope |
+|---|---|---|---|---|
+| Train, full 2018–22 | 36,383 | 98.2 | 113.8 | 3.19 |
+| Train, recent slice 2021–22 | 17,472 | 166.1 | 133.2 | 4.81 |
+| Validation 2023 | 8,759 | 95.2 | 47.6 | 3.09 |
+| **Test 2024–25** | 17,542 | **83.9** | **52.7** | **3.07** |
+
+The usual instinct — prefer recent data for a drifting series — is **backwards here**, because
+training stops in December 2022 and the recent end of that window *is* the crisis. The full
+window's pooled slope lands closest to test, though by accident of aggregation rather than
+representativeness.
+
+Decision: full window for stage 1. A subset chosen now would be chosen without a measured
+rMAE, which is the mistake open item 9 exists to avoid. The signal to watch is the SD gap,
+114 against 53: errors concentrated in high-price hours would say the training years are
+doing harm, and rolling recalibration is the stage 2 answer.
+
+#### `src/features.py` — where Contract 1 starts costing something
+
+18 columns, one row per delivery hour. 63,575 rows, 62,636 usable after dropping incomplete
+ones. Train 36,335 · validate 8,759 · test 17,542.
+
+**Two guards, because one was not enough.** `SOURCES` names the three permitted series and is
+checked against the catalog at import. That guards the *declaration* — but reaching past the
+list is a one-word edit inside any function, and the declaration would still read correctly.
+So `data_load()` refuses any key outside `SOURCES` at the point of use.
+
+**The load-bearing test rebuilds one delivery day from a world truncated at gate closure and
+requires every feature value to be identical.** Careful naming cannot satisfy it.
+
+**Writing that test exposed a real design fault.** `build()` inner-joined on the price, so a
+day with no cleared auction produced no rows at all. Harmless for history, and fatal for the
+one moment the project is about: at 12:00 on D-1 tomorrow has forecasts and no price, and
+tomorrow is the row a schedule must be built from. The target is now joined on last and may
+be absent. The backtest path and the eventual production path are the same function, which is
+a classic way for two things to disagree, removed before it could.
+
+A second fault surfaced with it: `shift(24)` moves 24 *rows*, not 24 hours, so a single
+missing hour would shorten every lag past it — and the result still looks like a price.
+`_hourly_span()` now builds a gapless index first, making the assumption true rather than
+hoping.
+
+**Nine injected bugs, nine caught.** One was caught for the wrong reason: swapping
+`load_forecast` for `actual_load` failed only because the test fixture lacks that key. A door
+that stops you because the handle is broken. That is what prompted the second guard.
+
+#### Explaining the mechanism, which took longer than building it
+
+Most of the afternoon went on one question: how does withholding actually work, mechanically?
+The expectation was a moving time window that cuts off at gate closure and is redefined at
+each step.
+
+There is no such window. `grep` for a date comparison in `features.py` returns nothing but
+comments. The boundary is **structural, not temporal**: every price column is defined as a
+fixed step backwards from *its own row*, and the step is chosen so that no row can reach
+forward. That works only because the publication schedule is regular — which is also why
+CLAUDE.md rules out ENTSO-E outage data, where it is not.
+
+The related confusion, and a good one: is giving the target to `fit()` not itself leakage? No
+— that is supervised learning. The separating question is whether predicting a *new* row
+requires that row's answer. What the instinct correctly points at is feature construction: a
+lag that is too short leaks the target through a column that looks respectable, which is
+precisely what `MIN_PRICE_LAG_HOURS` defends.
+
+
+---
+
+### Next — Tuesday 22 September 2026
+
+**Stage 1 continues. `features.py` is built; the naive benchmark and the first rMAE are not.**
+
+Open with the recap interview — questions below, weighted toward yesterday's two corrections
+and the mechanism that took an afternoon to explain.
+
+#### Recap questions for 22 September
 
 *Market*
 
-1. The slope between residual load and price roughly tripled between 2019 and 2024. Why does
-   that matter to someone building a forecast, rather than to someone studying the market?
-2. 2025 had more negative hours than 2022 but a smaller daily spread. What changed about where
-   the spread comes from, and why does a battery care which of the two it is?
-3. Most negative-price hours happen while the system still needs several GW from conventional
-   plants. What keeps those plants running, and what does this dataset let us say about it?
+1. Two days have exactly the same spread: 100 EUR/MWh. One runs 100 to 200, the other −50 to
+   50. Which earns more, roughly how much more, and why?
+2. The slope between residual load and price is about 3.1 in the test years and was about 1.1
+   in 2019. If a wind forecast is 1 GW too high, what does that cost — and has that cost
+   changed?
+3. Training stops in December 2022. Why is "use the most recent data" the wrong instinct for
+   choosing a training window here, when it is usually the right one?
 
 *The code*
 
-4. `just pull` runs twice and reports `unchanged` both times. What would have to go wrong for
-   it to report `revised`, and why is that word a warning rather than a status?
-5. `features.py` does not exist yet. Name two columns that will go in it, and one that would
-   be easy to add and would invalidate every result downstream.
+4. `features.py` contains no comparison against a date — no cutoff, no "now". So what stops a
+   column from reaching forward into the delivery day?
+5. `price_lag_24h` is built from the target. Why is that allowed, and what exactly would make
+   it not allowed?
+6. `build()` used to require the price to exist before it would produce a row. That was
+   harmless for every one of the 63,575 historical rows. Why was it still wrong?
 
 *How the work is done*
 
-6. Why does the naive benchmark get built before the model, and not after?
-7. Three times this week a correct number carried an incorrect explanation. What is the
-   common shape of that mistake, and what is the cheapest way to catch it?
-8. Stage 3 was justified on Friday morning by a question that turned out to be dead. What was
-   the test that killed it, and what does that suggest about scoping a stage?
+7. Nine deliberate bugs were injected and all nine were caught — but one catch was rejected
+   anyway. What was wrong with it, and what does that say about reading a green test run?
+8. Yesterday a wrong explanation was corrected for the fourth time this month. Where does that
+   kind of error live, and what is the check that catches it?
 
-#### Then stage 1, in order:
+#### Then, in order
 
-1. **`src/features.py`** — where the catalog stops declaring Contract 1 and starts enforcing
-   it. One row per delivery hour, every column knowable at noon on D-1: the two forecasts at
-   their own timestamps, lagged prices, residual load, calendar features. This is also where
-   the 37 dropped days and the two interpolated hours are handled, per `docs/data-quality.md`.
-2. **The naive benchmark.** Whatever beats nothing must be beaten. The standard choice for
-   day-ahead prices is the same hour one week earlier, which carries the daily and the weekly
-   shape at once.
-3. **A first model, and rMAE against that benchmark.** No regime handling, deliberately:
+1. **Revisit the EDA page.** It was written before the slope finding, the negative-price count
+   and the round-trip correction. Its title predates most of what it now says.
+2. **Drop `notebooks/`.** Empty, untracked, and superseded — findings are presented as a page,
+   not a notebook. The `.gitignore` checkpoint rules go with it.
+3. **The naive benchmark.** The standard choice for day-ahead prices is the same hour one week
+   earlier, which carries the daily and weekly shape at once. It is already in the frame as
+   `price_lag_168h`.
+4. **A first model, and rMAE against that benchmark.** No regime handling, deliberately:
    without a baseline, nothing built to fix the two-regime problem can be shown to fix it.
+5. **Leak the target once, on purpose.** Fit with `price` in the feature list, record the
+   score, remove it, record the real one. Produces a calibration for what leakage looks like,
+   in a project whose central risk is not recognising it.
 
-Open item 9 — the 37 dropped days — is revisited once step 3 produces a number.
-
-**One question to settle before step 1 starts**, because it changes what `features.py` builds:
-the training years and the test years now measurably differ — slope 1.1 against 3.1 — and the
-two worst-fitting years sit inside training. The stage plan says no regime handling in stage 1,
-deliberately, so that stage 2 has a baseline to beat. That still holds. But it is worth
-deciding on Monday whether the *first* model trains on the full record or on 2023 onward, and
-recording the reason either way. Both are defensible; only one of them is written down.
+Open item 9 — the 37 dropped load-forecast days — is revisited once step 4 produces a number.
+The signal to watch is errors concentrated in high-price hours, which would say the 2021–22
+training years are doing harm.
 
 Three things have earned their keep. The `src/sources/` split: for most of 9 September SMARD
 worked and the API did not, and nothing above that layer knows or cares which supplied the
-bytes. Deliberate mutation, twice: five injected bugs caught on 16 September, and on 17
-September four that were *not* caught, which exposed a missing test and two lines of dead
-code. And counting coverage rather than assuming it, which is the only reason seven hours of
-silently destroyed price data were ever found.
+bytes. Deliberate mutation, three times now: five bugs caught on 16 September, four that were
+*not* caught on 17 September, and nine on 21 September of which one was caught for the wrong
+reason and prompted a second guard. And counting coverage rather than assuming it, which is
+the only reason seven hours of silently destroyed price data were ever found.
