@@ -103,11 +103,15 @@ def price_features(price: pd.Series, index: pd.DatetimeIndex) -> pd.DataFrame:
 
 
 # ── The forecasts, used at their own timestamp ────────────────────────────────
-# These need no lag, and that is the whole reason they are worth having.  The TSOs
-# publish their expectation for every hour of day D on the morning of D-1, before
-# the auction closes, so the value for the hour being predicted was already public
-# when the decision was made.  Their hindsight twins are the same numbers measured
-# afterwards, and using those is the mistake this project exists to avoid.
+# These need no lag, and that is the whole reason they are worth having: the TSOs
+# publish them on the morning of D-1, so the value for the hour being predicted was
+# already public when the decision was made.
+#
+# Worth being clear about why, because the usual framing gets it backwards.  The
+# forecast is not a permitted substitute for the actual — it is the *better*
+# variable.  Bids were placed against the published forecast, so that is what set
+# the price; the actual was measured afterwards and never touched the auction.  Here
+# the contract and the correct modelling choice happen to be the same thing.
 
 def forecast_features() -> pd.DataFrame:
     """Demand and renewable output as forecast before gate closure, plus residual load."""
