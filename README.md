@@ -55,8 +55,8 @@ so a claim can always be traced back to the run that produced it.
 Stage 4 is the one the rest exists for. Everything before it makes the capture rate mean
 something; without stages 0–3 it would be a number with no provenance.
 
-**Currently:** building `src/features.py`, then the naive benchmark — the same hour one week
-earlier — and a first rMAE against it.
+**Currently:** `src/features.py` is built and enforced. Next is the naive benchmark — the
+same hour one week earlier — and a first rMAE against it.
 
 ## Setup
 
@@ -170,8 +170,18 @@ record is averaging markets that behaved differently.
 ![Residual load against price, one fitted line per year](reports/figures/README_residual_load_vs_price.png)
 
 **The slope roughly tripled and stayed tripled** — about 1.1 before 2021, about 3.1 since 2023.
-One GW of residual load is worth three times what it was in 2019, which is the same as saying
-a forecast error of one GW now costs three times as much.
+The eight lines sort into three groups, not eight variations on one market: flat and tight
+(2018–20), steep and badly fitting (2021–22), steep and tight again (2023–25).
+
+**What that costs is a transfer problem, not an input problem.** It is not that a wrong
+weather forecast now costs more — bids were placed against the *published* forecast, so a
+forecast that turns out wrong is settled in the balancing markets, not in this auction. The
+cost lands on a model that learned the wrong relationship:
+
+| Fitted on | Asked about an ordinary 40 GW day | |
+|---|---|---|
+| 2019–20 | says **39 €/MWh** | |
+| 2024–25 | answer is **114 €/MWh** | **74 €/MWh of error, before any noise** |
 
 **2021 and 2022 are the two years that fit badly** (0.58 and 0.62), and 2022 is also the
 steepest by a distance. In those years something other than residual load was doing much of
@@ -179,7 +189,8 @@ the work, and **this dataset cannot say what** — it holds no fuel or carbon pr
 add them is an open scope question, held until the model shows whether it needs them.
 
 Both awkward years sit inside the training period. The test years fit well and share a slope.
-That is the shape of the problem stage 2 has to deal with.
+That is the shape of the problem stage 2 has to deal with, and the first model is deliberately
+built with no correction for it — so that whatever stage 2 builds has something to beat.
 
 ### What negative prices are not
 
