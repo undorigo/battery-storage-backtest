@@ -215,20 +215,43 @@ downstream of it.
 It turns three cached series into **one table, one row per delivery hour, 18 columns**. One
 column is the answer. The other seventeen are things the market knew before it had to decide.
 
+### Three treatments, decided by when a series is published
+
+A series is not simply allowed or forbidden. What matters is *when it became public relative
+to the deadline for the hour being predicted*, and that yields three different treatments:
+
+| Series | Published | Treatment |
+|---|---|---|
+| `load_forecast`, `wind_solar_forecast` | **before** the deadline, morning of D−1 | used **as-is**, at its own timestamp |
+| `day_ahead_price` | **after** it, ~12:45 on D−1 | **lagged ≥ 24 h** — and is the target |
+| `actual_load`, `actual_generation` | long after delivery | **never used** |
+
+So of the seventeen feature columns, **nine are shifted** (four lags, five daily summaries),
+five are forecasts used at their own timestamp, and three are calendar values read off the
+index.
+
+**A blanket "shift everything by 24 hours" would satisfy the contract completely and gut the
+model.** It cannot tell "this was unknowable" apart from "this was published yesterday
+morning", so it would replace tomorrow's expected demand with yesterday's — discarding the
+most informative column in the table to guard against a risk that column does not carry.
+
+That is what the catalog earns its file for. It records *when*, not merely *whether*, which is
+the richer fact and the one three treatments can be derived from.
+
 ### There is no clock in it
 
-The natural guess is that it works by hiding data at the right moment — pick a time, cut
+The natural guess is that the lag works by hiding data at the right moment — pick a time, cut
 everything after it, step forward, repeat. Search the file for a date comparison and you find
 nothing but comments.
 
-**The boundary is built into the shape of each column, not applied at a moment.**
+**The boundary is built into the shape of the price columns, not applied at a moment.**
 
 ```python
 out["price_lag_24h"] = full.shift(24)
 ```
 
-*Every row takes the value from 24 rows above.* Applied to all 63,575 rows at once. Row 3 and
-row 50,000 obey it identically, and no row can reach forward.
+*Every row takes the value from 24 rows above.* One instruction, obeyed by all 63,575 rows at
+once. Row 3 and row 50,000 obey it identically, and no row can reach forward.
 
 Like a newspaper: every edition prints yesterday's closing prices, and you do not need to know
 today's date for that to be true.
@@ -268,13 +291,13 @@ job is a standard way for a backtest to measure something the live system never 
 
 ### What is in the table
 
-| Group | Columns | Why it is allowed |
-|---|---|---|
-| Target | `price` | the answer; never a feature |
-| Price memory | `price_lag_24h · 48h · 72h · 168h` | far enough back to be public |
-| Yesterday | `price_d1_min · max · mean · last · spread` | a day that had fully cleared |
-| Forecasts | `load_forecast · wind_onshore · wind_offshore · solar · residual_load` | published the previous morning |
-| Calendar | `hour · dayofweek · is_weekend` | known forever |
+| Group | Columns | Shifted? | Why it is allowed |
+|---|---|---|---|
+| Target | `price` | — | the answer; never a feature |
+| Price memory | `price_lag_24h · 48h · 72h · 168h` | **yes** | far enough back to be public |
+| Yesterday | `price_d1_min · max · mean · last · spread` | **yes**, by a day | a day that had fully cleared |
+| Forecasts | `load_forecast · wind_onshore · wind_offshore · solar · residual_load` | no | published the previous morning |
+| Calendar | `hour · dayofweek · is_weekend` | no | read off the index itself |
 
 The forecast columns need no lag, and they are not a second-best substitute for measured
 output. **Bids were placed against the published forecast, so that is what set the price.**
