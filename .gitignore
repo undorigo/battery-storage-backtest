@@ -78,13 +78,6 @@ htmlcov/
 .tox/
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Notebooks — commit the notebook, never the checkpoint.
-# Consider nbstripout so that output cells do not bloat the diff.
-# ─────────────────────────────────────────────────────────────────────────────
-.ipynb_checkpoints/
-*/.ipynb_checkpoints/*
-
-# ─────────────────────────────────────────────────────────────────────────────
 # Personal study notes — deliberately out of the repository.
 # docs/learnings.md is written for one reader and grows every session. The work
 # log is the committed record of what was done; this is the record of what was

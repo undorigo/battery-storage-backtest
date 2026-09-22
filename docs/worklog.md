@@ -525,7 +525,7 @@ market data**.
 | SMARD, now the API works | **Cross-check only.** No source module; keep the comparison for re-validating prices |
 | What the first pull fetches | **Everything in the catalog, full history**, 2018-10 to 2025-12 |
 | Actual generation, which stage 1 does not need | **Include it.** One pass over the API is cheaper than two |
-| The empty `notebooks/` directory | **Exploration only, never a source of truth.** Anything producing a reported number moves to `src/` or `scripts/` |
+| The empty `notebooks/` directory | **Exploration only, never a source of truth.** Anything producing a reported number moves to `src/` or `scripts/` |  *(Reversed 22 September: never used, and superseded — exploration goes through `just explore` and is presented as a page. Directory and its `.gitignore` rules removed.)*
 | What finishes stage 0 | Pull runs twice identically · coverage counted · negative-price hours and daily spread in the README · first figures · a written data-quality note |
 | The 16 October end date | **Provisional.** Re-plan after stage 1, which is the first stage with a real deliverable and therefore the first honest measure of pace |
 
