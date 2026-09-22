@@ -25,6 +25,7 @@ One row per working day. Follow the date link for the detail.
 | [17 Sep 2026](#d20260917) | SMARD ruled out as a gap filler by measurement. A silent data loss in `entsoe-py` found, traced, fixed — seven price hours recovered. Four mutants survived a green suite; two were dead code. Data-quality note written. Stage 0 closed. |
 | [18 Sep 2026](#d20260918) | Residual load measured: mean down 16 %, peak down 2 %. Market analysis — ancillary services are saturating and pushing value onto wholesale, which makes forecast quality the whole competitive surface. Figures read: the slope tripled, a negative-price claim was wrong, and stage 3 rescoped to which hours rather than whether to act. |
 | [21 Sep 2026](#d20260921) | Recap interview: two answers wrong, one produced a repo correction. Stage plan given an address in the README. Training window decided by measurement. `features.py` built — Contract 1 enforced rather than declared, 9/9 mutants caught. |
+| [22 Sep 2026](#d20260922) | Recap: an answer overturned how the slope finding was framed, in six places. EDA page retitled around its actual result. `notebooks/`, `data/interim/` and `data/processed/` removed unused. Map and README rewritten around the gate. |
 
 [Commits](#commits) · [Open items](#open-items) · [Next](#next)
 
@@ -1188,63 +1189,149 @@ precisely what `MIN_PRICE_LAG_HOURS` defends.
 
 ---
 
-### Next — Tuesday 22 September 2026
+<a id="d20260922"></a>
+### 22 September 2026 — an answer that rewrote six documents
 
-**Stage 1 continues. `features.py` is built; the naive benchmark and the first rMAE are not.**
+#### The recap corrected the project, not the answerer
 
-Open with the recap interview — questions below, weighted toward yesterday's two corrections
-and the mechanism that took an afternoon to explain.
+Five questions, and the second one landed somewhere unplanned. Asked what a wrong wind
+forecast costs, the answer was that it costs nothing in this market: the auction closed before
+anyone knew what the wind did, so the error is settled in balancing and redispatch, not in a
+price that was already fixed.
 
-#### Recap questions for 22 September
+That is correct, and it invalidated a sentence written on 18 September and repeated since:
 
-*Market*
+> *"a forecast error of one GW now costs three times as much"*
 
-1. Two days have exactly the same spread: 100 EUR/MWh. One runs 100 to 200, the other −50 to
-   50. Which earns more, roughly how much more, and why?
-2. The slope between residual load and price is about 3.1 in the test years and was about 1.1
-   in 2019. If a wind forecast is 1 GW too high, what does that cost — and has that cost
-   changed?
-3. Training stops in December 2022. Why is "use the most recent data" the wrong instinct for
-   choosing a training window here, when it is usually the right one?
+**The day-ahead price responds to the published forecast, not to the outcome.** So the slope
+is not an amplifier of input error. It is an amplifier of *transfer* error — it punishes a
+model carrying a relationship learned from years that no longer apply:
 
-*The code*
+| Fitted on | Asked about an ordinary 40 GW day |
+|---|---|
+| 2019–20 | says **39 €/MWh** |
+| 2024–25 | answer is **114 €/MWh** |
 
-4. `features.py` contains no comparison against a date — no cutoff, no "now". So what stops a
-   column from reaching forward into the delivery day?
-5. `price_lag_24h` is built from the target. Why is that allowed, and what exactly would make
-   it not allowed?
-6. `build()` used to require the price to exist before it would produce a row. That was
-   harmless for every one of the 63,575 historical rows. Why was it still wrong?
+Seventy-four euros before any noise at all. That is a Contract 2 problem, not a data-quality
+one, and no amount of better input touches it.
 
-*How the work is done*
+The claim was live in **six places**: README, the EDA page, `architecture.md`, the plan
+artifact, the work log and `learnings.md`. Corrected in the four that present as current;
+the two dated records keep the original with a pointer forward, because seeing understanding
+change is what they are for.
 
-7. Nine deliberate bugs were injected and all nine were caught — but one catch was rejected
-   anyway. What was wrong with it, and what does that say about reading a green test run?
-8. Yesterday a wrong explanation was corrected for the fourth time this month. Where does that
-   kind of error live, and what is the check that catches it?
+**Sixth instance, same shape, and worth naming again.** Every one of these has been a correct
+number with a wrong clause attached — a *because*, a *so*, a *which is why*. The error class
+that keeps recurring is the one with no automated guard, and all six were caught by someone
+reading.
+
+#### And it settled something larger
+
+The availability rule reads as a restriction: *use the published forecast, never the
+measurement*. Which invites treating the forecast as an honest second best.
+
+It is not. **Bids were placed against the published forecast, so that is what set the price.**
+The measurement taken afterwards never touched the auction. A model given the actual would be
+given something that played no part in forming the number it is predicting.
+
+Here the honest choice and the accurate choice are the same choice. That will not always be
+true, and it is worth noticing when it is. Now stated in `features.py` where someone reading
+the code will meet it.
+
+#### The EDA page, retitled around its own result
+
+*"Seven Years of DE-LU Prices"* was a category label — it said what the page contained, and it
+was written before the page contained a finding. It is now **"Eight Years, Three Markets"**,
+which is the result: the eight fitted lines sort into flat-and-tight (2018–20), steep-and-
+badly-fitting (2021–22), and steep-and-tight again (2023–25).
+
+Also: the third hero figure swapped from the −500 floor to the slope, the figure-1 caption
+dropped a gas attribution, and open question 3 now carries the 74 €/MWh number instead of a
+promise to measure it.
+
+#### Three things removed
+
+| Removed | Why |
+|---|---|
+| `notebooks/` and its `.gitignore` rules | Empty for two weeks. Exploration turned out to run through `just explore` and be presented as a page. |
+| `data/interim/` | Reserved on day one, never written to. |
+| `data/processed/` | Same — and labelled "feature frames ready for a model", which describes work this project does not do. |
+
+The rule that came out of it: **cache what is slow, limited or impossible to fetch again;
+rebuild everything else.** Raw data qualifies on all three counts. The feature table rebuilds
+in under a second and would only introduce a copy that can fall out of step with the code.
+
+Open item 8's trigger has now fired and is closed: `INTERIM` and `PROCESSED` were "waiting for
+`features.py`", and it did not need them.
+
+#### A stale comment, and a check that was not built
+
+`GATE_CLOSURE_LOCAL` carried a justification written on day one: the constant was a time object
+*"because the lag arithmetic in features.py will have to compare against it"*. It never does —
+the deadline is kept by shifting rows, not by consulting a clock. A prediction about code that
+did not exist yet, wearing a comment's authority, and never revisited.
+
+Deriving `MIN_PRICE_LAG_HOURS` from it was considered and **declined**. The arithmetic needs
+the latest delivery hour, the publication lag and a rounding rule — three fudge factors, and
+it would need its own test to prove the derivation right. **When a check is harder to be
+confident about than the thing it checks, it adds surface rather than safety.** A one-line
+pointer went in instead, so searching for the constant finds both ends.
+
+#### What the map was getting wrong
+
+`architecture.md` predated `features.py`. It showed that file writing a cache it never writes,
+omitted `explore.py` entirely, and sent a first-time reader to a verification script rather
+than to the file the whole backtest depends on being right.
+
+Rewritten around the boundary that actually matters: **above `features.py` everything is
+transport, below it everything is a decision.** Plus a section on the three treatments, because
+describing the lag as though it governed every column invited exactly the misreading it got.
+
+
+---
+
+### Next — Wednesday 23 September 2026
+
+**Stage 1, second half. `features.py` is built and enforced; nothing has been predicted yet.**
+
+#### Recap questions
+
+1. Nine of the seventeen feature columns are shifted backwards in time; eight are not. Shifting
+   all seventeen would satisfy the availability rule completely. Why would it still be wrong?
+2. `actual_load` may never be a feature, and the project would be worse without it. Name the two
+   jobs it does.
+3. Raw market data is cached to disk. The feature table is rebuilt every time. What is the rule
+   that separates them?
+4. Stage 2 may correct the TSO's wind forecast for its known bias, using years of
+   forecast-versus-actual pairs. That is not leakage. So why might it make the *price* forecast
+   worse rather than better?
 
 #### Then, in order
 
-1. **Revisit the EDA page.** It was written before the slope finding, the negative-price count
-   and the round-trip correction. Its title predates most of what it now says.
-2. **Drop `notebooks/`.** Empty, untracked, and superseded — findings are presented as a page,
-   not a notebook. The `.gitignore` checkpoint rules go with it.
-3. **The naive benchmark.** The standard choice for day-ahead prices is the same hour one week
-   earlier, which carries the daily and weekly shape at once. It is already in the frame as
-   `price_lag_168h`.
-4. **A first model, and rMAE against that benchmark.** No regime handling, deliberately:
-   without a baseline, nothing built to fix the two-regime problem can be shown to fix it.
-5. **Leak the target once, on purpose.** Fit with `price` in the feature list, record the
-   score, remove it, record the real one. Produces a calibration for what leakage looks like,
-   in a project whose central risk is not recognising it.
+1. **The naive benchmark.** The same hour one week earlier — already in the frame as
+   `price_lag_168h`, so the forecast is a column that exists. The work is agreeing what it is
+   measured on and writing that down.
+2. **`src/evaluate.py`** — MAE, and rMAE as model error divided by benchmark error. Small, and
+   the first file whose output is a *claim* rather than a description.
+3. **A first model, and rMAE against the benchmark.** No regime handling, deliberately: without
+   a baseline, nothing built at stage 2 to fix the three-market problem can be shown to fix it.
+4. **Leak the target once, on purpose.** Fit with `price` in the feature list, record the score,
+   remove it, record the real one. Produces a calibration for what leakage looks like from the
+   inside, in a project whose central risk is not recognising it.
 
-Open item 9 — the 37 dropped load-forecast days — is revisited once step 4 produces a number.
+Open item 9 — the 37 dropped load-forecast days — is revisited once step 3 produces a number.
 The signal to watch is errors concentrated in high-price hours, which would say the 2021–22
 training years are doing harm.
 
+**One thing to decide at step 1, before any number exists.** The benchmark has to be measured on
+the same rows the model is measured on, and `complete_rows()` currently drops 939. Whether the
+benchmark is scored on those same 62,636 rows or on everything it can reach is a choice that
+changes rMAE without changing either forecast. It should be written down before it is made, not
+after.
+
 Three things have earned their keep. The `src/sources/` split: for most of 9 September SMARD
 worked and the API did not, and nothing above that layer knows or cares which supplied the
-bytes. Deliberate mutation, three times now: five bugs caught on 16 September, four that were
-*not* caught on 17 September, and nine on 21 September of which one was caught for the wrong
-reason and prompted a second guard. And counting coverage rather than assuming it, which is
-the only reason seven hours of silently destroyed price data were ever found.
+bytes. Deliberate mutation, three times: five bugs caught on 16 September, four *not* caught on
+17 September, and nine on 21 September of which one was caught for the wrong reason and prompted
+a second guard. And counting coverage rather than assuming it, which is the only reason seven
+hours of silently destroyed price data were ever found.

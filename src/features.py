@@ -49,6 +49,12 @@ for _key in SOURCES:
 #
 # The four chosen are the standard set for this problem: yesterday, the two days
 # before it, and the same hour last week, which carries the weekly shape.
+#
+# The 24 below follows from `config.GATE_CLOSURE_LOCAL` being noon.  It is not
+# derived from it in code: the arithmetic needs the latest delivery hour, the
+# publication lag and a rounding rule, and would be harder to check than the
+# sentence above.  If that deadline ever moves, this is the number to revisit —
+# searching for GATE_CLOSURE_LOCAL finds both ends.
 
 MIN_PRICE_LAG_HOURS = 24
 PRICE_LAGS = (24, 48, 72, 168)
