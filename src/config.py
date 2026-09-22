@@ -25,10 +25,13 @@ import pandas as pd
 ROOT = Path(__file__).resolve().parents[1]      # repository root, one level above src/
 DATA = ROOT / "data"
 RAW = DATA / "raw"                              # as returned by the source, never edited
-INTERIM = DATA / "interim"                      # tz-normalised, hourly, gaps counted
-PROCESSED = DATA / "processed"                  # feature frames ready for a model
 REPORTS = ROOT / "reports"
 FIGURES = REPORTS / "figures"
+
+# There is deliberately no directory for feature frames.  One was reserved on day
+# one and never used: `features.py` rebuilds all 63,575 rows in under a second, so
+# a cache would buy a staleness problem and nothing else.  Raw data is cached
+# because re-fetching it is slow, rate-limited and — after a revision — impossible.
 
 # ── Time and resolution — Contract 5 ──────────────────────────────────────────
 # Two timezones with two different jobs.  Series are stored and joined in UTC,
@@ -62,9 +65,14 @@ BIDDING_ZONE_EIC = "10Y1001A1001A82H"           # DE-LU, the zone this project m
 DE_AT_LU_EIC = "10Y1001A1001A63L"               # pre-Oct-2018 DE-AT-LU; never use
 
 # The auction closes at 12:00 on D-1 and covers all delivery periods of day D.
-# Every feature must have been knowable before this moment (Contract 1).  A real
-# time object rather than a string, because the lag arithmetic in features.py
-# will have to compare against it rather than print it.
+# Every feature must have been knowable before this moment (Contract 1).
+#
+# No code reads this, and the original reason given here — that features.py would
+# compare lag arithmetic against it — turned out to be wrong.  The deadline is
+# enforced structurally instead: every price column is offset a fixed number of
+# rows backwards, chosen so the latest delivery hour cannot reach it.  That needs
+# no clock, so there is nothing to compare.  Kept as the market fact that explains
+# why MIN_PRICE_LAG_HOURS is 24 and not 12.
 GATE_CLOSURE_LOCAL = time(12, 0)                # on D-1, in TZ_MARKET
 HISTORY_START = "2018-10-01"                    # first day DE-LU existed as a zone
 

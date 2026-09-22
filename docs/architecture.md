@@ -150,14 +150,15 @@ a saved pull is never quietly overwritten would be impossible to keep.
 data/raw/         what ENTSO-E sent, on a UTC index, at the resolution it arrived in
   archive/        copies displaced by a revision.  Never deleted.
   manifest.csv    one line per series per pull
-data/interim/     empty, and nothing reads it
-data/processed/   empty, and nothing reads it
 ```
 
-**The last two are scaffolding that never found a use.** They were created on day one for a
-feature table that would be written to disk. `features.py` builds its 63,575 rows in under a
-second, so caching them would add a staleness problem in exchange for nothing. Recorded here
-rather than quietly left, because an empty directory implies a workflow that does not exist.
+**That is the whole of it — there is no directory for feature frames.** One was reserved on
+day one and removed on 22 September, unused. `features.py` rebuilds all 63,575 rows in under
+a second, so a cache would buy a staleness problem and nothing else.
+
+Raw data is cached for the opposite reason: re-fetching is slow, rate-limited, and after a
+revision on ENTSO-E's side, impossible. **Cache what you cannot cheaply get again. Rebuild
+everything else.**
 
 None of it is committed. It is rebuilt by a command. Any number reported in the README has
 to be reproducible from a clean copy of the repository — that is the Third Law, and it is
