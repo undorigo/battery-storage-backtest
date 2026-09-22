@@ -231,7 +231,7 @@ brew install just          # or: curl -sSf https://just.systems/install.sh | bas
 
 git clone <this repo> && cd battery-storage-backtest
 just setup                 # create the venv, install pinned dependencies
-just test                  # 81 contract tests — offline, no token needed
+just test                  # 101 contract tests — offline, no token needed
 
 cp .env.example .env       # then paste your ENTSO-E token into it
 just verify                # confirm the forecast series really are forecasts
@@ -261,14 +261,20 @@ BUILT
   src/config.py            split dates, EIC codes, battery parameters — single source of truth
   src/sources/entsoe.py    the data-item catalog: what is fetched, and what may reach a model
   src/data.py              caching and normalisation; the loaders everything else calls
+  src/features.py          the gate — where the availability rule is enforced, not declared
   scripts/                 entry points — one per command in the justfile
 
 PLANNED
-  src/features.py          feature construction; enforces the availability rule
   src/models.py            training, benchmarks, quantile models
   src/backtest.py          dispatch optimiser and settlement
   src/evaluate.py          rMAE, Diebold-Mariano, pinball loss, capture rate
 ```
+
+Everything above `features.py` is transport: getting data from ENTSO-E onto disk without
+damaging it. Everything below it is a decision. That file is where the question changes from
+*"did we fetch this correctly?"* to *"were we allowed to know this?"* — which is why it carries
+two independent guards and a test that rebuilds a delivery day from a world truncated at the
+auction deadline.
 
 ## Scope
 

@@ -21,28 +21,34 @@ would really have made.
 ## The shape
 
 ```
-   COMMANDS                      THE LIBRARY                    ON DISK
-   (scripts/)                      (src/)
+   COMMANDS                 THE LIBRARY                       ON DISK
+   (scripts/)                 (src/)
 
-                          ENTSO-E Transparency Platform
-                                     │
-                            sources/entsoe.py          what may we ask for?
-                                     │
-   just pull ──────────────▶     data.py    ──────────▶  data/raw/*.parquet
-   just verify ────────────▶     data.py               (fetches, compares,
-                                     │                   throws away)
-                            features.py     ──────────▶  data/processed/
-                                     │
-   just train ─────────────▶    models.py
-                                     │
-   just backtest ──────────▶   backtest.py
-                                     │
-                            evaluate.py     ──────────▶  reports/
+                    ENTSO-E Transparency Platform
+                                │
+   just verify ─────▶  sources/entsoe.py        the catalog: what may we ask
+                                │               for, and what may a model see?
+   just pull ───────▶      data.py      ─────▶  data/raw/*.parquet
+                                │               (fetch · repair · cache · never overwrite)
+   just explore ────▶    (reads data) ───────▶  reports/figures/
+                                │
+   ═══════════════════ features.py ════════════════════  ◀── THE GATE
+                                │                             Contract 1 lives here
+   just train ──────▶     models.py
+                                │
+   just backtest ───▶    backtest.py
+                                │
+                        evaluate.py    ───────▶  reports/
 
    config.py  ──  every box above reads its settings from here
 ```
 
 `src/` is the machine. `scripts/` are the buttons on the front.
+
+**The double line is the most important boundary in the project.** Above it, everything is
+transport — getting bytes from ENTSO-E onto disk without damaging them. Below it, everything
+is a decision. `features.py` is where the question changes from *"did we fetch this
+correctly?"* to *"were we allowed to know this?"*
 
 ---
 
@@ -55,14 +61,15 @@ Each file answers exactly one question. If you can't say which, it is doing too 
 | **Settings** | `src/config.py` | What are the fixed facts of this project? | built |
 | **Library** | `src/sources/entsoe.py` | What may we ask for, and what may the model see? | built |
 | | `src/data.py` | How do we get it, keep it, and make it consistent? | built |
-| | `src/features.py` | What does the model get to look at? | next |
-| | `src/models.py` | What will tomorrow's prices be? | planned |
+| | `src/features.py` | What does the model get to look at? | **built** |
+| | `src/models.py` | What will tomorrow's prices be? | next |
 | | `src/backtest.py` | What should the battery do, and what did that earn? | planned |
 | | `src/evaluate.py` | How good was it? | planned |
 | **Buttons** | `scripts/pull.py` | Go and get the data. | built |
 | | `scripts/verify_forecast_series.py` | Are these series really forecasts? | built |
+| | `scripts/explore.py` | What does the record actually contain? | built |
 
-Five of nine exist. Everything marked *planned* is a name and an intention, nothing more.
+Seven of ten exist. Everything marked *planned* is a name and an intention, nothing more.
 
 ---
 
@@ -143,9 +150,14 @@ a saved pull is never quietly overwritten would be impossible to keep.
 data/raw/         what ENTSO-E sent, on a UTC index, at the resolution it arrived in
   archive/        copies displaced by a revision.  Never deleted.
   manifest.csv    one line per series per pull
-data/interim/     part-way work
-data/processed/   the feature table the model trains on
+data/interim/     empty, and nothing reads it
+data/processed/   empty, and nothing reads it
 ```
+
+**The last two are scaffolding that never found a use.** They were created on day one for a
+feature table that would be written to disk. `features.py` builds its 63,575 rows in under a
+second, so caching them would add a staleness problem in exchange for nothing. Recorded here
+rather than quietly left, because an empty directory implies a workflow that does not exist.
 
 None of it is committed. It is rebuilt by a command. Any number reported in the README has
 to be reproducible from a clean copy of the repository — that is the Third Law, and it is
@@ -195,6 +207,82 @@ What the history actually contains is recorded in [data-quality.md](data-quality
 
 ---
 
+## The gate: how `features.py` keeps the future out
+
+This is the file the whole backtest rests on, so it is worth understanding before anything
+downstream of it.
+
+It turns three cached series into **one table, one row per delivery hour, 18 columns**. One
+column is the answer. The other seventeen are things the market knew before it had to decide.
+
+### There is no clock in it
+
+The natural guess is that it works by hiding data at the right moment — pick a time, cut
+everything after it, step forward, repeat. Search the file for a date comparison and you find
+nothing but comments.
+
+**The boundary is built into the shape of each column, not applied at a moment.**
+
+```python
+out["price_lag_24h"] = full.shift(24)
+```
+
+*Every row takes the value from 24 rows above.* Applied to all 63,575 rows at once. Row 3 and
+row 50,000 obey it identically, and no row can reach forward.
+
+Like a newspaper: every edition prints yesterday's closing prices, and you do not need to know
+today's date for that to be true.
+
+**Why 24 and not 12.** Prices for a day are published just after midday the day before, so at
+the moment of the decision all of yesterday is public and none of today is. A 12-hour lag is
+harmless for the 08:00 delivery hour and reaches into the answer for the 23:00 one. One rule
+covers all 24 hours, so the worst hour sets it.
+
+**This only works because publication is punctual.** Same timetable every day, forever, so a
+fixed offset of 24 rows *is* a statement about time. For a series that gets revised after
+publication the trick fails — which is why `CLAUDE.md` rules out outage data.
+
+### Two guards, because one covered only half
+
+| | Guards | Fails when |
+|---|---|---|
+| `SOURCES` + catalog check | the **declaration** | a forbidden series is added to the permitted list |
+| `data_load()` refusing | the **use** | any function reaches past the list without saying so |
+
+The second exists because the first was not enough: reaching past `SOURCES` is a one-word edit
+inside any function, and the list at the top would still read perfectly.
+
+### The test that cannot be satisfied by naming
+
+`test_deleting_the_future_changes_nothing` rebuilds one delivery day from a world truncated at
+the deadline and requires every feature value to be identical. Careful naming does not help;
+if a column reaches forward, a number moves.
+
+Writing it exposed a real fault. `build()` used to require the price to exist before producing
+a row — harmless across all 63,575 historical rows, and fatal for the only row that matters in
+production, because at midday on D−1 tomorrow has forecasts and no price. The target is now
+joined on last and may be absent.
+
+**So the backtest and the eventual live run use the same function.** Two code paths for one
+job is a standard way for a backtest to measure something the live system never does.
+
+### What is in the table
+
+| Group | Columns | Why it is allowed |
+|---|---|---|
+| Target | `price` | the answer; never a feature |
+| Price memory | `price_lag_24h · 48h · 72h · 168h` | far enough back to be public |
+| Yesterday | `price_d1_min · max · mean · last · spread` | a day that had fully cleared |
+| Forecasts | `load_forecast · wind_onshore · wind_offshore · solar · residual_load` | published the previous morning |
+| Calendar | `hour · dayofweek · is_weekend` | known forever |
+
+The forecast columns need no lag, and they are not a second-best substitute for measured
+output. **Bids were placed against the published forecast, so that is what set the price.**
+The measurement taken afterwards never touched the auction. Here the rule and the better
+modelling choice happen to agree.
+
+---
+
 ## Two guards, doing different jobs
 
 | | `tests/` | `scripts/verify_forecast_series.py` |
@@ -207,7 +295,7 @@ What the history actually contains is recorded in [data-quality.md](data-quality
 One is a spelling check. The other is a taste test.
 
 You need both. The spelling check alone will pass happily while the catalog points at
-entirely the wrong data — we proved that by breaking it on purpose, and all 40 tests
+entirely the wrong data — we proved that by breaking it on purpose, and the whole suite
 shrugged.
 
 Run verify when a new entry is added to the catalog, a request parameter changes, the
@@ -234,6 +322,9 @@ Open these four, in this order. Each one only needs the ones above it.
 1. **`justfile`** — what can I run?
 2. **`src/config.py`** — what is fixed and not up for debate?
 3. **`src/sources/entsoe.py`** — what data exists, and what is allowed?
-4. **`scripts/verify_forecast_series.py`** — one worked example that uses 2 and 3 together.
+4. **`src/features.py`** — where that permission stops being a declaration. The file the
+   rest of the project depends on being right.
+5. **`tests/test_features.py`** — specifically `test_deleting_the_future_changes_nothing`,
+   which is the shortest statement of what this project is trying to be careful about.
 
 Then read [CLAUDE.md](../CLAUDE.md) for the rules that govern changing any of it.
