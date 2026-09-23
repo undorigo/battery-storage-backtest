@@ -46,9 +46,22 @@ def aligned(predicted: pd.Series, actual: pd.Series) -> tuple[pd.Series, pd.Seri
 # So: plain average of the absolute misses.
 #
 # YOUR TURN.  Three steps:
-#   1. line the two series up with `aligned` above
-#   2. take the difference, then the absolute value of it
-#   3. return the mean, as a plain float
+#
+#   1. Trim both series to the hours they share.  `aligned` above does it, and
+#      hands back *two* series, so catch them in two names:
+#
+#          p, a = aligned(predicted, actual)
+#
+#      Skip this and pandas will match the two by timestamp anyway, filling the
+#      hours only one of them covers with blanks — and `.mean()` skips blanks, so
+#      the answer comes back looking fine and is an average over fewer hours than
+#      you think.
+#
+#   2. Subtract one from the other, and take the absolute value: `(p - a).abs()`.
+#      Absolute because a miss of 10 too high and a miss of 10 too low are both
+#      misses of 10, and adding them as signed numbers would cancel to zero.
+#
+#   3. Take the mean of that, and return it as a plain number: `float(...)`.
 
 def mae(predicted: pd.Series, actual: pd.Series) -> float:
     """Average size of a miss, in EUR/MWh. Lower is better; zero is perfect."""
