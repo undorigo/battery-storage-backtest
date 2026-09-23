@@ -86,12 +86,16 @@ def test_forecast_is_indexed_like_the_frame():
     assert out.index.equals(df.index)
 
 
-def test_a_model_never_sees_the_target_when_predicting():
+def test_blanking_the_target_changes_nothing():
     """The discipline of this stage, as one assertion.
 
     Blank out the answers and predict again. If the forecast moves, the target
     reached the prediction path — which is the failure this whole project is built
     to avoid, and which nothing else would report.
+
+    Deliberately named to match `test_deleting_the_future_changes_nothing` in
+    tests/test_features.py. Same shape, one level down: that one stops a column
+    reaching forward in time, this one stops the answer column reaching sideways.
     """
     df = frame()
     model = M.fit(M.linear(), df)
