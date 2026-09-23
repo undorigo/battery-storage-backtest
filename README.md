@@ -235,32 +235,78 @@ library silently dropped before anyone counted.
 
 ## Running it
 
-Commands live in the [`justfile`](justfile). Run `just` with no argument for the menu.
+**Prerequisite: Python 3.11.** Nothing else. The exact version is pinned in
+`.python-version`; anything 3.11.x will do.
+
+### Get it running — three commands, no extra tooling
 
 ```bash
-brew install just          # or: curl -sSf https://just.systems/install.sh | bash -s -- --to ~/.local/bin
-
 git clone <this repo> && cd battery-storage-backtest
-just setup                 # create the venv, install pinned dependencies
-just test                  # 124 tests — offline, no token needed (16 red: stage 1 in progress)
 
-cp .env.example .env       # then paste your ENTSO-E token into it
-just verify                # confirm the forecast series really are forecasts
-just pull                  # download the full history, ~34 MB, about 20 minutes
-just explore               # the headline numbers above, and the figures
+python3 -m venv .venv                              # a project-local environment
+.venv/bin/pip install -r requirements.txt          # once, not per terminal session
+.venv/bin/python -m pytest tests/ -q               # 124 tests, offline, no token
 ```
 
-`just pull` fetches the whole history every time and never overwrites what is already
-cached. Run it twice and every series reports `unchanged` — that is the reproducibility
-check, and it is why a revision on ENTSO-E's side cannot rewrite the data a published
-result rested on. Displaced copies are kept under `data/raw/archive/`, and every pull
-appends a line to `data/raw/manifest.csv`.
+That's the whole setup. `pip install` writes into `.venv/` on disk, so it persists — you
+never repeat it unless `requirements.txt` changes, and you never need to "activate"
+anything, because every command below names the interpreter explicitly.
 
-`just` searches parent directories, so any of these work from anywhere in the project. The
-same commands are available in VS Code under *Tasks: Run Task*.
+> **Currently 16 of the 124 tests fail on purpose.** Stage 1 is mid-build: the scoring
+> functions in `src/evaluate.py` and `src/models.py` are written as explained skeletons with
+> tests defining what they must do. This is a work-in-progress state, not a broken clone.
 
-Python 3.11.14, pinned in `.python-version`. Dependencies are pinned exactly in
-`requirements.txt` — a clean clone resolves to the same versions.
+### See it work, without a token
+
+```bash
+.venv/bin/python -m scripts.explore     # headline numbers and the three figures
+```
+
+Needs the cached data — see the next section. Everything above this line runs on a fresh
+clone with no account anywhere.
+
+### With an ENTSO-E account
+
+The platform is free; registration takes a day or two because the API token is granted by
+hand. Then:
+
+```bash
+cp .env.example .env                                 # paste your token into it
+.venv/bin/python -m scripts.verify_forecast_series   # ~20 s — are the forecasts forecasts?
+.venv/bin/python -m scripts.pull                     # ~20 min, ~34 MB
+.venv/bin/python -m scripts.explore                  # now has data to describe
+```
+
+### Shorter commands, optional
+
+Those `.venv/bin/python -m ...` invocations are what the [`justfile`](justfile) wraps. If you
+install [`just`](https://just.systems), each becomes one word:
+
+```bash
+brew install just                  # macOS
+pip install rust-just              # any platform, ships the same binary
+# or: curl -sSf https://just.systems/install.sh | bash -s -- --to ~/.local/bin
+
+just                               # the menu
+just setup · test · verify · pull · explore · clean
+```
+
+**Nothing requires it.** The justfile is the single source of truth for what each command is,
+so it doubles as documentation — read it and you have the raw commands, which is why they are
+not duplicated here to drift out of step. `just` also searches parent directories, so its
+recipes work from anywhere in the project, and the same commands appear in VS Code under
+*Tasks: Run Task*.
+
+### Why the pull is safe to re-run
+
+It fetches the whole history every time and **never overwrites what is already cached.** Run
+it twice and every series reports `unchanged` — that is the reproducibility check made
+observable, and it is why a revision on ENTSO-E's side cannot rewrite the data a published
+result rested on. Displaced copies are kept under `data/raw/archive/`, and every pull appends
+a line to `data/raw/manifest.csv`.
+
+Dependencies are pinned exactly in `requirements.txt`, hand-curated rather than frozen, so a
+clean clone resolves to the same versions that produced every number above.
 
 ## Structure
 
