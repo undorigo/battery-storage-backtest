@@ -71,7 +71,8 @@ def aligned(predicted: pd.Series, actual: pd.Series) -> tuple[pd.Series, pd.Seri
 
 def mae(predicted: pd.Series, actual: pd.Series) -> float:
     """Average size of a miss, in EUR/MWh. Lower is better; zero is perfect."""
-    raise NotImplementedError("mae: see the notes above this line")
+    p, a = aligned(predicted, actual)
+    return float((p - a).abs().mean())
 
 
 # ── Relative mean absolute error ──────────────────────────────────────────────
@@ -99,7 +100,7 @@ def mae(predicted: pd.Series, actual: pd.Series) -> float:
 
 def rmae(predicted: pd.Series, benchmark: pd.Series, actual: pd.Series) -> float:
     """The model's error as a fraction of the benchmark's. Below 1 is a win."""
-    raise NotImplementedError("rmae: see the notes above this line")
+    return mae(predicted, actual) / mae(benchmark, actual)
 
 
 # ── Reporting ─────────────────────────────────────────────────────────────────

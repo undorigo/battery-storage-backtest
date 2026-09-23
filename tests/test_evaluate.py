@@ -126,6 +126,41 @@ def test_a_perfect_model_scores_zero():
     assert E.rmae(actual, benchmark, actual) == 0.0
 
 
+def test_both_forecasts_are_scored_on_the_same_hours():
+    """The numerator and the denominator must sit the same exam.
+
+    Here the benchmark reaches an hour the model does not — exactly the real case,
+    where the naive rule has a value for the opening week and a fitted model does
+    not. Scored separately, the two errors come from different sets of hours and
+    the ratio between them means nothing.
+
+    The hour the model is missing is one the benchmark happens to get right, so
+    including it would flatter the benchmark and make the model look worse.
+    """
+    actual = series([100, 100, 100, 100])
+    benchmark = series([100, 120, 120, 120])            # perfect on hour 0, out by 20 after
+    model = series([None, 110, 110, 110])               # no forecast for hour 0, out by 10 after
+
+    # On the three hours all of them cover: model 10, benchmark 20 -> exactly 0.5.
+    assert E.rmae(model, benchmark, actual) == pytest.approx(0.5)
+
+
+def test_an_hour_missing_from_the_benchmark_is_dropped_too():
+    """Same rule in the other direction — whichever side is short, both give it up.
+
+    The model's error is deliberately uneven: 50 on the hour the benchmark cannot
+    reach, 10 on the rest. An even error would make this test pass whether the hour
+    was dropped or not, and a test that cannot fail is not a test.
+    """
+    actual = series([100, 100, 100])
+    benchmark = series([None, 120, 120])                # nothing for hour 0
+    model = series([50, 110, 110])                      # out by 50 there, 10 elsewhere
+
+    # Both sides scored on hours 1 and 2 only: model 10, benchmark 20 -> 0.5.
+    # Score the model on all three and its MAE becomes 23.3, giving 1.17.
+    assert E.rmae(model, benchmark, actual) == pytest.approx(0.5)
+
+
 # ── The report ────────────────────────────────────────────────────────────────
 
 @pending
