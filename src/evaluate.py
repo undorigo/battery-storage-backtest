@@ -5,10 +5,9 @@ and one that actually happened, and returns a figure.  That separation is on
 purpose: a scoring rule that knows which model it is scoring is a scoring rule that
 can flatter one of them.
 
-Two functions carry the ideas and are yours to write.  The rest is plumbing.
-
-Run `just test` while you work — `tests/test_evaluate.py` fails until they are right,
-and each failure says what it expected.
+The one rule that governs all of it: a model and the benchmark it is judged against
+must be scored on the same hours.  `aligned` is where that is enforced, which is why
+every function here starts by calling it.
 """
 
 from __future__ import annotations
@@ -30,13 +29,28 @@ import pandas as pd
 # not agree on what they can reach: a gradient-boosted tree predicts happily
 # through missing features where a linear fit refuses.
 
-def aligned(predicted: pd.Series, actual: pd.Series) -> tuple[pd.Series, pd.Series]:
-    """The hours both series actually cover, in the same order, with no blanks."""
-    both = pd.concat([predicted.rename("p"), actual.rename("a")], axis=1, join="inner")
-    both = both.dropna()
-    if both.empty:
+def aligned(*series: pd.Series) -> tuple[pd.Series, ...]:
+    """Every series passed in, trimmed to the hours all of them cover.
+
+    Takes two or three.  Two for a plain error, three when a model and a benchmark
+    are being compared — and in that case all three have to be trimmed *together*,
+    or the two errors end up measured over different hours and the ratio between
+    them describes nothing.
+
+    Returns one series per argument, in the order given.
+    """
+    if len(series) < 2:
+        raise ValueError("aligned needs at least two series to line up")
+
+    # `inner` is not load-bearing: an outer join followed by `dropna` leaves exactly
+    # the same rows, because a timestamp only one series carries arrives as a blank
+    # and is dropped anyway.  Kept for the smaller intermediate frame, and because
+    # it states the intent — mutating it to `outer` changes nothing, verified.
+    named = [s.rename(str(i)) for i, s in enumerate(series)]    # positions, so names cannot clash
+    frame = pd.concat(named, axis=1, join="inner").dropna()
+    if frame.empty:
         raise ValueError("predicted and actual share no hours — check the index and timezone")
-    return both["p"], both["a"]
+    return tuple(frame[str(i)] for i in range(len(series)))
 
 
 # ── Mean absolute error ───────────────────────────────────────────────────────
@@ -51,23 +65,11 @@ def aligned(predicted: pd.Series, actual: pd.Series) -> tuple[pd.Series, pd.Seri
 #
 # So: plain average of the absolute misses.
 #
-# YOUR TURN.  Three steps:
-#
-#   1. Trim both series to the hours they share.  `aligned` above does it, and
-#      hands back *two* series, so catch them in two names:
-#
-#          p, a = aligned(predicted, actual)
-#
-#      Skip this and pandas will match the two by timestamp anyway, filling the
-#      hours only one of them covers with blanks — and `.mean()` skips blanks, so
-#      the answer comes back looking fine and is an average over fewer hours than
-#      you think.
-#
-#   2. Subtract one from the other, and take the absolute value: `(p - a).abs()`.
-#      Absolute because a miss of 10 too high and a miss of 10 too low are both
-#      misses of 10, and adding them as signed numbers would cancel to zero.
-#
-#   3. Take the mean of that, and return it as a plain number: `float(...)`.
+# Two details that are easy to get wrong.  The absolute value matters because a
+# miss of 10 too high and a miss of 10 too low are both misses of 10, and adding
+# them signed would cancel to nothing.  And the trim has to come first, or pandas
+# matches the two by timestamp, blanks the hours only one of them covers, and the
+# average quietly runs over fewer hours than you think.
 
 def mae(predicted: pd.Series, actual: pd.Series) -> float:
     """Average size of a miss, in EUR/MWh. Lower is better; zero is perfect."""
@@ -93,14 +95,21 @@ def mae(predicted: pd.Series, actual: pd.Series) -> float:
 # model first and you have a numerator with nothing underneath it — and a strong
 # pull towards choosing a denominator that flatters it.
 #
-# YOUR TURN.  Two steps:
-#   1. work out the MAE of the model and the MAE of the benchmark, on the *same*
-#      actual prices, using the function you just wrote
-#   2. return the first divided by the second
+# Note what this does *not* divide by.  Dividing each miss by the price it missed
+# (*mean absolute percentage error*) breaks here, because our prices pass through
+# zero.  This divides one average miss by another, and an average of absolute
+# values is never negative — so negative prices cannot reach the denominator.
+#
+# All three series are trimmed together, and that is the whole point of the
+# function.  Score the model and the benchmark separately and each is measured on
+# whatever hours it happens to reach: the naive rule has a value for the opening
+# week where a fitted model has none, so it would collect a free, easy hour and
+# the ratio would move without either forecast changing.
 
 def rmae(predicted: pd.Series, benchmark: pd.Series, actual: pd.Series) -> float:
     """The model's error as a fraction of the benchmark's. Below 1 is a win."""
-    return mae(predicted, actual) / mae(benchmark, actual)
+    p, b, a = aligned(predicted, benchmark, actual)     # one trim, so one set of hours
+    return mae(p, a) / mae(b, a)
 
 
 # ── Reporting ─────────────────────────────────────────────────────────────────
@@ -109,17 +118,22 @@ def rmae(predicted: pd.Series, benchmark: pd.Series, actual: pd.Series) -> float
 #
 # `n` is carried deliberately.  Two scores computed on different numbers of hours
 # are not comparable, and the count is the only way to notice that has happened.
+#
+# The trim happens once, here, and the trimmed series are what get scored — so the
+# three numbers in a row all describe the same hours.  Without that, `n` would be
+# auditing a different set than the `rmae` beside it, which is worse than having no
+# audit at all.
 
 def score(name: str, split: str, predicted: pd.Series, benchmark: pd.Series,
           actual: pd.Series) -> dict:
     """One row: what was forecast, on which split, and how it did."""
-    p, a = aligned(predicted, actual)
+    p, b, a = aligned(predicted, benchmark, actual)
     return {
         "model": name,
         "split": split,
         "n": len(p),
-        "mae": mae(predicted, actual),
-        "rmae": rmae(predicted, benchmark, actual),
+        "mae": mae(p, a),
+        "rmae": rmae(p, b, a),                          # already trimmed; the second trim is a no-op
     }
 
 
