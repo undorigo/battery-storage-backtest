@@ -18,11 +18,17 @@ import pandas as pd
 
 # ── Lining the two columns up ─────────────────────────────────────────────────
 # Every score below compares two series hour by hour.  If they cover different
-# hours, pandas will happily line them up and put a blank in the gaps — and a
-# blank quietly drops out of an average, so the score comes back looking fine and
-# is computed on fewer hours than you think.
+# hours, pandas matches them by timestamp and puts a blank in the gaps — and a
+# blank quietly drops out of an average, so the score comes back looking correct
+# and is computed over fewer hours than you think.  Nothing errors.
 #
-# So the comparison is made explicit once, here, and every score starts with it.
+# The inner join is the part that earns its place today: a forecast scoped to one
+# split, compared against the whole price history, is an easy mistake and a silent
+# one.  The empty check catches a timezone or index bug that leaves no overlap at
+# all.  The `dropna` is precaution — measured on 23 September, no forecast on the
+# scored rows carries a blank — kept because it costs one line and the models do
+# not agree on what they can reach: a gradient-boosted tree predicts happily
+# through missing features where a linear fit refuses.
 
 def aligned(predicted: pd.Series, actual: pd.Series) -> tuple[pd.Series, pd.Series]:
     """The hours both series actually cover, in the same order, with no blanks."""
