@@ -242,7 +242,7 @@ brew install just          # or: curl -sSf https://just.systems/install.sh | bas
 
 git clone <this repo> && cd battery-storage-backtest
 just setup                 # create the venv, install pinned dependencies
-just test                  # 101 contract tests — offline, no token needed
+just test                  # 124 tests — offline, no token needed (16 red: stage 1 in progress)
 
 cp .env.example .env       # then paste your ENTSO-E token into it
 just verify                # confirm the forecast series really are forecasts
