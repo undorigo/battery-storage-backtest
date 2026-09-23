@@ -26,6 +26,7 @@ One row per working day. Follow the date link for the detail.
 | [18 Sep 2026](#d20260918) | Residual load measured: mean down 16 %, peak down 2 %. Market analysis — ancillary services are saturating and pushing value onto wholesale, which makes forecast quality the whole competitive surface. Figures read: the slope tripled, a negative-price claim was wrong, and stage 3 rescoped to which hours rather than whether to act. |
 | [21 Sep 2026](#d20260921) | Recap interview: two answers wrong, one produced a repo correction. Stage plan given an address in the README. Training window decided by measurement. `features.py` built — Contract 1 enforced rather than declared, 9/9 mutants caught. |
 | [22 Sep 2026](#d20260922) | Recap: an answer overturned how the slope finding was framed, in six places. EDA page retitled around its actual result. `notebooks/`, `data/interim/` and `data/processed/` removed unused. Map and README rewritten around the gate. |
+| [23 Sep 2026](#d20260923) | Stage 1 scaffolded and half-built: `evaluate.py` written by hand, benchmark in place. Modelling approach aligned — two models not six, MLflow deferred with a stated trigger. Setup ungated from homebrew. |
 
 [Commits](#commits) · [Open items](#open-items) · [Next](#next)
 
@@ -1290,48 +1291,156 @@ describing the lag as though it governed every column invited exactly the misrea
 
 ---
 
-### Next — Wednesday 23 September 2026
+<a id="d20260923"></a>
+### 23 September 2026 — aligning on the modelling approach, then building half of it
 
-**Stage 1, second half. `features.py` is built and enforced; nothing has been predicted yet.**
+#### Two decisions taken before any code
+
+**Six algorithms, or two?** The instinct was a bake-off — random forest, boosting, linear,
+a neural net — to see what wins. Costed honestly it came to nine or ten hours against three,
+and most of the extra was not the models:
+
+- untuned defaults compare *libraries*, not algorithms, so each needs a hyperparameter search
+- searching on validation makes the validation score optimistic, which needs a nested split
+- two of the six need feature scaling, which introduces the fit-on-train-only trap that
+  `CLAUDE.md` names as a danger zone — a new leakage surface the other four do not have
+- and "is A really better than B" is a significance test, which the plan already places at
+  stage 2
+
+**Decided: naive, linear, gradient boosting.** The bake-off moves to stage 2, where tuning
+and significance testing are the stage's actual subject and the stage-1 runs become the
+control group rather than being thrown away.
+
+The deciding argument was not cost. **The problem we know we have is three markets inside the
+training data, worth 74 EUR/MWh of transfer error, and no algorithm choice touches it.**
+Comparing six models on a mis-specified problem measures which one tolerates
+mis-specification best.
+
+**MLflow now, or later?** Chosen, then reconsidered on request, and the reassessment reversed
+it. Experiment tracking solves *"I ran something and cannot remember what"* — and this
+repository already solves that: every number regenerates from a clean clone in seconds, the
+work log carries the reasoning, and git carries the code. **You cannot lose a run here, not
+because runs are recorded but because they are cheap to recreate.**
+
+And the setup cost does not compound. Installing it is the same 45 minutes whenever it
+happens, unlike tests, where early adoption changes everything written afterwards.
+
+**Trigger recorded so the deferral is a decision rather than a gap: adopt tracking when a run
+costs more to reproduce than to record.** Stage 2's search hits that on all three counts —
+dozens of trials, hours of compute, per-trial parameters that cannot be recovered cheaply.
+Stage 1 hits none.
+
+Worth noting the portfolio argument runs the same way. Tracking wired up for three runs reads
+as tooling adopted because it is expected. Adopted at stage 2 for a sixty-trial search, with
+the deferral written down, reads as judgement — and `CLAUDE.md` is explicit about which is
+worth more.
+
+#### `src/evaluate.py` — built by hand, and the first version was wrong
+
+Scaffolded rather than delivered: every block explained, the benchmark written out as the
+worked example, `mae` and `rmae` left with their reasoning and no body, tests written first.
+
+Both were implemented correctly against the notes and passed all nine tests. **And `rmae` was
+still wrong**, because the notes were incomplete.
+
+```
+mae(model, actual)      -> trimmed to hours the model reaches
+mae(benchmark, actual)  -> trimmed to hours the benchmark reaches
+```
+
+Two independent trims. The naive rule has a value for the opening week where a fitted model
+has none, so the benchmark collects a free hour and **the ratio moves without either forecast
+changing** — 0.67 where the answer is 0.50, a third of the score from one hour in four.
+
+Fixed by widening `aligned` to take any number of series and trimming them as a set. `rmae`
+and `score` both go through it, so the hour count a row reports is the hour count its own
+numbers came from — otherwise `n` audits a different set than the score beside it, which is
+worse than no audit.
+
+**Four injected bugs, two caught, and the two survivors meant different things.** One was a
+genuinely missing test: breaking `score` so it trimmed only two of three went unnoticed,
+because the existing test used three series with identical coverage and could not
+discriminate. The other was equivalent — an outer join followed by dropping blanks leaves
+exactly the rows an inner join would, so the setting is redundant. Noted in place rather than
+changed.
+
+#### Two questions that improved the repository
+
+**"Are we sure forecasts are ever actually missing?"** On the scored rows, no — measured, and
+the blank-dropping never fires. The earlier example was accurate but drawn from a path the
+project does not take, which made a precaution look like a fix. The comment now says which
+guard is measured and which is insurance.
+
+The check did turn up something new: **the two estimators do not agree on reach.** A
+gradient-boosted tree predicts through missing features; a linear fit refuses. So "score each
+model on whatever it can reach" would give them different exams, and only one would say so.
+That converts the open scoring decision from a judgement call into a measured one.
+
+**"Is sixteen failing tests what an outside user sees?"** Yes, and that was a real fault.
+Test-first is a sound local workflow; a red default branch is a claim about the project's
+state, and it was a false one. **The terminal is read before the README**, so a footnote
+never arrives in time.
+
+The tests now expect one specific failure — the function being absent — and nothing else, so
+a wrong implementation still fails loudly and a correct one reports an unexpected pass as the
+signal to remove the marker. Verified by implementing one function correctly, then breaking
+it, and checking each outcome.
+
+#### And the first instruction was a prerequisite
+
+The setup began `brew install just`: macOS-only, for a tool needed before the repository
+could do anything, in a project whose only real prerequisite is Python. It was also circular —
+`just setup` builds the environment, but `just` had to exist first.
+
+Plain commands are now the documented path, verified on a genuinely fresh clone rather than
+assumed. `just` stays as optional shorthand with a platform-independent install. The justfile
+is deliberately **not** duplicated in the README, because two copies of the same commands is
+the drift this project has already been bitten by twice this month.
+
+
+---
+
+### Next — Thursday 24 September 2026
+
+**`src/evaluate.py` is finished. `src/models.py` has the benchmark and four unwritten
+functions. 120 tests pass, 7 are specifications not yet met.**
 
 #### Recap questions
 
-1. Nine of the seventeen feature columns are shifted backwards in time; eight are not. Shifting
-   all seventeen would satisfy the availability rule completely. Why would it still be wrong?
-2. `actual_load` may never be a feature, and the project would be worse without it. Name the two
-   jobs it does.
-3. Raw market data is cached to disk. The feature table is rebuilt every time. What is the rule
-   that separates them?
-4. Stage 2 may correct the TSO's wind forecast for its known bias, using years of
-   forecast-versus-actual pairs. That is not leakage. So why might it make the *price* forecast
-   worse rather than better?
+1. `rmae` divides one number by another. Why can a market with negative prices not break that
+   division, when it does break the percentage error we ruled out?
+2. A model is scored on the hours it can reach; the benchmark on the hours *it* can reach.
+   Both averages are computed correctly. Why is the ratio between them still meaningless?
+3. Four bugs were injected into the scoring code and two survived. One meant a test was
+   missing and one meant a line was redundant. How do you tell those apart?
+4. A stranger clones the repository and runs the tests. What should they see, and why does
+   that matter more than what the README says about it?
 
 #### Then, in order
 
-1. **The naive benchmark.** The same hour one week earlier — already in the frame as
-   `price_lag_168h`, so the forecast is a column that exists. The work is agreeing what it is
-   measured on and writing that down.
-2. **`src/evaluate.py`** — MAE, and rMAE as model error divided by benchmark error. Small, and
-   the first file whose output is a *claim* rather than a description.
-3. **A first model, and rMAE against the benchmark.** No regime handling, deliberately: without
-   a baseline, nothing built at stage 2 to fix the three-market problem can be shown to fix it.
-4. **Leak the target once, on purpose.** Fit with `price` in the feature list, record the score,
-   remove it, record the real one. Produces a calibration for what leakage looks like from the
-   inside, in a project whose central risk is not recognising it.
+1. **Finish `src/models.py`** — `linear`, `gbm`, `fit`, `forecast`. Four short functions; the
+   notes above each one carry the steps. The pair to watch is `fit` and `forecast`, where
+   `F.feature_columns(frame)` is the single call that keeps the answer out of the prediction
+   path.
+2. **`scripts/train.py`** — thin, per the map: read the settings, call the library, print the
+   table. **The decision to make first, in writing:** every forecast is scored on the same
+   62,636 complete rows. The evidence is now measured rather than assumed — a gradient-boosted
+   tree predicts through missing features and a linear fit refuses, so "score each on what it
+   reaches" gives them different exams.
+3. **The first rMAE.** Naive, linear and GBM, on validation. The test period stays untouched
+   until the stage closes — Contract 2, and it is evaluated once.
+4. **Leak the target on purpose.** Fit with `price` in the feature list, record the score,
+   take it out, record the real one. A calibration for what leakage looks like from the
+   inside, in a project whose central risk is failing to recognise it.
 
 Open item 9 — the 37 dropped load-forecast days — is revisited once step 3 produces a number.
-The signal to watch is errors concentrated in high-price hours, which would say the 2021–22
-training years are doing harm.
+The signal is errors concentrated in high-price hours, which would say the 2021–22 training
+years are doing harm.
 
-**One thing to decide at step 1, before any number exists.** The benchmark has to be measured on
-the same rows the model is measured on, and `complete_rows()` currently drops 939. Whether the
-benchmark is scored on those same 62,636 rows or on everything it can reach is a choice that
-changes rMAE without changing either forecast. It should be written down before it is made, not
-after.
-
-Three things have earned their keep. The `src/sources/` split: for most of 9 September SMARD
-worked and the API did not, and nothing above that layer knows or cares which supplied the
-bytes. Deliberate mutation, three times: five bugs caught on 16 September, four *not* caught on
-17 September, and nine on 21 September of which one was caught for the wrong reason and prompted
-a second guard. And counting coverage rather than assuming it, which is the only reason seven
-hours of silently destroyed price data were ever found.
+Four things have earned their keep. The `src/sources/` split: for most of 9 September SMARD
+worked and the API did not, and nothing above that layer knew or cared. Deliberate mutation,
+four times now — and on 23 September the two survivors meant different things, which is the
+distinction that makes the technique worth the effort. Counting coverage rather than assuming
+it, the only reason seven hours of silently destroyed price data were ever found. And asking
+"does that actually happen?" before building for it, which this week has removed a stage's
+justification, two directories and a scoring guard's overstated claim.
