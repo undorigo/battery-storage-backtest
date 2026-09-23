@@ -14,6 +14,22 @@ import pytest
 
 from src import evaluate as E
 
+# ── Marking what is not written yet ───────────────────────────────────────────
+# These tests describe functions that do not exist, so they cannot pass. Rather
+# than leaving the suite red — which tells anyone cloning this that it is broken —
+# they are marked as expected failures, and narrowly: `raises=NotImplementedError`
+# means the marker only forgives the *absent* function.
+#
+# So the three outcomes stay distinct, which is the point:
+#   not written yet   -> xfail   (suite stays green)
+#   written, wrong    -> FAIL    (a real, loud failure)
+#   written, right    -> XPASS   (visible progress; remove the marker)
+
+pending = pytest.mark.xfail(
+    raises=NotImplementedError,
+    reason="stage 1: not implemented yet — see the notes above it in src/",
+)
+
 
 def series(values: list[float], start: str = "2024-01-01") -> pd.Series:
     """A short hourly series, so every test reads as a handful of numbers."""
@@ -48,12 +64,14 @@ def test_aligned_refuses_two_series_that_never_overlap():
 # ── MAE ───────────────────────────────────────────────────────────────────────
 # Misses of 2, 2 and 0 -> average 4/3.
 
+@pending
 def test_mae_is_the_average_size_of_a_miss():
     predicted = series([10, 20, 30])
     actual = series([12, 18, 30])
     assert E.mae(predicted, actual) == pytest.approx(4 / 3)
 
 
+@pending
 def test_mae_does_not_care_which_direction_the_miss_went():
     actual = series([50, 50])
     too_high = series([60, 60])
@@ -61,11 +79,13 @@ def test_mae_does_not_care_which_direction_the_miss_went():
     assert E.mae(too_high, actual) == E.mae(too_low, actual) == 10.0
 
 
+@pending
 def test_a_perfect_forecast_scores_zero():
     actual = series([7, -3, 112.5])
     assert E.mae(actual, actual) == 0.0
 
 
+@pending
 def test_mae_survives_negative_prices():
     """The reason MAE and not a percentage error: these prices cross zero."""
     predicted = series([-100, 0, 100])
@@ -75,6 +95,7 @@ def test_mae_survives_negative_prices():
 
 # ── rMAE ──────────────────────────────────────────────────────────────────────
 
+@pending
 def test_the_benchmark_scores_exactly_one_against_itself():
     """The property that makes rMAE readable: 1.0 means 'no better than nothing'."""
     actual = series([10, 20, 30, 40])
@@ -82,6 +103,7 @@ def test_the_benchmark_scores_exactly_one_against_itself():
     assert E.rmae(benchmark, benchmark, actual) == pytest.approx(1.0)
 
 
+@pending
 def test_half_the_error_scores_one_half():
     actual = series([100, 100, 100])
     benchmark = series([120, 120, 120])                  # out by 20
@@ -89,6 +111,7 @@ def test_half_the_error_scores_one_half():
     assert E.rmae(model, benchmark, actual) == pytest.approx(0.5)
 
 
+@pending
 def test_a_model_worse_than_the_benchmark_scores_above_one():
     actual = series([100, 100])
     benchmark = series([105, 105])                       # out by 5
@@ -96,6 +119,7 @@ def test_a_model_worse_than_the_benchmark_scores_above_one():
     assert E.rmae(model, benchmark, actual) == pytest.approx(4.0)
 
 
+@pending
 def test_a_perfect_model_scores_zero():
     actual = series([10, 20, 30])
     benchmark = series([15, 15, 15])
@@ -104,6 +128,7 @@ def test_a_perfect_model_scores_zero():
 
 # ── The report ────────────────────────────────────────────────────────────────
 
+@pending
 def test_score_carries_the_hour_count_so_two_rows_can_be_compared():
     actual = series([10, 20, 30])
     benchmark = series([12, 22, 32])

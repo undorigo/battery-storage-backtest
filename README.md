@@ -252,9 +252,10 @@ That's the whole setup. `pip install` writes into `.venv/` on disk, so it persis
 never repeat it unless `requirements.txt` changes, and you never need to "activate"
 anything, because every command below names the interpreter explicitly.
 
-> **Currently 16 of the 124 tests fail on purpose.** Stage 1 is mid-build: the scoring
-> functions in `src/evaluate.py` and `src/models.py` are written as explained skeletons with
-> tests defining what they must do. This is a work-in-progress state, not a broken clone.
+Expect `108 passed, 16 xfailed`. The sixteen describe functions stage 1 has specified but
+not yet written — the test comes first here, so the specification exists before the code
+does. They are marked to expect a missing function and *only* a missing function, so a wrong
+implementation still fails loudly. Nothing is broken.
 
 ### See it work, without a token
 

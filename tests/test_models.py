@@ -1,10 +1,10 @@
 """The benchmark, and the shape every model must follow.
 
-The naive tests pass already — that function is the worked example. The rest fail
-until `linear`, `gbm`, `fit` and `forecast` are written.
+The naive tests pass already — that function is the worked example. The rest are
+marked `pending` until `linear`, `gbm`, `fit` and `forecast` are written.
 
-The important one is `test_a_model_never_sees_the_target_when_predicting`. It is the
-whole discipline of this stage in one assertion.
+The important one is `test_blanking_the_target_changes_nothing`. It is the whole
+discipline of this stage in one assertion.
 """
 
 from __future__ import annotations
@@ -15,6 +15,23 @@ import pytest
 
 from src import features as F
 from src import models as M
+
+
+# ── Marking what is not written yet ───────────────────────────────────────────
+# These tests describe functions that do not exist, so they cannot pass. Rather
+# than leaving the suite red — which tells anyone cloning this that it is broken —
+# they are marked as expected failures, and narrowly: `raises=NotImplementedError`
+# means the marker only forgives the *absent* function.
+#
+# So the three outcomes stay distinct, which is the point:
+#   not written yet   -> xfail   (suite stays green)
+#   written, wrong    -> FAIL    (a real, loud failure)
+#   written, right    -> XPASS   (visible progress; remove the marker)
+
+pending = pytest.mark.xfail(
+    raises=NotImplementedError,
+    reason="stage 1: not implemented yet — see the notes above it in src/",
+)
 
 
 def frame(n: int = 400) -> pd.DataFrame:
@@ -58,16 +75,19 @@ def test_naive_learns_nothing_and_needs_no_fitting():
 
 # ── The estimators ────────────────────────────────────────────────────────────
 
+@pending
 def test_linear_returns_something_that_can_be_fitted():
     est = M.linear()
     assert hasattr(est, "fit") and hasattr(est, "predict")
 
 
+@pending
 def test_gbm_returns_something_that_can_be_fitted():
     est = M.gbm()
     assert hasattr(est, "fit") and hasattr(est, "predict")
 
 
+@pending
 def test_gbm_is_seeded_so_two_runs_give_the_same_answer():
     """Without a fixed seed the same code produces two numbers, and the Third Law
     claim that any result regenerates from a clean clone quietly stops holding."""
@@ -79,6 +99,7 @@ def test_gbm_is_seeded_so_two_runs_give_the_same_answer():
 
 # ── Fitting and forecasting ───────────────────────────────────────────────────
 
+@pending
 def test_forecast_is_indexed_like_the_frame():
     df = frame()
     out = M.forecast(M.fit(M.linear(), df), df)
@@ -86,6 +107,7 @@ def test_forecast_is_indexed_like_the_frame():
     assert out.index.equals(df.index)
 
 
+@pending
 def test_blanking_the_target_changes_nothing():
     """The discipline of this stage, as one assertion.
 
@@ -106,6 +128,7 @@ def test_blanking_the_target_changes_nothing():
     pd.testing.assert_series_equal(M.forecast(model, df), M.forecast(model, blanked))
 
 
+@pending
 def test_a_fitted_model_beats_the_naive_rule_on_this_data():
     """Not a claim about the real market — only that the wiring works.
 
@@ -119,6 +142,7 @@ def test_a_fitted_model_beats_the_naive_rule_on_this_data():
     assert E.rmae(fitted, M.naive_forecast(df), df[F.TARGET]) < 0.5
 
 
+@pending
 def test_fit_returns_the_estimator_rather_than_none():
     """`sklearn`'s own fit returns self; the wrapper must pass that back."""
     est = M.linear()
