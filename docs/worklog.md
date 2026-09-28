@@ -896,6 +896,40 @@ It is a presentation of `just explore` output, never a source of a number.
    constant stays as a named hazard, like `DE_AT_LU_EIC`, but it is documentation now
    rather than a promise. `GATE_CLOSURE_LOCAL`, `INTERIM` and `PROCESSED` are still
    waiting for `features.py`.
+10. **REVISIT AFTER STAGE 1 — one forecast hour lost on every autumn clock-change day.**
+    *(opened 28 September)*
+
+    Found by asking where the incomplete feature rows actually sit, rather than assuming
+    they were all warm-up. Of 939 dropped rows, 936 are in training. The other three are one
+    row per year, and they are not scattered:
+
+    | Dropped row (UTC) | Local | Split |
+    |---|---|---|
+    | 2023-10-28 22:00 | 2023-10-29 00:00 CEST | valid |
+    | 2024-10-26 22:00 | 2024-10-27 00:00 CEST | test |
+    | 2025-10-25 22:00 | 2025-10-26 00:00 CEST | test |
+
+    Every one is local midnight on the autumn clock-change day. The raw file jumps from
+    21:45 straight to 23:00 — the whole hour, quarter-hours included. The day-ahead price
+    has all 25 hours; only the forecast series are short.
+
+    **It is not a timezone bug on our side.** The 25-hour index is correct and the repeated
+    02:00 is present twice. Data arrives tz-aware from the client, so nothing here localizes
+    or resolves ambiguity. The hour is absent from the publication.
+
+    The pattern matches the trap CLAUDE.md already names: under `curveType A03` an absent
+    position means *"same as the row above"*, not *"no data"*. There is no A03 handling
+    anywhere in `src/`, so a carried-forward value is being read as unknown and the row
+    dropped. **Unverified** — the API is still down and the Third Law forbids overwriting the
+    cache to check.
+
+    **Deliberately not fixed now.** Three rows in 62,636 cannot move an rMAE, and the fix
+    touches Contract 5, whose dependents are everything; re-deriving the frame mid-stage buys
+    nothing. **Trigger for revisiting:** the first rMAE exists, or the API returns and the
+    curve type can be confirmed. It recurs annually, so it will keep.
+
+    Related to item 6, which asks what the *rule* for a 23/25-hour day should be. This is the
+    narrower question of one hour going missing inside it.
 
 <a id="d20260918"></a>
 ### 18 September 2026 — where the money actually is
