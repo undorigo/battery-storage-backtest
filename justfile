@@ -54,6 +54,11 @@ verify:
 explore:
     {{py}} -m scripts.explore
 
+# Stage 1 scores on the validation year. Offline. Appends to results/scores.csv.
+# Cannot reach the test years — Contract 2 evaluates those once, when the stage ends.
+train:
+    {{py}} -m scripts.train
+
 # Clear caches and compiled files. Leaves data and the venv alone.
 clean:
     -find . -path ./.venv -prune -o -name '__pycache__' -type d -exec rm -rf {} + 2>/dev/null
