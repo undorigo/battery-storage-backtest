@@ -37,16 +37,17 @@ from src import models as M
 #
 # So the incomplete rows go first, for everyone, before anything is split or fitted.
 #
-# YOUR TURN.  Three steps:
-#   1. build the feature frame with `F.build()`
-#   2. drop every row with a blank anywhere, using `F.complete_rows(...)`
-#   3. split it with `cfg.split(...)`, which hands back train, valid and test — bind
-#      the third to `_`, so the test years are visibly thrown away rather than
-#      quietly sitting in scope
+# `cfg.split` hands back three frames and this file keeps two.  Binding the third to
+# `_` is Contract 2 made checkable in a single character: the test years are visibly
+# discarded at the one point they pass through, rather than sitting in scope where a
+# later line could reach them by accident.
 
 def data() -> tuple[pd.DataFrame, pd.DataFrame]:
     """The training rows and the validation rows: complete, and never overlapping."""
-    raise NotImplementedError("data: see the notes above this line")
+    frame = F.build()                                    # every feature, every hour
+    complete = F.complete_rows(frame)                    # drop any row with a blank anywhere
+    train, valid, _ = cfg.split(complete)                # the test years, dropped on purpose
+    return train, valid
 
 
 # ── One row per forecast ──────────────────────────────────────────────────────
@@ -63,18 +64,23 @@ def data() -> tuple[pd.DataFrame, pd.DataFrame]:
 # refitting.  Walking the fit forward through the year is stage 2 work, and it is
 # measured against this number rather than instead of it.
 #
-# YOUR TURN.  Build the benchmark first, then for each of the two estimators:
-#   1. fit it on `train` with `M.fit(...)`
-#   2. forecast `valid` with `M.forecast(...)`
-#   3. score it with `E.score(name, "valid", forecast, benchmark, actual)`
-#
-# The benchmark is `M.naive_forecast(valid)` and the actual prices are
-# `valid[F.TARGET]`.  Score the benchmark against itself as well: it must come out at
-# exactly 1.000, which is a free check that the wiring underneath is right.
+# The benchmark is also scored against itself, which looks redundant and is not.  That
+# row has to read exactly 1.000, and it is a free check on everything underneath: if it
+# does not, the lining-up or the scoring is wrong, and every other row in the table is
+# wrong with it.
 
 def run(train: pd.DataFrame, valid: pd.DataFrame) -> list[dict]:
     """Fit, forecast and score. One row per forecast, benchmark first."""
-    raise NotImplementedError("run: see the notes above this line")
+    benchmark = M.naive_forecast(valid)                  # a lookup, not a fit: no training needed
+    actual = valid[F.TARGET]                             # the prices that actually happened
+
+    rows = [E.score("naive", "valid", benchmark, benchmark, actual)]   # must come out at 1.000
+    for name, estimator in (("linear", M.linear()), ("gbm", M.gbm())):
+        model = M.fit(estimator, train)                  # the training years only, never refitted
+        forecast = M.forecast(model, valid)              # one price per hour of 2023
+        rows.append(E.score(name, "valid", forecast, benchmark, actual))
+
+    return rows
 
 
 # ── Writing it down — PLUMBING, already written ───────────────────────────────
@@ -123,8 +129,9 @@ def main() -> int:
         print("\nNo cached data. Run `just pull` first.")
         return 2
 
+    days = valid.index.tz_convert(cfg.TZ_MARKET)         # delivery days are market-local
     print(f"Train {len(train):,} rows  ·  validate {len(valid):,} rows  "
-          f"({valid.index.min():%Y-%m-%d} to {valid.index.max():%Y-%m-%d})\n")
+          f"({days.min():%Y-%m-%d} to {days.max():%Y-%m-%d})\n")
 
     rows = run(train, valid)
     print(E.table(rows))

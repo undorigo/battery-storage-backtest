@@ -22,27 +22,17 @@ from src import config as cfg
 from src import features as F
 
 
-# ── Marking what is not written yet ───────────────────────────────────────────
-# `data` and `run` are specified here before they are written, so these describe
-# functions that cannot pass yet. Marked narrowly — `raises=NotImplementedError`
-# forgives only the absent function, so the three outcomes stay distinct:
-#   not written yet   -> xfail   (the suite stays green for anyone cloning this)
-#   written, wrong    -> FAIL    (a real failure, loudly)
-#   written, right    -> XPASS   (remove the marker)
-
-pending = pytest.mark.xfail(
-    raises=NotImplementedError,
-    reason="stage 1: not implemented yet — see the notes above it in scripts/train.py",
-)
-
-
 # ── The fixture ───────────────────────────────────────────────────────────────
-# Fifteen months of hourly data, from October 2022 to the end of 2023. It straddles
-# the train/validate boundary on purpose, and runs a week into 2024 so there is real
-# test-period data available for `data()` to wrongly return.
+# Fifteen months of hourly data straddling the train/validate boundary, running a
+# week into 2024 so there is real test-period data for `data()` to wrongly return.
+# Two rows are blanked, one either side of the boundary, so that "complete rows only"
+# is tested against something rather than asserted.
 #
-# Two rows are deliberately blanked, one on each side of the boundary, so that
-# "complete rows only" is tested against something rather than asserted.
+# The price deliberately carries no trend. An earlier version rose steadily, which
+# made the week-old lookup nearly perfect and put every validation price above
+# anything in training — a tree can only predict values it has already seen, so it
+# scored fifteen times worse than doing nothing. Cycles that never line up with a
+# week fix both halves: the models find something, the benchmark misses something.
 
 START = pd.Timestamp("2022-10-01 00:00", tz="UTC")
 END = pd.Timestamp("2024-01-07 23:00", tz="UTC")
@@ -55,13 +45,18 @@ def _sources() -> dict[str, pd.DataFrame]:
     idx = pd.date_range(START, END, freq="h", tz="UTC")
     n = np.arange(len(idx), dtype=float)
 
-    load = pd.DataFrame({"load": 40_000 + 5_000 * np.sin(n / 24 * 2 * np.pi)}, index=idx)
+    daily = np.sin(2 * np.pi * n / 24)                         # the shape of a day
+    slow = np.sin(2 * np.pi * n / (24 * 13))                   # 13 days: never lands on a week
+    wobble = np.sin(2 * np.pi * n / (24 * 29 + 7))             # shares no period with the others
+
+    load = pd.DataFrame({"load": 40_000 + 6_000 * daily + 9_000 * slow + 3_000 * wobble},
+                        index=idx)
     load.loc[[BLANK_TRAIN, BLANK_VALID], "load"] = np.nan      # the two holes
 
     return {
-        # Price is built from the load so a fitted model has something real to find;
-        # the ramp keeps every hour distinct, so an off-by-one lag cannot hide.
-        "day_ahead_price": pd.DataFrame({"price": 0.002 * (40_000 + n) + 0.001 * load.load},
+        # Built from the load, so a model holding the load forecast has something to
+        # find. Filled at the two holes, so those rows drop for one reason, not two.
+        "day_ahead_price": pd.DataFrame({"price": 0.003 * load.load.ffill() + 8 * daily**2},
                                         index=idx),
         "load_forecast": load,
         "wind_solar_forecast": pd.DataFrame(
@@ -82,7 +77,6 @@ def frames(monkeypatch):
 
 # ── Contract 2 — the boundary ─────────────────────────────────────────────────
 
-@pending
 def test_no_test_period_row_is_ever_returned(frames):
     """The claim the module docstring makes, as an assertion.
 
@@ -94,13 +88,11 @@ def test_no_test_period_row_is_ever_returned(frames):
         assert part.index.max() <= cfg.VALID_END_UTC, f"{name} reaches into the test years"
 
 
-@pending
 def test_train_and_validate_never_share_an_hour(frames):
     train, valid = frames
     assert train.index.intersection(valid.index).empty
 
 
-@pending
 def test_training_stops_at_the_split_date(frames):
     train, valid = frames
     assert train.index.max() <= cfg.TRAIN_END_UTC
@@ -109,7 +101,6 @@ def test_training_stops_at_the_split_date(frames):
 
 # ── Complete rows only ────────────────────────────────────────────────────────
 
-@pending
 def test_no_blank_survives_into_either_frame(frames):
     """A blank anywhere drops the whole row, on both sides of the boundary."""
     train, valid = frames
@@ -117,7 +108,6 @@ def test_no_blank_survives_into_either_frame(frames):
     assert not valid.isna().to_numpy().any()
 
 
-@pending
 def test_the_blanked_hours_are_the_ones_missing(frames):
     """Not merely 'no blanks' — the two holes we made are the rows that went."""
     train, valid = frames
@@ -127,7 +117,6 @@ def test_the_blanked_hours_are_the_ones_missing(frames):
 
 # ── The scored table ──────────────────────────────────────────────────────────
 
-@pending
 def test_every_forecast_is_scored_on_the_same_hours(frames):
     """The same-exam rule, one level up from `evaluate.py`.
 
@@ -139,7 +128,6 @@ def test_every_forecast_is_scored_on_the_same_hours(frames):
     assert len({row["n"] for row in rows}) == 1
 
 
-@pending
 def test_the_benchmark_scores_exactly_one(frames):
     """A free check on the wiring: the benchmark divided by itself is 1.000."""
     rows = T.run(*frames)
@@ -148,16 +136,27 @@ def test_the_benchmark_scores_exactly_one(frames):
     assert naive[0]["rmae"] == pytest.approx(1.0)
 
 
-@pending
 def test_all_three_forecasts_are_reported(frames):
     rows = T.run(*frames)
     assert {r["model"] for r in rows} == {"naive", "linear", "gbm"}
 
 
-@pending
 def test_every_row_is_labelled_as_validation(frames):
     """Contract 2 again: nothing produced here may claim to be a test score."""
     assert all(row["split"] == "valid" for row in T.run(*frames))
+
+
+def test_a_model_is_not_its_own_benchmark(frames):
+    """Written because a mutant survived without it.
+
+    Passing each model's own forecast as its denominator makes every rMAE exactly
+    1.000 and the table meaningless — and every other test here still passed. The
+    fixture's price is built from the load, which is a feature, so a model that is
+    wired up properly must beat a week-old lookup rather than tie with it.
+    """
+    rows = {row["model"]: row for row in T.run(*frames)}
+    for name in ("linear", "gbm"):
+        assert rows[name]["rmae"] < 1.0, f"{name} scored as though it were its own benchmark"
 
 
 # ── The record ────────────────────────────────────────────────────────────────
