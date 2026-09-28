@@ -4,10 +4,9 @@ Everything here takes a feature frame and returns one predicted price per delive
 hour.  Nothing here decides what a feature is allowed to be; `features.py` settled
 that, and this file simply uses what it was handed.
 
-`naive_forecast` below is written out in full as the worked example.  The three
-functions after it are yours.  Read the naive one first — it is four lines, and it
-establishes the shape everything else follows: **in goes a frame, out comes a Series
-on the same index.**
+Every function here follows one shape: **in goes a frame, out comes a Series on the
+same index.**  That shape is what lets `evaluate.py` line a forecast up against the
+actual prices without knowing, or caring, which model produced it.
 """
 
 from __future__ import annotations
@@ -52,19 +51,18 @@ def naive_forecast(frame: pd.DataFrame) -> pd.Series:
 # No tuning, no scaling, no search.  Stage 1 asks one question — does modelling beat
 # not-modelling — and a tuned model answers it no better than an untuned one.
 #
-# YOUR TURN.  Each of these is one line: build the estimator and return it.
-#   - `LinearRegression()` takes no arguments
-#   - `HistGradientBoostingRegressor(random_state=0)` — fix the seed, or two runs of
-#     the same code produce two different numbers and the Third Law stops holding
+# The seed on the tree model is not decoration.  It fixes the random choices made
+# while fitting, so the same data gives the same answer twice.  Without it a number
+# printed in the README could not be regenerated from a clean clone.
 
 def linear() -> BaseEstimator:
     """An ordinary least-squares fit: one coefficient per feature."""
-    raise NotImplementedError("linear: return a LinearRegression, see the notes above")
+    return LinearRegression()
 
 
 def gbm() -> BaseEstimator:
     """Gradient-boosted trees: many small rules, each correcting the last."""
-    raise NotImplementedError("gbm: return a HistGradientBoostingRegressor, see above")
+    return HistGradientBoostingRegressor(random_state=0)
 
 
 # ── Fitting, and the one line that matters ────────────────────────────────────
@@ -75,24 +73,20 @@ def gbm() -> BaseEstimator:
 # `F.feature_columns(frame)` returns every column except the target.  Using it in
 # both functions below is what keeps that promise, in one place, checkably.
 #
-# YOUR TURN — `fit`.  Three steps:
-#   1. get the feature column names from the frame
-#   2. call `estimator.fit(...)` with the feature columns and the target column
-#      (the target is `frame[F.TARGET]`)
-#   3. return the fitted estimator
-#
-# YOUR TURN — `forecast`.  Three steps:
-#   1. get the feature column names the same way
-#   2. call `model.predict(...)` on those columns
-#   3. wrap the result in a `pd.Series` on `frame.index`, so it lines up with the
-#      actual prices later.  A bare array has no index, and `evaluate.aligned`
-#      would have nothing to line up.
+# `forecast` returns a Series carrying the frame's own index rather than the bare
+# array `predict` hands back.  An array has no timestamps, so `evaluate.aligned` would
+# have nothing to match on and every score would depend on the row order happening to
+# agree — which it does not, once a forecast covers one split and the prices cover
+# seven years.
 
 def fit(estimator: BaseEstimator, frame: pd.DataFrame) -> BaseEstimator:
     """Learn from a frame of complete rows. Returns the fitted estimator."""
-    raise NotImplementedError("fit: see the notes above this line")
+    features = F.feature_columns(frame)                 # every column except the answer
+    estimator.fit(frame[features], frame[F.TARGET])     # showing it the answers is the training
+    return estimator
 
 
 def forecast(model: BaseEstimator, frame: pd.DataFrame) -> pd.Series:
     """Predict one price per delivery hour, indexed like the frame it came from."""
-    raise NotImplementedError("forecast: see the notes above this line")
+    features = F.feature_columns(frame)                 # the same call, so the same promise
+    return pd.Series(model.predict(frame[features]), index=frame.index, name="predicted")
