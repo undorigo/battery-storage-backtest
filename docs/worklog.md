@@ -27,6 +27,7 @@ One row per working day. Follow the date link for the detail.
 | [21 Sep 2026](#d20260921) | Recap interview: two answers wrong, one produced a repo correction. Stage plan given an address in the README. Training window decided by measurement. `features.py` built — Contract 1 enforced rather than declared, 9/9 mutants caught. |
 | [22 Sep 2026](#d20260922) | Recap: an answer overturned how the slope finding was framed, in six places. EDA page retitled around its actual result. `notebooks/`, `data/interim/` and `data/processed/` removed unused. Map and README rewritten around the gate. |
 | [23 Sep 2026](#d20260923) | Stage 1 scaffolded and half-built: `evaluate.py` written by hand, benchmark in place. Modelling approach aligned — two models not six, MLflow deferred with a stated trigger. Setup ungated from homebrew. |
+| [28 Sep 2026](#d20260928) | **The first rMAE: 0.488.** A scoping question found an annual data hole in test data. `models.py` and `train.py` finished. Two mutants exposed real gaps, and the second showed the test fixture was rigged so the benchmark could not be beaten. Leak calibrated on purpose. |
 
 [Commits](#commits) · [Open items](#open-items) · [Next](#next)
 
@@ -1434,47 +1435,183 @@ the drift this project has already been bitten by twice this month.
 
 ---
 
-### Next — Thursday 24 September 2026
+<a id="d20260928"></a>
+### 28 September 2026 — the first number, and a fixture that could not fail
 
-**`src/evaluate.py` is finished. `src/models.py` has the benchmark and four unwritten
-functions. 120 tests pass, 7 are specifications not yet met.**
+#### Recap — one answer right, one half right, one wrong
+
+**Q1, negative prices and rMAE — half.** The absolute value was correctly identified as the
+reason a score cannot come out negative. But that is not what breaks the percentage error.
+It breaks because prices pass *through* zero: at exactly zero the division has no answer, and
+at 0.50 EUR/MWh a ten-euro miss becomes 2,000 %, drowning the year. rMAE never puts a price
+underneath the line at all.
+
+**Q2 — needed rephrasing, then right.** Restated as four hours of arithmetic it was answered
+correctly: the free hour the benchmark got right is not an hour the model got wrong, because
+the model was never in the room.
+
+**Q3, the two surviving mutants — wrong.** The proposed test was to run the suite and see
+whether the mutant passes. Both had already passed; that is what surviving means. The
+separating question is whether the change alters behaviour at all. One did and no test
+noticed, so a test was missing. The other could not, because `dropna` on the next line makes
+the two versions identical for every possible input — nothing can catch it.
+
+**Q4, red tests on a clean clone — right,** including the reason that matters: the terminal is
+read before the README.
+
+#### A scoping question that found a defect
+
+The question was whether the missing forecast rows could be avoided by starting the record in
+January rather than October. Answer: mostly they already are, and starting later would discard
+1,319 good training rows to avoid 888 that cost nothing.
+
+But checking *where* the gaps sit rather than *how many* there are turned up something the
+count could never have shown. Of 939 dropped rows, 936 are in training. The other three are
+one per year, all at local midnight on the autumn clock-change day, two of them in test data.
+The raw file jumps from 21:45 to 23:00 — the whole hour, quarter-hours included — while the
+price series has all 25 hours. Not a timezone bug here; the hour is absent from the
+publication, and matches the `curveType A03` carry-forward trap `CLAUDE.md` already names.
+**Logged as open item 10 rather than fixed:** three rows in 62,636 cannot move a score, and
+the fix touches Contract 5.
+
+The distribution said something the count could not. That is the whole finding.
+
+#### `models.py` — a test that caught the bug for the wrong reason
+
+All four functions were written correctly first time. Two `frame.copy()` calls were removed:
+nothing in either function mutates the frame, so they defended against something that cannot
+happen while copying 36,335 rows to do it.
+
+Then the leak was reintroduced on purpose — the answer column let into both `fit` and
+`predict`. The headline test failed, but with `ValueError: Input X contains NaN`. **It caught
+the bug by crashing, not by comparing.** The test blanks the target with NaN, which a linear
+fit refuses outright, so the forecast the assertion exists to compare was never produced.
+
+A sibling test now blanks the target with a finite wrong value instead. Nothing can refuse it,
+so the comparison actually runs. Both stay: NaN is the honest picture of a day not yet
+cleared, and the finite value is the one that exercises the logic.
+
+#### Three decisions before `train.py` was written
+
+1. **Fit once on 2018–2022, never refit.** The stricter test — the model sees no validation
+   row — and it keeps the stage's question attributable. A win belongs to the model rather
+   than to the refitting. Walking the fit forward is stage 2, measured against this.
+2. **Validation only; the test years unreachable from the script.** `cfg.split` returns three
+   frames and this one binds the third to `_`. Contract 2 made checkable in one character
+   instead of promised in a docstring.
+3. **Results appended to `results/scores.csv`, stamped with the commit.** MLflow reassessed
+   again and still deferred: the trigger was *adopt tracking when a run costs more to
+   reproduce than to record*, and a run here takes seconds. What was actually wanted — results
+   comparable over time — is five lines. The commit stamp is the part that earns its place:
+   the Third Law asks that a number be reproducible from a clean clone, and a number beside a
+   commit says which clone.
+
+A blanket `*.csv` rule was silently swallowing the file. Negated, with the reason written next
+to it.
+
+#### The first rMAE
+
+```
+| Model  | Split | Hours | MAE   | rMAE  |
+|--------|-------|-------|-------|-------|
+| naive  | valid | 8,759 | 33.64 | 1.000 |
+| linear | valid | 8,759 | 17.89 | 0.532 |
+| gbm    | valid | 8,759 | 16.43 | 0.488 |
+```
+
+Modelling beats not-modelling. Both free checks passed: the benchmark reads exactly 1.000, and
+all three sit on identical hour counts.
+
+One display bug fixed on the way: the run printed the validation range as `2022-12-31 to
+2023-12-31`, which is correct in UTC and wrong-looking to everyone. Delivery days are
+market-local, and now it prints that way.
+
+#### The mutant that exposed a rigged fixture
+
+Scoring each model against **itself** rather than the benchmark makes every rMAE exactly
+1.000 and the table meaningless. **All 13 tests passed.** Nothing checked what sat in the
+denominator.
+
+The missing test — the fitted models must beat the naive rule — then failed on the *correct*
+code, which meant the fixture was wrong. It was, in two ways at once, both from the same
+cause. Its price rose by 0.002 every hour, so:
+
+- last week's price was **always exactly 0.336 too low**, making the benchmark near-perfect
+  and unbeatable by construction
+- every validation price sat above anything in training, and a tree can only output values it
+  has already seen, so it scored **rMAE 15.04** — fifteen times worse than doing nothing
+
+Rebuilt on waves of 24 hours, 13 days and ~29 days, none of which line up with a week. The
+benchmark now has something to miss and the tree is never asked to extrapolate.
+
+**A test fixture can be wrong in a way that hides the bug the test exists to find.** Only the
+mutation exposed it; a green suite never would have.
+
+#### Leakage, calibrated rather than asserted
+
+The target was copied into the features under another name, scored, and removed:
+
+| | linear | gbm |
+|---|---|---|
+| honest | 0.532 | **0.488** |
+| leaked | 0.000 | 0.023 |
+
+Twenty times away from leaked territory, and 0.4–0.6 is the ordinary band for this problem.
+
+#### What the errors are made of
+
+| Price quartile | naive | linear | gbm |
+|---|---|---|---|
+| lowest | 46.56 | 22.73 | **17.98** |
+| low | 25.24 | 15.38 | **11.49** |
+| high | 26.40 | **14.01** | 14.52 |
+| highest | 36.37 | **19.45** | 21.72 |
+
+**The tree wins at cheap hours and loses at expensive ones** — the same extrapolation weakness
+that destroyed the fixture, showing up on real data in a milder form.
+
+Two more things worth carrying forward. The naive rule is still the closest of the three on
+**23.6 %** of hours, so it is not a straw man. And the gbm is closer than the linear fit on
+only **53.4 %** of hours — close enough to a coin flip that *"the tree is better"* is not yet
+a claim that can be made. That is what the significance test in stage 2 is for.
+
+Error by hour of day spans **7.79** between the quietest night hours and the 19:00 peak, which
+is the argument for fitting each delivery hour separately. Error by month runs from 13.0 in
+June to 23.7 in January — the months hardest to forecast are the ones most like the crisis the
+training data ends in.
+
+---
+
+### Next — Tuesday 29 September 2026
+
+**Stage 1 has its first number: gbm 0.488, linear 0.532, naive 1.000 on the 8,759 complete
+hours of 2023. 142 tests pass, none deferred.**
 
 #### Recap questions
 
-1. `rmae` divides one number by another. Why can a market with negative prices not break that
-   division, when it does break the percentage error we ruled out?
-2. A model is scored on the hours it can reach; the benchmark on the hours *it* can reach.
-   Both averages are computed correctly. Why is the ratio between them still meaningless?
-3. Four bugs were injected into the scoring code and two survived. One meant a test was
-   missing and one meant a line was redundant. How do you tell those apart?
-4. A stranger clones the repository and runs the tests. What should they see, and why does
-   that matter more than what the README says about it?
+1. Scoring each model against itself passed all 13 tests. Name the missing *idea* rather than
+   the missing test — what were the four existing tests each checking, such that none of them
+   could notice?
+2. The fixture's price rose steadily, and that broke two separate things. What were they, and
+   why did only one of them surface as a failing test?
+3. The gbm scores 0.488 against the linear fit's 0.532, but is closer on only 53.4 % of hours.
+   Why does that stop us claiming the tree is the better model?
+4. The tree beats the straight line at cheap hours and loses at expensive ones. One property
+   of tree models explains both halves — name it, and say where else it appeared today.
 
 #### Then, in order
 
-1. **Finish `src/models.py`** — `linear`, `gbm`, `fit`, `forecast`. Four short functions; the
-   notes above each one carry the steps. The pair to watch is `fit` and `forecast`, where
-   `F.feature_columns(frame)` is the single call that keeps the answer out of the prediction
-   path.
-2. **`scripts/train.py`** — thin, per the map: read the settings, call the library, print the
-   table. **The decision to make first, in writing:** every forecast is scored on the same
-   62,636 complete rows. The evidence is now measured rather than assumed — a gradient-boosted
-   tree predicts through missing features and a linear fit refuses, so "score each on what it
-   reaches" gives them different exams.
-3. **The first rMAE.** Naive, linear and GBM, on validation. The test period stays untouched
-   until the stage closes — Contract 2, and it is evaluated once.
-4. **Leak the target on purpose.** Fit with `price` in the feature list, record the score,
-   take it out, record the real one. A calibration for what leakage looks like from the
-   inside, in a project whose central risk is failing to recognise it.
+1. **Close stage 1.** The test years get scored once, by a separate command, and the number
+   goes in the README with the command that regenerates it. Everything above is validation and
+   wears out a little each time it is read.
+2. **Write the stage 1 result up** — the README needs the table, the leak calibration as
+   evidence the boundary held, and the honest statement that the two models cannot yet be
+   separated.
+3. **Open item 9** — the 37 dropped load-forecast days. The trigger was a measured rMAE, and
+   there is now one. The signal to check is whether errors concentrate in early data.
 
-Open item 9 — the 37 dropped load-forecast days — is revisited once step 3 produces a number.
-The signal is errors concentrated in high-price hours, which would say the 2021–22 training
-years are doing harm.
-
-Four things have earned their keep. The `src/sources/` split: for most of 9 September SMARD
-worked and the API did not, and nothing above that layer knew or cared. Deliberate mutation,
-four times now — and on 23 September the two survivors meant different things, which is the
-distinction that makes the technique worth the effort. Counting coverage rather than assuming
-it, the only reason seven hours of silently destroyed price data were ever found. And asking
-"does that actually happen?" before building for it, which this week has removed a stage's
-justification, two directories and a scoring guard's overstated claim.
+Stage 2 has three levers already visible in today's numbers, in the order the evidence
+supports: **which years the model learns from** (January 23.7 against June 13.0, and the
+74 EUR/MWh transfer error no algorithm choice touches), **one model per delivery hour** (7.79
+of spread across the day), and **public holidays**, which are not in the frame at all. Tuning
+is the smallest of them and should be described that way.
