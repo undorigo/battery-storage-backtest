@@ -1580,6 +1580,14 @@ is the argument for fitting each delivery hour separately. Error by month runs f
 June to 23.7 in January — the months hardest to forecast are the ones most like the crisis the
 training data ends in.
 
+> **Corrected 29 September.** The last sentence does not survive checking and should be read
+> as withdrawn. January's raw error is highest because January *prices* swing hardest — the
+> naive rule misses by 61.33 there against 21.38 in June. Measured as a ratio the ranking
+> inverts: January **0.387** is among the model's best months and May **0.721** its worst.
+> Monthly error tracks monthly price spread at **0.675**. This was a raw number read without
+> normalising for how much there was to get wrong. The rolling-window argument stands on the
+> 74 EUR/MWh transfer error and the field's two-year default, not on this.
+
 ---
 
 ### Next — Tuesday 29 September 2026
@@ -1611,7 +1619,7 @@ hours of 2023. 142 tests pass, none deferred.**
    there is now one. The signal to check is whether errors concentrate in early data.
 
 Stage 2 has three levers already visible in today's numbers, in the order the evidence
-supports: **which years the model learns from** (January 23.7 against June 13.0, and the
+supports: **which years the model learns from** (the 74 EUR/MWh transfer error, and the
 74 EUR/MWh transfer error no algorithm choice touches), **one model per delivery hour** (7.79
 of spread across the day), and **public holidays**, which are not in the frame at all. Tuning
 is the smallest of them and should be described that way.
