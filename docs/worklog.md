@@ -28,6 +28,7 @@ One row per working day. Follow the date link for the detail.
 | [22 Sep 2026](#d20260922) | Recap: an answer overturned how the slope finding was framed, in six places. EDA page retitled around its actual result. `notebooks/`, `data/interim/` and `data/processed/` removed unused. Map and README rewritten around the gate. |
 | [23 Sep 2026](#d20260923) | Stage 1 scaffolded and half-built: `evaluate.py` written by hand, benchmark in place. Modelling approach aligned — two models not six, MLflow deferred with a stated trigger. Setup ungated from homebrew. |
 | [28 Sep 2026](#d20260928) | **The first rMAE: 0.488.** A scoping question found an annual data hole in test data. `models.py` and `train.py` finished. Two mutants exposed real gaps, and the second showed the test fixture was rigged so the benchmark could not be beaten. Leak calibrated on purpose. |
+| [29 Sep 2026](#d20260929) | Recap found a claim of mine that did not survive checking: January is the model’s *best* month once normalised, not its worst. Sources cited in the README. Open item 9 closed by measurement rather than by fetching. `final_score.py` built, mutated both ways — and deliberately not run. |
 
 [Commits](#commits) · [Open items](#open-items) · [Next](#next)
 
@@ -1621,36 +1622,152 @@ training data ends in.
 
 ---
 
-### Next — Tuesday 29 September 2026
+<a id="d20260929"></a>
+### 29 September 2026 — a number that could not carry the claim resting on it
 
-**Stage 1 has its first number: gbm 0.488, linear 0.532, naive 1.000 on the 8,759 complete
-hours of 2023. 142 tests pass, none deferred.**
+#### Recap — and a correction that went the other way
+
+**Q1, the surviving mutant — described, not explained.** The answer said what the mutation
+did, correctly. The question was why none of four tests could notice. They were all checking
+the table's *shape* — hour counts agreeing, three models present, rows labelled correctly —
+and **nothing was checking the contents.** The subtle part: `test_the_benchmark_scores_exactly_one`
+looks like it guards the denominator and cannot, because the benchmark is passed as both
+numerator and denominator explicitly. That row reads 1.000 whether the code is right or not.
+
+**Q2, the rigged fixture — both breakages right, second half unanswered,** and the true answer
+is sharper than the question implied. The new assertion is `rmae < 1.0` for both models. On the
+broken fixture the linear fit scored 0.000 and **passed**; only the tree's 15.04 tripped it. The
+near-perfect benchmark never surfaced as a failure at all — an assertion that a model beats the
+benchmark cannot detect a benchmark that is impossible to beat, so long as something beats it
+anyway. It was found by asking why the naive MAE was exactly 0.336.
+
+**Q3, LASSO — one blade of the scissors.** Fewer rows per model is right: 36,335 to ~1,514. But
+that alone is comfortable at 89 rows per input. The missing half is that the per-hour layout
+*invites many more inputs* — yesterday's same hour, the neighbouring hours, last week's, the
+daily peak — so rows divide while columns multiply. At LEAR's ~200 inputs that is ~7.5 rows
+each, which is where ordinary least squares collapses and LASSO becomes necessary.
+
+**Q4, the rolling window — right reasoning, and my evidence was wrong.**
+
+#### The correction
+
+I had pointed at error by month: January 23.70 against June 12.99, read as *the hardest months
+are the ones most like the crisis*. Checking it took one line.
+
+| | model | benchmark | ratio |
+|---|---|---|---|
+| January | 23.70 | 61.33 | **0.387** |
+| June | 12.99 | 21.38 | **0.608** |
+| May | 14.78 | 20.49 | **0.721** |
+
+**The ranking inverts.** January is among the model's best work and May its worst. January's raw
+error is large because January prices swing hardest — there was more to get wrong. Monthly error
+tracks monthly price spread at **0.675**.
+
+Withdrawn in the 28 September entry with a dated note, and removed from the forward plan. The
+rolling-window lever is unaffected; it rests on the measured 74 EUR/MWh transfer error and on the
+field's two-year default, not on this.
+
+**Second time in a week for the same shape of mistake.** The first was 939 dropped rows, where
+the count said one thing and the distribution another. A number can be true and still unable to
+carry the claim resting on it.
+
+#### Sources, finally attached to the claims they support
+
+LEAR, the two-year calibration window and Diebold-Mariano were named in the README's ground
+rules with nothing a reader could check. A references section now lists each with **the claim it
+supports**, split into method and data. Verified rather than recalled: Lago, Marcjasz, De Schutter
+& Weron (2021), Applied Energy 293, doi:10.1016/j.apenergy.2021.116983, and the accompanying
+`epftoolbox`; Diebold & Mariano (1995) plus the author's own twenty-years-later retrospective;
+and the recent result that the test **loses power as errors become more dependent**, so a
+non-significant answer means *cannot tell* rather than *the same*.
+
+The "0.4–0.6 is the normal band" claim I had offered twice was left out entirely rather than
+propped up with a vague citation.
+
+#### Open item 9 — closed without fetching anything
+
+The trigger was a measured rMAE, and with one available a better question was available too:
+**does the data those days belong to matter at all?**
+
+| Train from | Rows | linear | gbm |
+|---|---|---|---|
+| 2018 | 36,335 | 0.532 | **0.488** |
+| 2019 | 35,016 | 0.535 | **0.488** |
+| 2021 | 17,472 | 0.750 | 0.507 |
+| 2022 | 8,712 | 0.977 | 0.615 |
+
+Dropping **all** of 2018 moves the tree by nothing. The 37 missing days would add ~888 hours to
+a year contributing 3.6 % of training and no measurable accuracy. `energy_charts.py` was not
+written; the validated recipe stays in `docs/data-quality.md`.
+
+The same table says something else worth carrying: more data helps steeply, and **two years alone
+is clearly worse than five.** Those are the crisis years, the worst possible pair for a calm 2023
+— which confirms the 21 September finding on the target metric rather than on a slope. It does
+not settle the rolling window, whose benefit comes from the window *moving forward* into the year
+being forecast, which a fixed window ending in December 2022 cannot show.
+
+#### Open item 10 — still blocked
+
+The ENTSO-E API returned **HTTP 000 after twenty seconds**. The `curveType A03` hypothesis stays
+unverified, so the three clock-change rows stay as they are. Fixing them later would change the
+held-back set by 2 rows in 17,542 — 0.01 %, below anything that could move a number, but it
+belongs beside the result so the change is visible rather than discovered.
+
+#### `final_score.py` — built, broken on purpose, and not run
+
+Two decisions first. The name: `close_stage` said *when* to run it rather than *what it does*,
+and anything containing "test" would collide with `just test` — a collision that had already
+caused real confusion earlier in the day. **`just final-score`.** And what the models learn from:
+**everything through 2023**, because validation has already chosen between them and every 2023
+price was public before any 2024 delivery hour.
+
+The line deciding that is the highest-stakes one in the repository, so it was mutated both ways:
+
+| Mutation | Caught by |
+|---|---|
+| drop validation from the fit | `test_the_fit_includes_the_validation_year` |
+| let the held-back years into the fit | `test_the_fit_stops_before_the_held_back_years` |
+
+Each failed the test named for the failure it causes. The self-benchmark hole that survived a
+mutation in `test_train.py` was closed here in advance rather than rediscovered.
+
+**152 tests pass. The command has not been run** — that read is deliberate, and it is being taken
+tomorrow rather than at the end of a long session.
+
+---
+
+### Next — Wednesday 30 September 2026
+
+**`final_score.py` is written, tested and unrun. 152 tests pass. Stage 1 has a validation
+number and no held-back number.**
 
 #### Recap questions
 
-1. Scoring each model against itself passed all 13 tests. Name the missing *idea* rather than
-   the missing test — what were the four existing tests each checking, such that none of them
-   could notice?
-2. The fixture's price rose steadily, and that broke two separate things. What were they, and
-   why did only one of them surface as a failing test?
-3. The gbm scores 0.488 against the linear fit's 0.532, but is closer on only 53.4 % of hours.
-   Why does that stop us claiming the tree is the better model?
-4. The tree beats the straight line at cheap hours and loses at expensive ones. One property
-   of tree models explains both halves — name it, and say where else it appeared today.
+1. Open item 9 closed without fetching a single row. What question was asked instead of "how do
+   we get the missing days?", and why does the order of those two questions matter?
+2. `test_the_benchmark_scores_exactly_one` sits directly beside the ratio it appears to protect,
+   and cannot protect it. Why not — and what distinguishes a test that has never failed from one
+   that cannot?
+3. Training on two years scored worse than training on five. Why is that not an argument against
+   the rolling window stage 2 intends to test?
+4. Running `just final-score` changes what we are allowed to do afterwards. What exactly changes,
+   and why does that follow from Contract 2 rather than from taste?
 
 #### Then, in order
 
-1. **Close stage 1.** The test years get scored once, by a separate command, and the number
-   goes in the README with the command that regenerates it. Everything above is validation and
-   wears out a little each time it is read.
-2. **Write the stage 1 result up** — the README needs the table, the leak calibration as
-   evidence the boundary held, and the honest statement that the two models cannot yet be
-   separated.
-3. **Open item 9** — the 37 dropped load-forecast days. The trigger was a measured rMAE, and
-   there is now one. The signal to check is whether errors concentrate in early data.
+1. **Read `final_score.py` together** before running it. It was written in one pass at the end of
+   a session and has never been read aloud; the mutations cover the fit boundary but not the
+   reporting.
+2. **Run it, once.** Three rows land in `results/scores.csv` labelled `test`, stamped with the
+   commit.
+3. **Write stage 1 up.** The stage table's "Headline number" cell takes one number; the work log
+   takes the full picture and the caveats; `results/scores.csv` already holds the machine-readable
+   rows. The README's **"Currently:"** line is stale and still says the naive benchmark is next.
+4. **Record the split rationale**, which was never written down. `config.py` explains the
+   mechanics of the boundaries and nothing about why these years — found by a question on
+   28 September that nobody had asked in three weeks.
 
-Stage 2 has three levers already visible in today's numbers, in the order the evidence
-supports: **which years the model learns from** (the 74 EUR/MWh transfer error, and the
-74 EUR/MWh transfer error no algorithm choice touches), **one model per delivery hour** (7.79
-of spread across the day), and **public holidays**, which are not in the frame at all. Tuning
-is the smallest of them and should be described that way.
+Open item 10 stays blocked until the API returns. Stage 2's levers, in the order the evidence
+supports: **which years the model learns from**, **one model per delivery hour** (7.79 of spread
+across the day), and **public holidays**, which are not in the frame at all.
