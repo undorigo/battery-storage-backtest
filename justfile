@@ -59,6 +59,15 @@ explore:
 train:
     {{py}} -m scripts.train
 
+# The number a stage ends on, from the years held back. Offline.
+#
+# Run this once per stage, and mean it. Reading the held-back years and then changing
+# something in response is what turns them into a second validation set — the final
+# number stops being honest and nothing about it looks wrong. Every row it writes
+# carries the commit that produced it, so a second reading is visible in the record.
+final-score:
+    {{py}} -m scripts.final_score
+
 # Clear caches and compiled files. Leaves data and the venv alone.
 clean:
     -find . -path ./.venv -prune -o -name '__pycache__' -type d -exec rm -rf {} + 2>/dev/null
