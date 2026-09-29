@@ -855,7 +855,38 @@ It is a presentation of `just explore` output, never a source of a number.
    backfill. **The load forecast is missing 890 hours**, but 840 fall in 2018 and they
    arrive as whole days — roughly 37 delivery days from the market's opening quarter.
    Dropped for now; see item 9, which is the decision to come back to.
-9. **REVISIT AFTER STAGE 1 — the 37 dropped load-forecast days.** *(opened 17 September)*
+9. **CLOSED 29 September — the 37 dropped load-forecast days.** *(opened 17 September)*
+
+   **Resolved by measurement rather than by fetching anything.** The trigger was a measured
+   rMAE, and with one available the question became answerable directly: does early training
+   data affect the score at all? Same model, different start dates, scored on 2023:
+
+   | Train from | Rows | linear | gbm |
+   |---|---|---|---|
+   | 2018 | 36,335 | 0.532 | **0.488** |
+   | 2019 | 35,016 | 0.535 | **0.488** |
+   | 2020 | 26,256 | 0.574 | 0.490 |
+   | 2021 | 17,472 | 0.750 | 0.507 |
+   | 2022 | 8,712 | 0.977 | 0.615 |
+
+   Dropping **all** of 2018 — 1,319 hours — moves the tree not at all and the linear fit by
+   0.003. The 37 missing days would add roughly 888 hours to a year contributing 3.6 % of
+   training and nothing measurable to the result. **A second source is not justified.**
+   `src/sources/energy_charts.py` is not written, and the validated recipe stays in
+   `docs/data-quality.md` in case a later stage changes the arithmetic.
+
+   Worth noting what the same table says about something else: more data helps steeply, and
+   **two years alone (2021–22) is clearly worse than five.** Those are the crisis years, so it
+   is the worst possible pair for a calm 2023. It confirms the 21 September finding on the
+   target metric rather than on a slope, and it says "just use recent data" is wrong here. It
+   does *not* settle the rolling window, whose benefit comes from the window moving forward
+   into the year being forecast — which a fixed window ending in December 2022 cannot show.
+
+   The original entry follows, unchanged.
+
+   ---
+
+   **REVISIT AFTER STAGE 1 — the 37 dropped load-forecast days.** *(opened 17 September)*
 
    The days are missing from ENTSO-E but **available from Energy-Charts**, and that source
    has been validated rather than merely noticed:
