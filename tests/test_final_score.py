@@ -18,6 +18,7 @@ import pytest
 from scripts import final_score as FS
 from src import config as cfg
 from src import features as F
+from src import models as M
 
 
 # ── The fixture ───────────────────────────────────────────────────────────────
@@ -59,44 +60,83 @@ def frames(monkeypatch):
     return FS.data()
 
 
-# ── What is learned from ──────────────────────────────────────────────────────
+# ── What each recipe learns from ──────────────────────────────────────────────
+# Two fits, and the difference between them is the whole point of scoring both. Getting
+# either boundary wrong is silent: too cautious wastes a year, too loose fits on the very
+# rows being judged.
 
-def test_the_fit_includes_the_validation_year(frames):
-    """The decision this script exists to embody, as an assertion.
+def test_two_recipes_are_scored(frames):
+    """One reading, two histories. Five rows, not three."""
+    rows = FS.run(*frames)
+    assert len(rows) == 5
 
-    `train.py` stops learning at the end of 2022 so that 2023 stays unseen. Here 2023 has
-    already done its job, so leaving it out would discard a year for nothing. Every 2023
-    price was public long before any 2024 delivery hour, so Contract 1 is untouched.
+
+def test_one_recipe_stops_at_the_training_years(frames):
+    """The row that has to stay comparable to the validation score.
+
+    Same recipe as `train.py` — fitted to the end of 2022 — so the only thing differing
+    between it and the 0.488 is which years are being forecast.
     """
-    history, _ = frames
+    train, _, _ = frames
+    assert train.index.max() <= cfg.TRAIN_END_UTC
+    assert FS.label("gbm", train).endswith("2022")
+
+
+def test_the_other_recipe_uses_the_validation_year_too(frames):
+    """The headline row: every year available before the first delivery hour.
+
+    Holding 2023 out was only needed while 2023 was being scored. Here the thing being
+    scored is 2024 onwards, so 2023 is history like any other year.
+    """
+    train, valid, _ = frames
+    history = pd.concat([train, valid])
     years = set(history.index.tz_convert(cfg.TZ_MARKET).year)
-    assert 2023 in years, "the validation year is being wasted"
-    assert 2022 in years, "the training years are missing"
+    assert {2022, 2023} <= years
+    assert FS.label("gbm", history).endswith("2023")
 
 
-def test_the_fit_stops_before_the_held_back_years(frames):
-    """The failure that would matter: learning from the rows being judged."""
-    history, _ = frames
-    assert history.index.max() <= cfg.VALID_END_UTC
+def test_no_fit_ever_sees_a_held_back_row(frames, monkeypatch):
+    """The failure that would matter: learning from the rows being judged.
+
+    This watches what `run` actually hands to `M.fit`. The version it replaces built its
+    own concatenation and checked that instead — so it could not notice if `run` fitted on
+    something else entirely, and when the held-back years were let into the fit on purpose
+    it stayed green. The leak was caught only incidentally, by the label test.
+    """
+    _, _, holdout = frames
+    seen: list[pd.DataFrame] = []
+    real_fit = M.fit
+
+    def spy(estimator, frame):
+        seen.append(frame)                           # record what was learned from
+        return real_fit(estimator, frame)
+
+    monkeypatch.setattr(M, "fit", spy)
+    FS.run(*frames)
+
+    assert len(seen) == 4, "expected two estimators over two histories"
+    for frame in seen:
+        assert frame.index.max() <= cfg.VALID_END_UTC
+        assert frame.index.intersection(holdout.index).empty
 
 
-def test_the_two_frames_never_share_an_hour(frames):
-    history, holdout = frames
-    assert history.index.intersection(holdout.index).empty
+def test_the_label_is_derived_rather_than_written(frames):
+    """A hardcoded span would be a second copy of the split dates, free to drift."""
+    train, valid, _ = frames
+    assert FS.label("linear", train) != FS.label("linear", pd.concat([train, valid]))
 
 
 # ── What is scored ────────────────────────────────────────────────────────────
 
 def test_only_held_back_rows_are_scored(frames):
-    _, holdout = frames
+    _, _, holdout = frames
     assert holdout.index.min() >= cfg.TEST_START_UTC
     assert holdout.index.max() <= cfg.TEST_END_UTC
 
 
-def test_no_blank_survives_into_either_frame(frames):
-    history, holdout = frames
-    assert not history.isna().to_numpy().any()
-    assert not holdout.isna().to_numpy().any()
+def test_no_blank_survives_into_any_frame(frames):
+    for part in frames:
+        assert not part.isna().to_numpy().any()
 
 
 # ── The scored table ──────────────────────────────────────────────────────────
@@ -106,29 +146,44 @@ def test_every_row_is_labelled_as_held_back(frames):
     assert all(row["split"] == "test" for row in FS.run(*frames))
 
 
-def test_all_three_forecasts_are_reported(frames):
-    assert {r["model"] for r in FS.run(*frames)} == {"naive", "linear", "gbm"}
+def test_the_benchmark_appears_once_and_scores_exactly_one(frames):
+    rows = [r for r in FS.run(*frames) if r["model"] == "naive"]
+    assert len(rows) == 1
+    assert rows[0]["rmae"] == pytest.approx(1.0)
 
 
-def test_the_benchmark_scores_exactly_one(frames):
-    rows = {r["model"]: r for r in FS.run(*frames)}
-    assert rows["naive"]["rmae"] == pytest.approx(1.0)
+def test_both_estimators_appear_under_both_histories(frames):
+    names = {r["model"] for r in FS.run(*frames)}
+    assert names == {"naive", "linear 2022-2022", "gbm 2022-2022",
+                     "linear 2022-2023", "gbm 2022-2023"}
 
 
 def test_every_forecast_is_scored_on_the_same_hours(frames):
-    """The same-exam rule. Three rows, one hour count."""
+    """The same-exam rule. Five rows, one hour count."""
     assert len({row["n"] for row in FS.run(*frames)}) == 1
 
 
-def test_a_model_is_not_its_own_benchmark(frames):
+def test_no_model_is_its_own_benchmark(frames):
     """Same hole that survived a mutation in test_train.py, closed here too.
 
     Passing each model's own forecast as its denominator makes every rMAE exactly 1.000
     and every other check in this file still passes.
     """
-    rows = {r["model"]: r for r in FS.run(*frames)}
-    for name in ("linear", "gbm"):
-        assert rows[name]["rmae"] < 1.0, f"{name} scored as though it were its own benchmark"
+    for row in FS.run(*frames):
+        if row["model"] == "naive":
+            continue
+        assert row["rmae"] < 1.0, f"{row['model']} scored as though it were its own benchmark"
+
+
+def test_the_two_recipes_do_not_score_identically(frames):
+    """The second history really is longer, rather than the first one passed in twice.
+
+    Named for what it checks. An earlier version claimed to verify that a fresh estimator
+    is built per fit — sharing them was tried and every test still passed, because each row
+    is scored before the next fit replaces the estimator.
+    """
+    rows = {r["model"]: r["mae"] for r in FS.run(*frames)}
+    assert rows["gbm 2022-2022"] != rows["gbm 2022-2023"]
 
 
 # ── The sentence a person actually reads ──────────────────────────────────────
