@@ -43,11 +43,11 @@ Results are reported three ways, so the numbers mean something:
 Six stages. Each one ends on a number, and no stage starts before the previous number exists —
 so a claim can always be traced back to the run that produced it.
 
-| Stage | Delivers | Headline number | |
+| Stage | Delivers | Headline number | Status |
 |---|---|---|---|
 | 0 | Reproducible data pull, split locked | negative hours, daily spread | **done** 17 Sep 2026 |
-| 1 | First model against a naive benchmark | rMAE | **in progress** |
-| 2 | LEAR, layout, decomposition | rMAE per variant, DM significance | |
+| 1 | First model against a naive benchmark | **rMAE 0.532** | **done** 30 Sep 2026 |
+| 2 | Recalibration, LEAR, one model per delivery hour | rMAE per variant, DM significance | next |
 | 3 | Quantile forecasts | pinball loss, coverage | |
 | 4 | MILP dispatch optimiser, revenue | **capture rate** | |
 | 5 | Drift monitoring, scheduled run | reproducibility | |
@@ -55,8 +55,55 @@ so a claim can always be traced back to the run that produced it.
 Stage 4 is the one the rest exists for. Everything before it makes the capture rate mean
 something; without stages 0–3 it would be a number with no provenance.
 
-**Currently:** `src/features.py` is built and enforced. Next is the naive benchmark — the
-same hour one week earlier — and a first rMAE against it.
+### Where stage 1 landed
+
+A gradient-boosted tree forecasts the 17,542 held-back hours of 2024–25 with a mean absolute
+error of **17.44 €/MWh** against the naive rule's 32.81 — an rMAE of **0.532**. Reproduce it
+with `just final-score`; the run is stamped into `results/scores.csv` with the commit that
+produced it.
+
+The more useful result was not the headline. Scored on the validation year the tree beat the
+straight-line model, 0.488 to 0.532. On the held-back years, **with the identical recipe, the
+ranking reversed** — 0.627 against 0.575. The tree had been chosen partly because it suited
+2023, and only years nobody had looked at revealed it. That is the whole apparatus doing its
+job, and it is why stage 2 carries a significance test rather than a leaderboard.
+
+### What stage 2 does, in the order the evidence supports
+
+1. **Refit as the year runs.** Measured on validation, refitting monthly instead of once moved
+   the tree from 0.488 to 0.440 — a larger gain than any model choice produced. An expanding
+   window beat a rolling two-year one, so the lever is *refit more often*, not *forget the
+   crisis*.
+2. **LEAR**, the field's statistical benchmark. Not beating it would be the interesting result.
+3. **One model per delivery hour.** Error spans 7.79 €/MWh between the quietest night hours
+   and the 19:00 peak; 3 a.m. and 7 p.m. are different problems sharing one set of
+   coefficients.
+4. **German public holidays**, which are not in the feature frame at all.
+5. **Diebold-Mariano throughout**, because stage 1 demonstrated that a gap of 0.044 on one
+   year is not evidence of anything.
+
+### Parked on purpose
+
+Recorded so the reasoning survives, and so nobody re-opens them without new evidence.
+
+| Parked | Until | Why |
+|---|---|---|
+| **CatBoost, Random Forest** | stage 4 | Both are reported to trade well despite worse error scores — Random Forest for steadier margins, CatBoost in a week-ahead battery-arbitrage comparison. **Capture rate may not rank models the way rMAE does**, and ranking more algorithms on the wrong metric is wasted effort. Stage 4 settles whether the two agree |
+| **Experiment tracking (MLflow)** | a run costs more to reproduce than to record | Today a full run takes seconds and is seeded, so nothing can be lost that cannot be regenerated |
+| **A second data source for the 37 missing load-forecast days** | closed, not parked | Dropping *all* of 2018 moved the score by nothing, so 888 hours of it cannot matter |
+
+### Roughly when
+
+Estimated from what stages 0 and 1 actually took — seven and six working days — rather than
+from a wish. Stage 2 and stage 4 are larger: one adds a recalibration loop and a significance
+test, the other is a mixed-integer optimiser that does not exist yet.
+
+| Stage | Estimate | Ends around |
+|---|---|---|
+| 2 | ~2 weeks | mid-October 2026 |
+| 3 | ~1 week | late October 2026 |
+| 4 | ~2 weeks | mid-November 2026 |
+| 5 | ~1 week | late November 2026 |
 
 ## Setup
 

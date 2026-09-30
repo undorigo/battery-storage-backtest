@@ -54,14 +54,26 @@ by an overlapping horizon: optimise 48 hours, implement the first 24, carry forw
 
 ### Stage plan
 
-| Stage | What it delivers | Headline number |
-|-------|-----------------|-----------------|
-| 0 | Reproducible data pull, split locked | negative-price hours, daily spread |
-| 1 | First model against naive benchmark | rMAE |
-| 2 | Model craft: LEAR, layout, decomposition, extrapolation | rMAE per variant, DM significance |
-| 3 | Quantile forecasts | pinball loss, coverage |
-| 4 | MILP optimiser, revenue | capture rate |
-| 5 | Drift monitoring, scheduled run | reproducibility |
+| Stage | What it delivers | Headline number | Status |
+|-------|-----------------|-----------------|--------|
+| 0 | Reproducible data pull, split locked | negative-price hours, daily spread | done 17 Sep 2026 |
+| 1 | First model against naive benchmark | **rMAE 0.532** | done 30 Sep 2026 |
+| 2 | Recalibration, LEAR, one model per delivery hour | rMAE per variant, DM significance | next |
+| 3 | Quantile forecasts | pinball loss, coverage | |
+| 4 | MILP optimiser, revenue | capture rate | |
+| 5 | Drift monitoring, scheduled run | reproducibility | |
+
+Stage 2 led with "model craft" until 30 September. It now leads with **recalibration**, because
+refitting monthly rather than once moved the tree from 0.488 to 0.440 on validation — a larger
+gain than any choice of algorithm produced. Expanding beat rolling, so the lever is *refit more
+often*, not *forget the crisis*.
+
+**CatBoost and Random Forest are parked until stage 4**, not dropped. Both are reported to trade
+well despite worse error scores, so capture rate may not rank models the way rMAE does. Ranking
+more algorithms on the wrong metric is wasted effort; stage 4 settles whether the two agree.
+
+The full plan, with what stage 1 found and roughly when the rest lands, is in the README under
+**Where this is going** — that is the canonical version and this table follows it.
 
 ---
 
