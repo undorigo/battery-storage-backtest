@@ -65,11 +65,25 @@ def run(history: pd.DataFrame, holdout: pd.DataFrame) -> list[dict]:
     return rows
 
 
+# ── Saying whether this was the first look ────────────────────────────────────
+# Not a lock. There are honest reasons to run this again — a bug in this very script is
+# one. But a second reading of the held-back years should never happen without anyone
+# noticing that it happened.
+#
+# The stamped record is the evidence; this sentence is what a person actually reads. It
+# is a separate function only so it can be tested, because an enforcement message that
+# quietly says the wrong thing is worse than none at all.
+
+def reading_note(recorded: pd.DataFrame, just_written: int) -> str:
+    """Whether the held-back years had been read before this run."""
+    already = int((recorded["split"] == SPLIT).sum())     # every test row ever recorded
+    if already == just_written:
+        return f"{already} held-back rows recorded. This is the first reading."
+    return (f"{already} held-back rows recorded, {just_written} of them from this run. "
+            f"The held-back years have been read before — check the commit column.")
+
+
 # ── Running it ────────────────────────────────────────────────────────────────
-# Prints how many held-back rows the file already carries. Not a lock — there are honest
-# reasons to run this again, such as a bug in this very script. But a second reading of
-# the held-back years should never happen without anyone noticing it happened, and the
-# stamped record is what makes that visible rather than deniable.
 
 def main() -> int:
     try:
@@ -87,11 +101,7 @@ def main() -> int:
     rows = run(history, holdout)
     print(E.table(rows))
 
-    recorded = record(rows)
-    already = int((recorded["split"] == SPLIT).sum())
-    note = ("This is the first reading." if already == len(rows)
-            else "The held-back years have been read before — check the commit column.")
-    print(f"\n{already} held-back rows now recorded. {note}")
+    print("\n" + reading_note(record(rows), len(rows)))
     return 0
 
 

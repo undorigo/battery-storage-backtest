@@ -129,3 +129,32 @@ def test_a_model_is_not_its_own_benchmark(frames):
     rows = {r["model"]: r for r in FS.run(*frames)}
     for name in ("linear", "gbm"):
         assert rows[name]["rmae"] < 1.0, f"{name} scored as though it were its own benchmark"
+
+
+# ── The sentence a person actually reads ──────────────────────────────────────
+# The commit column is the evidence that the held-back years were read twice; this note
+# is what tells someone it happened. An enforcement message that says the wrong thing is
+# worse than no message, so both branches are pinned.
+
+def recorded(splits: list[str]) -> pd.DataFrame:
+    """A stand-in for what `record` reads back out of the CSV."""
+    return pd.DataFrame({"split": splits, "model": ["naive"] * len(splits)})
+
+
+def test_the_note_calls_a_first_reading_a_first_reading():
+    frame = recorded(["valid", "valid", "valid", "test", "test", "test"])
+    assert "first reading" in FS.reading_note(frame, just_written=3)
+
+
+def test_the_note_reports_a_second_reading_as_one():
+    """Six held-back rows from two runs of three. This must not read as the first."""
+    frame = recorded(["valid"] * 3 + ["test"] * 6)
+    note = FS.reading_note(frame, just_written=3)
+    assert "read before" in note
+    assert "first reading" not in note
+
+
+def test_validation_rows_are_never_counted_as_held_back():
+    """The count must key on the split label, not on how many rows the file holds."""
+    frame = recorded(["valid"] * 99 + ["test"] * 3)
+    assert "first reading" in FS.reading_note(frame, just_written=3)
