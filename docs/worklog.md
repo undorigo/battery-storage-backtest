@@ -29,6 +29,7 @@ One row per working day. Follow the date link for the detail.
 | [23 Sep 2026](#d20260923) | Stage 1 scaffolded and half-built: `evaluate.py` written by hand, benchmark in place. Modelling approach aligned — two models not six, MLflow deferred with a stated trigger. Setup ungated from homebrew. |
 | [28 Sep 2026](#d20260928) | **The first rMAE: 0.488.** A scoping question found an annual data hole in test data. `models.py` and `train.py` finished. Two mutants exposed real gaps, and the second showed the test fixture was rigged so the benchmark could not be beaten. Leak calibrated on purpose. |
 | [29 Sep 2026](#d20260929) | Recap found a claim of mine that did not survive checking: January is the model’s *best* month once normalised, not its worst. Sources cited in the README. Open item 9 closed by measurement rather than by fetching. `final_score.py` built, mutated both ways — and deliberately not run. |
+| [30 Sep 2026](#d20260930) | **Stage 1 closed: rMAE 0.532 on the held-back years.** The ranking reversed — the tree won on validation and lost on 2024-25. Two tests found unable to fire. Stage 2 reordered around recalibration; CatBoost and Random Forest parked for stage 4. Split rationale finally written down. |
 
 [Commits](#commits) · [Open items](#open-items) · [Next](#next)
 
@@ -1737,37 +1738,182 @@ tomorrow rather than at the end of a long session.
 
 ---
 
-### Next — Wednesday 30 September 2026
+<a id="d20260930"></a>
+### 30 September 2026 — the ranking reversed
 
-**`final_score.py` is written, tested and unrun. 152 tests pass. Stage 1 has a validation
-number and no held-back number.**
+#### Recap — one inverted, one explained, one partial, one right
+
+**Q1, closing open item 9 — inverted.** The answer described asking whether the data could be
+fetched first, and only then whether it could be dropped. That is the natural order and it is
+the trap. **Availability was never in question** — the Energy-Charts recipe had been validated
+on 17 September. The question that closed the item was whether the data mattered, and it did
+not. Asked the other way round, `energy_charts.py` would exist permanently for a measured
+benefit of zero.
+
+**Q2, the test that cannot fire — explained rather than marked,** on request. The benchmark row
+is built as `E.score("naive", SPLIT, benchmark, benchmark, actual)`: the same object twice, so
+the row is a number divided by itself and reads 1.000 whether the code is right or wrong.
+Demonstrated live by scoring every model against itself — the table became a column of ones and
+that test still passed.
+
+**Q3, two years worse than five — partial.** The general point about long windows averaging
+across regimes would have predicted the opposite of what was measured; five years beat two. The
+narrower answer is that the test was a *fixed* window ending December 2022, so "two years" meant
+the crisis years exactly. A rolling window moves, and by mid-2023 would hold 2023 itself.
+
+**Q4 — right,** with the sharpening that what is forbidden is adjusting *in response to what was
+seen*, and that the limit is once per stage rather than once ever.
+
+#### A push that changed the script
+
+The plan was to score one recipe on the held-back years, fitted through 2023. The objection —
+that this mixes up what validation is for — was right in substance, and my first answer to it
+overcorrected into dropping 2023 from the fit entirely, on an argument that did not hold: stage
+1's "never refit" rule existed to keep the *validation* score honest, and the held-back years
+are 2024-25.
+
+**Settled properly: both recipes, one reading.** Contract 2 limits how often the held-back years
+are looked at, not how many models are scored inside one look. Fitting to the end of 2022 keeps
+a row directly comparable to the validation score; fitting to the end of 2023 gives the model
+that would actually run.
+
+That decision is the only reason the finding below was visible.
+
+#### Two tests found unable to fire
+
+Mutation before running anything, since the read cannot be repeated.
+
+**The test named for the leak did not catch the leak.** It built its own `pd.concat([train,
+valid])` and checked *that* — so when the held-back years were let into the fit on purpose, it
+passed. The leak was caught incidentally, by a label reading `2018-2025`. It now stands in front
+of `M.fit` and records every frame that arrives; the same mutation now fails the test named for
+it.
+
+**A second test claimed to verify a fresh estimator per fit.** Sharing them was tried: every test
+passed, because each row is scored before the next fit replaces the estimator. Both the test name
+and the comment above the code now say what is actually true.
+
+Same shape as the benchmark-scores-one check, twice in one file. **A test that reconstructs its
+own version of the thing under test is testing its own reconstruction.**
+
+#### The number
+
+```
+| Model            | Split | Hours  | MAE   | rMAE  |
+|------------------|-------|--------|-------|-------|
+| naive            | test  | 17,542 | 32.81 | 1.000 |
+| linear 2018-2022 | test  | 17,542 | 18.85 | 0.575 |
+| gbm 2018-2022    | test  | 17,542 | 20.58 | 0.627 |
+| linear 2018-2023 | test  | 17,542 | 18.46 | 0.563 |
+| gbm 2018-2023    | test  | 17,542 | 17.44 | 0.532 |
+```
+
+Benchmark exactly 1.000, all five hour counts identical, recorded under commit `4c7ace0`.
+**Modelling beats not-modelling: 17.44 against 32.81.**
+
+#### And the result that matters more
+
+| Same recipe | validation | held-back |
+|---|---|---|
+| linear | 0.532 | **0.575** |
+| gbm | **0.488** | **0.627** |
+
+**The ranking reversed.** The tree won on 2023 and loses on 2024-25 with the identical recipe.
+The tree also degraded three times as hard — 0.139 against 0.043.
+
+The warning had been sitting there since 28 September and was not acted on: the tree was closer
+on only **53.4 %** of hours, barely better than a coin toss. An average can differ because one
+model is steadily better or because a few hours differ a lot, and a summary table cannot tell
+those apart.
+
+Had the validation number been reported and the stage closed, a false belief would have gone
+into stage 2. **This is the apparatus working, and it only works once.**
+
+One coincidence, named so nobody reads meaning into it: the headline 0.532 happens to equal the
+validation linear score exactly. Unrelated.
+
+The extra year is worth more to the tree than to the line — 0.095 against 0.012 — which fits the
+recalibration finding below. Recency is what the tree wants.
+
+#### Recalibration, measured
+
+A feasibility probe, written to answer whether stage 1's single-fit choice constrains stage 2.
+It does not: walk-forward refitting took about ten lines using only what already exists, with
+**no changes to `src/`**. `M.fit` and `M.forecast` are stateless, so the single-fit decision
+lives in a script rather than in the library.
+
+| Recipe (validation) | linear | gbm |
+|---|---|---|
+| one fit, 2018-2022 | 0.532 | 0.488 |
+| refit monthly, expanding | 0.525 | **0.440** |
+| refit monthly, rolling 730d | 0.709 | 0.442 |
+| refit monthly, rolling 365d | 0.711 | 0.458 |
+
+**Refitting helps; forgetting does not.** The expanding window wins, and the rolling two-year
+window — the field's default — is a wash for the tree and much worse for the line. The lever is
+*refit more often*, not *forget the crisis*, which reframes what had been assumed since
+28 September. Caveats: monthly rather than daily, one validation year, no significance test.
+
+#### The plan, reordered on evidence
+
+Researched on request rather than settled from memory. The field's families: LEAR and DNN as
+reference benchmarks, gradient boosting as the workhorse, random forests competitive, deep
+sequence models mixed. **We are already in the strongest family** — though the model in use is
+`HistGradientBoostingRegressor`, sklearn's histogram-based implementation, not LightGBM.
+
+Stage 2 led with "model craft". It now leads with **recalibration**, because that produced a
+larger measured gain than any algorithm choice, and because the one algorithm comparison made so
+far did not survive contact with the held-back years.
+
+**CatBoost and Random Forest parked until stage 4**, with the reason recorded: both are reported
+to trade well despite worse error scores. **Capture rate may not rank models the way rMAE does**
+— a battery needs the *ordering* of hours, not the level — so ranking more algorithms on rMAE
+before stage 4 says whether the two agree would be careful measurement against the wrong target.
+
+`CLAUDE.md`'s stage table updated to match and now points at the README as canonical.
+
+#### The split rationale, three weeks late
+
+Written into `src/config.py` where someone looking at the split will find it. The dates were set
+on day one and the reasoning existed only in someone's head until a question on 28 September
+found that nobody had asked.
+
+Recorded with the weakness rather than only the justification: training ends inside the gas
+crisis, validation is the recovery, the held-back years are calmer still, so each block is unlike
+the one before it. Honest about the market, and it makes validation an unusually *different*
+exam — which is exactly what the reversal above turned out to demonstrate.
+
+---
+
+### Next — Thursday 1 October 2026
+
+**Stage 1 is closed. rMAE 0.532 on 17,542 held-back hours, reproducible with `just final-score`.
+158 tests pass. Stage 2 starts.**
 
 #### Recap questions
 
-1. Open item 9 closed without fetching a single row. What question was asked instead of "how do
-   we get the missing days?", and why does the order of those two questions matter?
-2. `test_the_benchmark_scores_exactly_one` sits directly beside the ratio it appears to protect,
-   and cannot protect it. Why not — and what distinguishes a test that has never failed from one
-   that cannot?
-3. Training on two years scored worse than training on five. Why is that not an argument against
-   the rolling window stage 2 intends to test?
-4. Running `just final-score` changes what we are allowed to do afterwards. What exactly changes,
-   and why does that follow from Contract 2 rather than from taste?
+1. The tree beat the line on validation and lost on the held-back years. What had already been
+   measured two days earlier that predicted this, and why was a lower average not enough to
+   settle it?
+2. Five models were scored on the held-back years and Contract 2 was not broken. What exactly
+   does "once" limit — and what did scoring two recipes buy that one would not have?
+3. The test named for the leak stayed green when the leak was introduced. What was it actually
+   checking? Two tests this week had the same flaw — describe it in one sentence.
+4. Stage 2 was reordered to lead with recalibration rather than model craft. Which measurement
+   caused that, and why does it outrank choosing a better algorithm?
 
 #### Then, in order
 
-1. **Read `final_score.py` together** before running it. It was written in one pass at the end of
-   a session and has never been read aloud; the mutations cover the fit boundary but not the
-   reporting.
-2. **Run it, once.** Three rows land in `results/scores.csv` labelled `test`, stamped with the
-   commit.
-3. **Write stage 1 up.** The stage table's "Headline number" cell takes one number; the work log
-   takes the full picture and the caveats; `results/scores.csv` already holds the machine-readable
-   rows. The README's **"Currently:"** line is stale and still says the naive benchmark is next.
-4. **Record the split rationale**, which was never written down. `config.py` explains the
-   mechanics of the boundaries and nothing about why these years — found by a question on
-   28 September that nobody had asked in three weeks.
+1. **Settle open item 6** before anything is built. Whether a delivery day has 24 hours or 23/25
+   stops being philosophical the moment one model is fitted per delivery hour. It has been open
+   since 17 September waiting for exactly this stage.
+2. **Recalibration first**, because it is the largest measured lever. The probe used monthly
+   refits on an expanding window; stage 2 decides the cadence deliberately and measures daily
+   against monthly rather than assuming.
+3. **Diebold-Mariano before any second model**, so that no variant is adopted on a gap that
+   cannot be distinguished from luck. Stage 1 demonstrated the cost of not having it.
+4. **Then LEAR**, and the per-hour layout, and holidays.
 
-Open item 10 stays blocked until the API returns. Stage 2's levers, in the order the evidence
-supports: **which years the model learns from**, **one model per delivery hour** (7.79 of spread
-across the day), and **public holidays**, which are not in the frame at all.
+Open item 10 stays blocked until the ENTSO-E API returns; it cost 2 rows of the 17,542 scored
+today, which is recorded beside the result rather than discovered later. The plan artifact
+predates all of this and has drifted — either refresh it or let it stand as a dated snapshot.

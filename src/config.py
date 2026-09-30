@@ -88,6 +88,23 @@ VALID_END = "2023-12-31"
 TEST_START = "2024-01-01"
 TEST_END = "2025-12-31"
 
+# Why these years, recorded 30 September 2026 — three weeks after the dates were set,
+# because nobody had asked and the answer existed only in someone's head.
+#
+# The record cannot begin before October 2018: the DE-LU bidding zone did not exist, and
+# splicing across that boundary joins two different markets.  From there the three blocks
+# run in calendar order and never shuffle, because shuffling a time series lets a model
+# learn from days that had not happened yet.  The most recent years are held back, since
+# they are the closest thing available to what production would face; training takes the
+# largest share because that is where data is worth most.
+#
+# The weakness worth knowing, stated rather than discovered later.  Training ends inside
+# the 2022 gas crisis, validation is the recovery, and the held-back years are calmer
+# still — so each block is unlike the one before it.  That is honest about the market but
+# it makes validation an unusually harsh and unusually *different* exam.  Stage 1 saw the
+# consequence directly: a model picked on validation lost its ranking on the held-back
+# years.  Changing any boundary invalidates every number already published.
+
 
 def _first_delivery_hour(day: str) -> pd.Timestamp:
     """First delivery hour of a market-local day, expressed in UTC."""
