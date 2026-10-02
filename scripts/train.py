@@ -94,7 +94,7 @@ def run(train: pd.DataFrame, valid: pd.DataFrame) -> list[dict]:
 # The file is appended to and never rewritten, for the same reason the data pulls
 # are: a record that can be overwritten is not a record.
 
-SCORES = cfg.ROOT / "results" / "scores.csv"
+SCORES = cfg.SCORES                                 # the one place paths are named
 
 
 def git_commit() -> str:

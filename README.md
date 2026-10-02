@@ -59,7 +59,7 @@ something; without stages 0–3 it would be a number with no provenance.
 
 A gradient-boosted tree forecasts the 17,542 held-back hours of 2024–25 with a mean absolute
 error of **17.44 €/MWh** against the naive rule's 32.81 — an rMAE of **0.532**. Reproduce it
-with `just final-score`; the run is stamped into `results/scores.csv` with the commit that
+with `just final-score`; the run is stamped into `reports/scores.csv` with the commit that
 produced it.
 
 The more useful result was not the headline. Scored on the validation year the tree beat the

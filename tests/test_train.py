@@ -197,7 +197,7 @@ def test_record_writes_one_header_not_two(tmp_path):
 
 
 def test_record_creates_the_directory_if_it_is_missing(tmp_path):
-    """A clean clone has no results/ directory; the first run must not fail on that."""
+    """A clean clone may not have the output directory; the first run must not fail."""
     path = tmp_path / "results" / "scores.csv"
     T.record([{"model": "naive", "split": "valid", "n": 1, "mae": 1.0, "rmae": 1.0}], path)
     assert path.exists()

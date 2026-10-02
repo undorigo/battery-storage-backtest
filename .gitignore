@@ -31,11 +31,11 @@ data/**
 *.sqlite
 *.sqlite3
 
-# One exception, and it is deliberate. `results/scores.csv` is not data — it is the
+# One exception, and it is deliberate. `reports/scores.csv` is not data — it is the
 # record of what every run scored, stamped with the commit that produced it. Ignoring
 # it would mean a clean clone starts with no history, which is the opposite of what
 # the file is for. The blanket *.csv above still covers everything else.
-!results/scores.csv
+!reports/scores.csv
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Model artefacts and experiment tracking

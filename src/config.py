@@ -27,6 +27,7 @@ DATA = ROOT / "data"
 RAW = DATA / "raw"                              # as returned by the source, never edited
 REPORTS = ROOT / "reports"
 FIGURES = REPORTS / "figures"
+SCORES = REPORTS / "scores.csv"       # every scored run, appended, stamped with its commit
 
 # There is deliberately no directory for feature frames.  One was reserved on day
 # one and never used: `features.py` rebuilds all 63,575 rows in under a second, so
