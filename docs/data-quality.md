@@ -24,6 +24,50 @@ other is the subject of most of this note.
 
 ---
 
+## Four points where the market changed underneath the data
+
+Every hour in the record is present and correct, and the record still is not one thing. The
+market was rebuilt four times inside the window, and each break lands somewhere different
+relative to the split.
+
+**Know where they sit, so they are recognised during error analysis rather than debugged.**
+
+| When | What changed | Where it lands |
+|---|---|---|
+| **Oct 2018** | The DE-LU bidding zone came into existence. Before it, Germany, Austria and Luxembourg shared one zone and one price under a different EIC code | the start of the record, which is why the record starts here |
+| **2021–2023** | The gas crisis. 2022 is extreme in both level and volatility | **inside training**, at its recent end |
+| **April 2023** | The nuclear phase-out completed, shifting which plant sets the price at the margin | **inside validation** |
+| **Oct 2025** | Quarter-hourly products went live | **inside the held-back years** — see *The resolution change* below |
+
+Three of these are worth a sentence more than the table gives them.
+
+**The gas crisis is the one with consequences, and they are measurable.** Training ends inside
+it; validation is the recovery; the held-back years are calmer still. So each block of the split
+is unlike the block before it. Stage 1 saw the effect directly — a model chosen on validation
+lost its ranking on the held-back years. The reasoning behind the split dates, with this
+weakness stated, is in `src/config.py` beside the constants.
+
+It is also the strongest argument for separating a price into its daily level and its
+within-day shape: **the shape of a day survived the crisis and the level did not**, and a
+battery earns from the shape.
+
+**The nuclear break landing in validation is convenient rather than awkward.** It makes
+validation resemble the held-back years more closely than training does.
+
+**The October 2025 break is handled and still costs something.** Averaging each hour's values
+makes it disappear from every join, at the price of intra-hour spread — so from that date the
+revenue ceiling stage 4 computes is understated. That belongs in a footnote wherever the
+capture rate is reported, not in a correction afterwards.
+
+One note on comparability with published work: the `epftoolbox` protocol recalibrates on a
+rolling window rather than using a fixed split. This project's stage 1 used a single fixed fit,
+which is simpler and defensible — the obligation is to say which, not to match.
+
+*Lifted on 2 October from the 18 September plan page, which held the only copy. The page is
+archived and not maintained; this is now the record.*
+
+---
+
 ## Seven hours we lost ourselves
 
 The price series first came back with seven hours missing — one on 29 September of each
