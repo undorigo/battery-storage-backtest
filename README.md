@@ -27,7 +27,7 @@ should:
 
 ```
 ENTSO-E data → features → price forecast → dispatch optimiser → settlement → capture rate
-  (known at 12:00 on D-1)              (decision)          (actual prices)
+  (published before gate closure)      (decision)          (actual prices)
 ```
 
 Results are reported three ways, so the numbers mean something:
@@ -416,7 +416,7 @@ built here, and a backtest is not a system without them:
 
 | What production adds | Why it matters |
 |---|---|
-| A hard deadline | the forecast exists before 12:00, every day. Usually ready is unusable |
+| A hard deadline | the forecast exists before 12:00, every day. In practice an internal cut-off an hour earlier, leaving room to run the optimiser, submit and recover — which is an operational margin, not the information boundary the backtest is judged against. Usually ready is unusable |
 | Fallbacks | when a source is late, something still has to be bid. On 9 September the ENTSO-E API was unreachable for over an hour, and only a second source kept work moving |
 | Alerts, not dashboards | a message when coverage or error crosses a threshold, rather than a chart nobody is watching at 11:45 |
 | Backfill and versioning | when history is revised, yesterday's decisions stay explainable |

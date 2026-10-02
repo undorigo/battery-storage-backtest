@@ -14,7 +14,7 @@ The chain, end to end:
 
 ```
 ENTSO-E data → features → price forecast → dispatch optimiser → settlement → capture rate
-   (known at 12:00 on D-1)              (decision)          (actual prices)
+   (published before gate closure)      (decision)          (actual prices)
 ```
 
 **Two goals, in this order.** First, practise time series forecasting properly on real
@@ -95,7 +95,7 @@ these silently invalidates every result produced before the change.
 Every change must leave the evaluation chain intact:
 
 ```
-features(known at 12:00 D-1) → forecast → schedule → settle(actual prices) → capture rate
+features(published before gate closure) → forecast → schedule → settle(actual prices) → capture rate
 ```
 
 A change is not complete if the chain is broken, even if the edited file passes its own
@@ -161,7 +161,7 @@ five lines maximum — if more is needed, the section is too large.
 
 ```python
 # ── Build the feature frame ───────────────────────────────────────────────────
-# Every column here must have existed at 12:00 on D-1, before gate closure.  That
+# Every column here must have been published before the auction closed.  That
 # is why we use the published TSO wind forecast rather than actual generation —
 # the actuals are freely available today but were unknown when the decision was
 # made, and using them would inflate every result downstream.
@@ -343,8 +343,32 @@ Five shared interfaces where a change in one place breaks another.
 **Owner:** `src/features.py`
 **Dependents:** everything downstream
 
-Every feature must have been knowable at 12:00 on day D−1. This is not a style preference;
-it is what separates a valid backtest from a worthless one.
+Every feature must have been published **before the auction closed** — 12:00 on day D−1 for
+this market. This is not a style preference; it is what separates a valid backtest from a
+worthless one.
+
+Lead with the constraint rather than the clock, because two different deadlines are easy to
+collapse into one number:
+
+| | What it is | Who sets it |
+|---|---|---|
+| **Information boundary** | what the market could have known: anything published before the book closed | the market — a fact |
+| Operational deadline | when your own pipeline must be finished, leaving room to run the model, run the optimiser, submit and recover | you — a choice |
+
+**Only the first governs a backtest.** The question is whether the market could have known a
+value, not whether a pipeline would have finished in time. An earlier internal cut-off makes a
+backtest more conservative without making it more correct, and discards legitimate information.
+The operational deadline belongs in the README's note on what production would add.
+
+**Neither is checkable from this data.** ENTSO-E indexes values by the hour they describe, never
+by the moment they were published, which is why `scripts/verify_forecast_series.py` has to prove
+provenance by comparing a forecast against its own actual instead of reading a timestamp.
+
+So the boundary is enforced **structurally, with no clock anywhere**. `MIN_PRICE_LAG_HOURS` is 24
+for a reason worth following once: for delivery hour 23:00 on day D, a 12-hour lag reaches back
+to 11:00 **on day D itself**, which nobody knew at the decision point. Twenty-four hours is the
+smallest fixed lag that is safe for all 24 delivery hours, and a fixed row offset needs no date
+comparison to be right.
 
 | Allowed | Not allowed |
 |---------|-------------|
