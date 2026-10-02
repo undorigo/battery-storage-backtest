@@ -14,7 +14,7 @@ The chain, end to end:
 
 ```
 ENTSO-E data → features → price forecast → dispatch optimiser → settlement → capture rate
-   (known at 11:00 on D-1)              (decision)          (actual prices)
+   (known at 12:00 on D-1)              (decision)          (actual prices)
 ```
 
 **Two goals, in this order.** First, practise time series forecasting properly on real
@@ -95,7 +95,7 @@ these silently invalidates every result produced before the change.
 Every change must leave the evaluation chain intact:
 
 ```
-features(known at 11:00 D-1) → forecast → schedule → settle(actual prices) → capture rate
+features(known at 12:00 D-1) → forecast → schedule → settle(actual prices) → capture rate
 ```
 
 A change is not complete if the chain is broken, even if the edited file passes its own
@@ -161,7 +161,7 @@ five lines maximum — if more is needed, the section is too large.
 
 ```python
 # ── Build the feature frame ───────────────────────────────────────────────────
-# Every column here must have existed at 11:00 on D-1, before gate closure.  That
+# Every column here must have existed at 12:00 on D-1, before gate closure.  That
 # is why we use the published TSO wind forecast rather than actual generation —
 # the actuals are freely available today but were unknown when the decision was
 # made, and using them would inflate every result downstream.

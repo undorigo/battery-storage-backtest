@@ -27,7 +27,7 @@ should:
 
 ```
 ENTSO-E data → features → price forecast → dispatch optimiser → settlement → capture rate
-  (known at 11:00 on D-1)              (decision)          (actual prices)
+  (known at 12:00 on D-1)              (decision)          (actual prices)
 ```
 
 Results are reported three ways, so the numbers mean something:
