@@ -338,7 +338,7 @@ pip install rust-just              # any platform, ships the same binary
 # or: curl -sSf https://just.systems/install.sh | bash -s -- --to ~/.local/bin
 
 just                               # the menu
-just setup · test · verify · pull · explore · clean
+just setup · test · pull · verify · explore · train · final-score · clean
 ```
 
 **Nothing requires it.** The justfile is the single source of truth for what each command is,
@@ -365,20 +365,26 @@ connect, and where to start reading. In short:
 
 ```
 BUILT
-  src/config.py            split dates, EIC codes, battery parameters — single source of truth
-  src/sources/entsoe.py    the data-item catalog: what is fetched, and what may reach a model
-  src/data.py              caching and normalisation; the loaders everything else calls
-  src/features.py          the gate — where the availability rule is enforced, not declared
-  scripts/                 entry points — one per command in the justfile
+  src/config.py              split dates, EIC codes, battery parameters — single source of truth
+  src/sources/entsoe.py      the data-item catalog: what is fetched, and what may reach a model
+  src/data.py                caching and normalisation; the loaders everything else calls
+  src/features.py            the gate — where the availability rule is enforced, not declared
+  src/models.py              the benchmark, and the two estimators that must beat it
+  src/evaluate.py            MAE and rMAE, and the rule that both are scored on the same hours
+  scripts/pull.py            just pull        — fetch every series in the catalog
+  scripts/explore.py         just explore     — headline numbers and the README figures
+  scripts/train.py           just train       — score the validation year, as often as you like
+  scripts/final_score.py     just final-score — read the held-back years, once per stage
+  reports/scores.csv         every scored run, appended, stamped with its commit
 
 PLANNED
-  src/models.py            training, benchmarks, quantile models
-  src/backtest.py          dispatch optimiser and settlement
-  src/evaluate.py          rMAE, Diebold-Mariano, pinball loss, capture rate
+  src/backtest.py            dispatch optimiser and settlement
 ```
 
 Everything above `features.py` is transport: getting data from ENTSO-E onto disk without
-damaging it. Everything below it is a decision. That file is where the question changes from
+damaging it. Everything below it is a decision. The two scripts at the bottom are split for the
+same reason: `train.py` has no code path to the held-back years, and a test enforces it, so
+the one reading a stage is allowed stays something you have to mean to do. That file is where the question changes from
 *"did we fetch this correctly?"* to *"were we allowed to know this?"* — which is why it carries
 two independent guards and a test that rebuilds a delivery day from a world truncated at the
 auction deadline.

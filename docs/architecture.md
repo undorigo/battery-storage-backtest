@@ -34,11 +34,13 @@ would really have made.
                                 │
    ═══════════════════ features.py ════════════════════  ◀── THE GATE
                                 │                             Contract 1 lives here
-   just train ──────▶     models.py
+   just train ──────▶     models.py  ──┐        validation year, read as often as you like
+                                │       │
+   just final-score ─▶   models.py  ──┤        held-back years, read once per stage
+                                │       │
+                        evaluate.py ◀──┘  ───▶  reports/scores.csv
                                 │
-   just backtest ───▶    backtest.py
-                                │
-                        evaluate.py    ───────▶  reports/
+   just backtest ───▶    backtest.py                     (planned)
 
    config.py  ──  every box above reads its settings from here
 ```
@@ -62,14 +64,22 @@ Each file answers exactly one question. If you can't say which, it is doing too 
 | **Library** | `src/sources/entsoe.py` | What may we ask for, and what may the model see? | built |
 | | `src/data.py` | How do we get it, keep it, and make it consistent? | built |
 | | `src/features.py` | What does the model get to look at? | **built** |
-| | `src/models.py` | What will tomorrow's prices be? | next |
+| | `src/models.py` | What will tomorrow's prices be? | built |
+| | `src/evaluate.py` | How good was it? | built |
 | | `src/backtest.py` | What should the battery do, and what did that earn? | planned |
-| | `src/evaluate.py` | How good was it? | planned |
 | **Buttons** | `scripts/pull.py` | Go and get the data. | built |
 | | `scripts/verify_forecast_series.py` | Are these series really forecasts? | built |
 | | `scripts/explore.py` | What does the record actually contain? | built |
+| | `scripts/train.py` | How is it doing on the year we may keep looking at? | built |
+| | `scripts/final_score.py` | How did it do on the years nobody has touched? | built |
 
-Seven of ten exist. Everything marked *planned* is a name and an intention, nothing more.
+Ten of eleven exist. `backtest.py` is a name and an intention, nothing more.
+
+**Why the last two are separate files rather than one with a flag.** Contract 2 allows the
+held-back years to be scored once per stage, and a promise in a docstring would not survive a
+hurried afternoon. So `train.py` has no code path to those rows at all, and a test enforces
+it. The script that may reach them is reached by its own command, which you have to mean to
+run. The two share `models.py` and `evaluate.py`, so the numbers stay comparable.
 
 ---
 
@@ -341,14 +351,21 @@ Run verify when a new entry is added to the catalog, a request parameter changes
 
 ## How to read the repository in ten minutes
 
-Open these four, in this order. Each one only needs the ones above it.
+Open these in order. Each one only needs the ones above it.
 
 1. **`justfile`** — what can I run?
-2. **`src/config.py`** — what is fixed and not up for debate?
+2. **`src/config.py`** — what is fixed and not up for debate? The split, and since
+   30 September the reasoning behind those particular years, including its weakness.
 3. **`src/sources/entsoe.py`** — what data exists, and what is allowed?
 4. **`src/features.py`** — where that permission stops being a declaration. The file the
    rest of the project depends on being right.
 5. **`tests/test_features.py`** — specifically `test_deleting_the_future_changes_nothing`,
    which is the shortest statement of what this project is trying to be careful about.
+6. **`src/evaluate.py`** — why every forecast and its benchmark are trimmed to the same
+   hours before either is scored. Two correct averages over different hours make a
+   meaningless ratio.
+7. **`scripts/final_score.py`** — the one script allowed to read the held-back years, and
+   why that is a separate file rather than a flag.
 
-Then read [CLAUDE.md](../CLAUDE.md) for the rules that govern changing any of it.
+Then read [CLAUDE.md](../CLAUDE.md) for the rules that govern changing any of it, and the
+`Next` section at the foot of [docs/worklog.md](worklog.md) for where things actually stand.
