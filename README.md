@@ -3,7 +3,9 @@
 Forecasting German day-ahead electricity prices, and measuring what the forecast is
 actually worth to a battery.
 
-**Status:** in progress, started 8 September 2026. No results yet.
+**Status:** stage 1 of 6 complete, 30 September 2026. A gradient-boosted tree forecasts the
+held-back years at **rMAE 0.532** — roughly half the error of a week-old lookup. Stage 4,
+where that becomes a capture rate, is the one the rest exists for.
 
 ---
 
@@ -396,6 +398,16 @@ purpose here is a well-built, honestly evaluated implementation — not a new re
 
 The revenue figures are gross trading margin from day-ahead arbitrage: one revenue stream,
 before grid fees, taxes and capital costs. They are not an investment case.
+
+And one thing worth keeping in view while building, because it decides what the final number
+means. **Accuracy only pays where it changes a decision.** If two forecasts produce the same
+battery schedule, the more accurate one earned nothing. So the interesting result at the end
+is not the error metric — it is the point where better forecasts stop converting into money.
+
+Stage 1 has already shown the first half of that. The tree beat the straight-line model on
+the validation year and lost to it on years nothing had been tuned against, which means a
+difference in error that looked real was not. Whether either difference moves a euro is
+stage 4's question.
 
 ## References
 

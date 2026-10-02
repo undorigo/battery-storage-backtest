@@ -2,14 +2,20 @@
 
 Running record of what was done, what was decided, and what was found. Newest session
 last. Written for a reader who was not present: what changed, and why it changed.
-Decisions belong here with their reasoning; `CLAUDE.md` holds the standing rules and
-`HANDOVER.md` the decisions settled before any code existed.
 
-**The stage plan lives outside this repository**, as a private page:
-<https://claude.ai/code/artifact/9f662615-dd72-4326-8695-6ab1f2151b59>. It holds the six
-stages, the schedule, and the reasoning behind each — the forward-looking half of what this
-file records backwards. Recorded here because until 18 September it was findable only by
-scrolling back through a chat transcript, which is not a location.
+**Where to look for what.** Decisions belong here, with their reasoning. `CLAUDE.md` holds
+the standing rules and the technical spec. The README's **Where this is going** is the
+canonical plan — the six stages, what each delivers, and roughly when. The `Next` section at
+the foot of this file is the state of play, rewritten each evening, and is the right place to
+start a session.
+
+`HANDOVER.md` was dissolved on 2 October. Written on 8 September before the first commit, it
+had never been updated, so the half of it that claimed to hold the state of play had been
+wrong for three weeks while the other half was still worth keeping. Its working method moved
+to `CLAUDE.md` as **Teach While Building**, its framing on when accuracy pays to the README,
+and its two surviving open questions to item 11 below. Entries before this date refer to it as
+a live file, which it was. An earlier version of this header also pointed at a private page as
+the home of the stage plan; that page predates stage 1 and the README supersedes it.
 
 ## Contents
 
@@ -930,6 +936,27 @@ It is a presentation of `just explore` output, never a source of a number.
    constant stays as a named hazard, like `DE_AT_LU_EIC`, but it is documentation now
    rather than a promise. `GATE_CLOSURE_LOCAL`, `INTERIM` and `PROCESSED` are still
    waiting for `features.py`.
+11. **Two feature families left out of v1, both stage 2 experiments.** *(moved here
+    30 September from `HANDOVER.md`, written 8 September, which held the only record of them)*
+
+    **Weather.** Deliberately absent, and not for lack of availability. The ENTSO-E
+    day-ahead wind and solar *generation* forecast already carries the weather forecast —
+    converted onto the real installed fleet, by the people who own the fleet — and it is
+    what the market actually saw before gate closure. Raw weather would be a worse version
+    of a signal already in the frame. If it is ever added, the open-meteo Previous Runs API
+    is the correct endpoint; the Historical Forecast API is a danger zone, because it
+    stitches the first hours of successive model runs and so approximates what happened
+    rather than what was forecast.
+
+    **Fuel and carbon prices.** Also absent. The price lags already in the frame carry the
+    fuel signal indirectly: a gas price move shows up in yesterday's clearing price,
+    because gas usually sets the margin. Whether real TTF and EUA series beat that proxy is
+    a measurable question and an hour's work.
+
+    **Trigger:** stage 2, after recalibration and the per-hour layout have been measured.
+    Both are additive feature experiments, so they belong after the structural levers rather
+    than tangled up with them.
+
 10. **REVISIT AFTER STAGE 1 — one forecast hour lost on every autumn clock-change day.**
     *(opened 28 September)*
 

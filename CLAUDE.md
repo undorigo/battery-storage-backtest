@@ -208,6 +208,27 @@ protocol exists to prevent, not a use of it.
 **The one-line version:** the differentiator is judgement, and judgement is only visible when
 the reasoning is written down next to the result.
 
+### Standing Protocol — Teach While Building
+
+The first goal is learning, which changes how code arrives rather than what gets built.
+
+**Explain the reasoning before producing code.** Where there is a genuine choice between two
+approaches, name both and say which you would pick and why. Generate in pieces that can be
+followed, not finished modules that have to be reverse-engineered — a pipeline that appears
+fully formed defeats the point of building it.
+
+**Expect pushback on vague claims, and expect it to be right.** Two corrections from the
+planning conversation set the standard: a proposed weather dataset would have leaked
+hindsight, and an earlier plan put the optimiser before the modelling. Both came from
+outside the work, and both improved it. The pattern has held since — a question about where
+missing rows sit, rather than how many there are, found an annual data hole in the held-back
+years; a question about refitting produced the two-recipe design that revealed stage 1's
+ranking reversal.
+
+**So if something has not been verified, say so rather than smoothing over it.** An
+unverified claim stated plainly is useful. The same claim stated confidently costs more to
+undo than it ever saved.
+
 ### Standing Protocol — Learning Notes in Plain Language
 
 This project has two goals and the first one is learning. Something understood is worth
