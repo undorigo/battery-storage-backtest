@@ -9,6 +9,14 @@ canonical plan — the six stages, what each delivers, and roughly when. The `Ne
 the foot of this file is the state of play, rewritten each evening, and is the right place to
 start a session.
 
+**The plan page.** The current one is <https://claude.ai/artifact/LUWuMAcbi7y14b6cVmGLzX> — a living
+document, so it can be revised as each stage closes rather than drifting. It mirrors the README's
+**Where this is going**; the README is canonical and the page is the shareable form. The version that
+stood until 2 October is archived unchanged at
+<https://claude.ai/code/artifact/9f662615-dd72-4326-8695-6ab1f2151b59>: a dated snapshot from
+18 September, kept because it records what the plan looked like before stage 1 revised it, and
+explicitly not maintained.
+
 `HANDOVER.md` was dissolved on 2 October. Written on 8 September before the first commit, it
 had never been updated, so the half of it that claimed to hold the state of play had been
 wrong for three weeks while the other half was still worth keeping. Its working method moved

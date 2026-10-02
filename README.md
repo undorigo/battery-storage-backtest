@@ -94,6 +94,13 @@ Recorded so the reasoning survives, and so nobody re-opens them without new evid
 | **Experiment tracking (MLflow)** | a run costs more to reproduce than to record | Today a full run takes seconds and is seeded, so nothing can be lost that cannot be regenerated |
 | **A second data source for the 37 missing load-forecast days** | closed, not parked | Dropping *all* of 2018 moved the score by nothing, so 888 hours of it cannot matter |
 
+### The plan as a page
+
+The same plan, shareable and kept in step with this section:
+<https://claude.ai/artifact/LUWuMAcbi7y14b6cVmGLzX>. This README is canonical; the page is the form
+that travels. The version that stood until 2 October is archived unchanged as a dated snapshot and is
+not maintained — [docs/worklog.md](docs/worklog.md) records both links and which is which.
+
 ### Roughly when
 
 Estimated from what stages 0 and 1 actually took — seven and six working days — rather than
