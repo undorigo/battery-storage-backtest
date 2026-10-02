@@ -46,6 +46,7 @@ One row per working day. Follow the date link for the detail.
 | [28 Sep 2026](#d20260928) | **The first rMAE: 0.488.** A scoping question found an annual data hole in test data. `models.py` and `train.py` finished. Two mutants exposed real gaps, and the second showed the test fixture was rigged so the benchmark could not be beaten. Leak calibrated on purpose. |
 | [29 Sep 2026](#d20260929) | Recap found a claim of mine that did not survive checking: January is the model’s *best* month once normalised, not its worst. Sources cited in the README. Open item 9 closed by measurement rather than by fetching. `final_score.py` built, mutated both ways — and deliberately not run. |
 | [30 Sep 2026](#d20260930) | **Stage 1 closed: rMAE 0.532 on the held-back years.** The ranking reversed — the tree won on validation and lost on 2024-25. Two tests found unable to fire. Stage 2 reordered around recalibration; CatBoost and Random Forest parked for stage 4. Split rationale finally written down. |
+| [2 Oct 2026](#d20261002) | Housekeeping: `HANDOVER.md` dissolved, plan page replaced, scores moved under `reports/`. Short recap, two answers reversed. **Open item 6 closed:** every day becomes 24 slots, the field's convention, chosen over keeping real hours. Decided, not built. |
 
 [Commits](#commits) · [Open items](#open-items) · [Next](#next)
 
@@ -933,7 +934,19 @@ It is a presentation of `just explore` output, never a source of a number.
    far is not a revision rate; that accumulates in `data/raw/manifest.csv`.
 5. **Platform stability** — resolved as of 14 September: sub-second responses, no retries.
    Keep generous timeouts and SMARD as a fallback anyway; the outage cost half a day once.
-6. **The 23/25-hour delivery day** contradicts CLAUDE.md's "24 values per run". Storing in
+6. **CLOSED 2 October — the 23/25-hour delivery day.** *(opened 17 September)*
+
+   **Decided, not yet built:** every delivery day becomes 24 slots, once, at the point where
+   `src/data.py` hands data out. The missing spring hour is the mean of its two neighbours, and the
+   doubled autumn hour is the mean of its two values. This is the field's convention (Weron;
+   Lago et al. 2021). The UTC cache stays as pulled. Only stage 4's settlement puts forecasts
+   back onto real hours. Alternatives and reasoning are under [2 October](#d20261002).
+
+   The original entry follows, unchanged.
+
+   ---
+
+   **The 23/25-hour delivery day** contradicts CLAUDE.md's "24 values per run". Storing in
    UTC keeps joins safe but does not settle it. Needs an explicit rule at stage 2, when the
    model layout is chosen.
 7. **`expected_resolution` is declared but still unchecked.** `src/data.py` now *measures*
@@ -1922,35 +1935,107 @@ exam — which is exactly what the reversal above turned out to demonstrate.
 
 ---
 
-### Next — Thursday 1 October 2026
+<a id="d20261002"></a>
+### 2 October 2026 — a convention chosen from the literature
 
-**Stage 1 is closed. rMAE 0.532 on 17,542 held-back hours, reproducible with `just final-score`.
-158 tests pass. Stage 2 starts.**
+The first hour went on housekeeping, each piece committed on its own: `HANDOVER.md` was dissolved
+into the files that stay current, the plan page was replaced (the old one is kept as a dated
+snapshot), and the score record moved under `reports/`. A short session followed.
+
+#### Recap — short form, two reversed
+
+There wasn't time for the four questions, so five one-liners instead. Two came back the wrong way
+round, which is the useful part:
+
+- **Which training window won when refitting monthly?** Answered "the one that drops old years".
+  It was the one that **keeps every year**: 0.440 against 0.442 for the tree, and 0.525 against
+  0.709 for the line.
+- **Which model won on 2024–25 when trained up to the end of 2022?** Answered "the tree". It was
+  **the line: 0.575 against 0.627.** That is the reversal, and the main finding of stage 1.
+
+Also sharpened: an rMAE of 1.0 means *as good as copying last week*, in general. Comparing a model
+with itself is one way to get exactly 1.0, and that was the bug, not what the number means. The
+four full questions move to Monday.
+
+#### Open item 6 — every day becomes 24 slots
+
+Stage 2 fits one model per delivery hour, so a day with no 02:00, or two of them, needs a rule
+before anything is built. Five options were weighed:
+
+| Option | What it does | Verdict |
+|---|---|---|
+| A. Real hours | per-hour models take whatever rows carry their clock label | **rejected:** works for today's models, but LEAR wants "yesterday's 24 prices" as one block, and lags stay one clock hour off for a week after each change |
+| **B. 24 slots** | mean of neighbours for the missing hour, mean of the pair for the doubled one | **chosen** |
+| B inside, real hours for scoring | fit on the grid, map back before scoring | **rejected:** two conventions to keep in step, to keep 4 hours in 17,544 exact. The field does not do it |
+| C. UTC hours | one model per UTC hour | **rejected:** one model would cover 07:00 in winter and 08:00 in summer |
+| D. Drop the days | skip clock-change days | **rejected:** the battery still trades them, and the evaluation would have a silent hole |
+
+**What decided it was the literature, looked up rather than recalled.** The convention goes back
+to Weron, and the standard open benchmark (Lago, Marcjasz, De Schutter and Weron 2021, with its
+`epftoolbox` code) builds its datasets this way, German market included. Scoring happens on the
+24-slot data too. My first proposal, the middle row, was extra care the field does not take. I had
+also overstated what stage 4 must "undo": it is a few lines that drop one slot or repeat one.
+
+**One side effect fixed by construction.** Lags step back a fixed number of rows. On real UTC
+hours, `price_lag_168h` points one clock hour off for the week after each clock change. That is
+about 14 days a year, and the naive benchmark is that same column. On a 24-slot grid, 168 rows
+back is always the same clock hour. This was worked out from the code, not measured.
+
+**What it costs, in Contract 5 terms:**
+1. Contract 5 (time and resolution) is affected. Owner: `src/data.py`.
+2. Its dependents are everything: `features.py`'s lags and daily summaries, the split boundaries in
+   `config.py` (currently UTC timestamps), the models, the scoring.
+3. Not updated today. This entry and the CLAUDE.md wording record the decision. The build is
+   Monday's first job.
+4. **Previously produced results:** stage 1's held-back 0.532 stays as recorded, under the
+   real-hour convention. It is not re-scored now, because that would be a second look at
+   2024–25. Stage 1's recipe gets re-scored **inside stage 2's single final run**, alongside
+   stage 2's models, which is the "five models, one look" lesson. Validation numbers get
+   re-scored freely once the grid exists. Expected to move very little (2 hours in 8,760), but
+   that is not measured yet.
+
+Sources: [Lago et al. 2021](https://www.sciencedirect.com/science/article/pii/S0306261921004529) ·
+[epftoolbox](https://github.com/jeslago/epftoolbox) ·
+[Ziel & Weron, LASSO](https://arxiv.org/pdf/1509.01966)
+
+---
+
+### Next — Monday 5 October 2026
+
+**Stage 1 is closed at rMAE 0.532. Open item 6 is decided (24 slots per day) but not built.
+Stage 2 starts with building it.**
 
 #### Recap questions
+
+The four from 30 September, carried over:
 
 1. The tree beat the line on validation and lost on the held-back years. What had already been
    measured two days earlier that predicted this, and why was a lower average not enough to
    settle it?
 2. Five models were scored on the held-back years and Contract 2 was not broken. What exactly
-   does "once" limit — and what did scoring two recipes buy that one would not have?
+   does "once" limit, and what did scoring two recipes buy that one would not have?
 3. The test named for the leak stayed green when the leak was introduced. What was it actually
-   checking? Two tests this week had the same flaw — describe it in one sentence.
+   checking? Two tests that week had the same flaw. Describe it in one sentence.
 4. Stage 2 was reordered to lead with recalibration rather than model craft. Which measurement
    caused that, and why does it outrank choosing a better algorithm?
 
+And one from today:
+
+5. Why does a battery backtest still need real hours in stage 4, when every model works on 24
+   slots?
+
 #### Then, in order
 
-1. **Settle open item 6** before anything is built. Whether a delivery day has 24 hours or 23/25
-   stops being philosophical the moment one model is fitted per delivery hour. It has been open
-   since 17 September waiting for exactly this stage.
-2. **Recalibration first**, because it is the largest measured lever. The probe used monthly
-   refits on an expanding window; stage 2 decides the cadence deliberately and measures daily
-   against monthly rather than assuming.
-3. **Diebold-Mariano before any second model**, so that no variant is adopted on a gap that
-   cannot be distinguished from luck. Stage 1 demonstrated the cost of not having it.
-4. **Then LEAR**, and the per-hour layout, and holidays.
+1. **Build the 24-slot grid** in `src/data.py`. The first design question is what the grid's
+   index is (local date plus slot, or a timestamp), because `config.py`'s split boundaries are UTC
+   timestamps today. Test it on a real spring day and a real autumn day, then break it on purpose
+   to check that the test fails. Then re-score validation to get stage 2's baseline.
+2. **Recalibration**, because it is the largest measured lever. Decide the cadence deliberately and
+   measure daily refits against monthly rather than assuming.
+3. **Diebold-Mariano before any second model**, so that no variant is adopted on a gap that cannot
+   be told apart from luck.
+4. **Then LEAR**, the per-hour layout, and holidays.
 
-Open item 10 stays blocked until the ENTSO-E API returns; it cost 2 rows of the 17,542 scored
-today, which is recorded beside the result rather than discovered later. The plan artifact
-predates all of this and has drifted — either refresh it or let it stand as a dated snapshot.
+Open item 10 stays blocked until the ENTSO-E API returns. Under the 24-slot grid, its three
+clock-change rows may stop mattering altogether. Check that once the grid exists, rather than
+assuming it.

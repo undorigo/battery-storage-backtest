@@ -37,7 +37,7 @@ Everything in this repository is downstream of that single fact.
 | Target | Day-ahead clearing price, DE-LU bidding zone, €/MWh |
 | Bidding zone EIC | `10Y1001A1001A82H` |
 | Resolution | Hourly (quarter-hours after 30 Sept 2025 aggregated up) |
-| Output | 24 values per run, one per delivery hour of day D |
+| Output | 24 values per run, one per delivery hour of day D (clock-change days put onto 24 slots — Contract 5) |
 | Train | Oct 2018 – Dec 2022 |
 | Validate | 2023 |
 | Test | 2024 – 2025 |
@@ -435,6 +435,11 @@ hours; quarter-hourly data after 30 Sept 2025 is aggregated to hourly at the sam
 
 Handle both in one place. Handling them per-script produces series that silently disagree
 by an hour.
+
+**Every delivery day becomes 24 slots** (decided 2 October 2026, not yet built). The missing
+spring hour is the mean of its two neighbours, and the doubled autumn hour is the mean of its pair.
+This is the field's convention (Weron; Lago et al. 2021). The UTC cache stays as pulled, and only
+stage 4's settlement puts forecasts back onto real hours, because a battery is paid real prices.
 
 ---
 
