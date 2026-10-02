@@ -137,6 +137,29 @@ rather than a re-derivation.
 than obtaining them from the TSOs later. That is equally unprovable for ENTSO-E's own
 history, and the evidence above is as far as this can be taken without asking Fraunhofer.
 
+### Resolved 29 September: the days are not needed
+
+Stage 1 produced the measured rMAE the decision below was waiting for, and with one in hand
+the question could be answered without fetching anything. Rather than asking whether the
+missing days could be recovered — they could, and the recipe is still below — the better
+question was whether the year they belong to affects the score at all.
+
+Same model, different start dates, scored on the validation year:
+
+| Train from | Rows | linear | gbm |
+|---|---|---|---|
+| 2018 | 36,335 | 0.532 | **0.488** |
+| 2019 | 35,016 | 0.535 | **0.488** |
+
+**Dropping all 1,319 hours of 2018 leaves the tree unchanged and moves the linear fit by
+0.003.** The 37 missing days would add roughly 888 hours to a year contributing 3.6 % of
+training and no measurable accuracy. A second source is not justified, so
+`src/sources/energy_charts.py` was never written.
+
+Everything below stands as the evidence behind that, and the recipe stays current in case a
+later stage changes the arithmetic — a per-hour model layout divides the rows by 24, which is
+the kind of change that could make early data matter again.
+
 ### Decision: drop the days for now, and revisit after stage 1
 
 **This is a deferral, not a dismissal.** The days are droppable *and* recoverable, and the
