@@ -57,6 +57,14 @@ so a claim can always be traced back to the run that produced it.
 Stage 4 is the one the rest exists for. Everything before it makes the capture rate mean
 something; without stages 0–3 it would be a number with no provenance.
 
+**Why that way round.** A standalone price forecast is close to a commodity — several vendors
+sell them and the accuracy differences between them are thin. The margin sits in the two things
+on either side of the forecast: the optimisation that turns it into a schedule under real asset
+constraints, and the reliability that makes it dependable at 11:45 every morning. That is why
+the firms doing this commercially ask for machine learning and optimisation in the same job
+description, and it is why a project that stopped at a good rMAE would have measured the least
+valuable part.
+
 ### Where stage 1 landed
 
 A gradient-boosted tree forecasts the 17,542 held-back hours of 2024–25 with a mean absolute
@@ -402,6 +410,17 @@ auction deadline.
 
 **Out:** intraday trading, balancing reserve, multiple countries, quarter-hourly modelling.
 Each is interesting; each is a separate project.
+
+**Also out, and worth naming because the distance is the point.** None of the following is
+built here, and a backtest is not a system without them:
+
+| What production adds | Why it matters |
+|---|---|
+| A hard deadline | the forecast exists before 12:00, every day. Usually ready is unusable |
+| Fallbacks | when a source is late, something still has to be bid. On 9 September the ENTSO-E API was unreachable for over an hour, and only a second source kept work moving |
+| Alerts, not dashboards | a message when coverage or error crosses a threshold, rather than a chart nobody is watching at 11:45 |
+| Backfill and versioning | when history is revised, yesterday's decisions stay explainable |
+| A named person awake at 11:45 | the part no amount of modelling replaces |
 
 ## Honest framing
 

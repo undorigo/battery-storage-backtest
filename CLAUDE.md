@@ -298,6 +298,35 @@ Before committing any change to features, splits, or evaluation, answer in writi
 If capture rate exceeds 100 %, or rMAE drops implausibly, assume leakage before assuming
 success.
 
+### Standing Protocol — Early Warning Signs
+
+The leakage check above asks a question about a specific change. These are about the work
+itself, and each one has the same remedy: **go back to the last completed stage.**
+
+| Sign | What it usually means |
+|---|---|
+| The backtest looks suspiciously good | go hunting for hindsight before celebrating |
+| You cannot say which change caused which improvement | too many at once; undo until you can |
+| The error improves and the money does not | the gains are landing in hours that do not matter |
+| More than two days spent cleaning data | cut scope, not care |
+| Days of reading without a commit | reading is a stage's work, not a substitute for it |
+
+Two of these have already fired on this project, which is why they are written down rather
+than implied.
+
+**The backtest looked suspiciously good** on 14 September, when a check was handed actual
+load instead of the forecast: correlation 1.0000, error 0. That was deliberate — it proved the
+check could fail — but it is exactly what a real leak looks like from the inside.
+
+**The error improved and the ranking did not hold.** Stage 1 chose a gradient-boosted tree on
+the validation year by 0.044 of rMAE, and on the held-back years the straight-line model beat
+it. The gap had been measured as a near coin toss two days earlier and was not acted on.
+
+The third sign is the one with no instrument yet. Until stage 4 exists there is no capture
+rate to compare an error improvement against — so a forecast that improves on paper cannot
+yet be shown to improve a decision. **That is a stated limit of every number before stage 4,
+not a detail.**
+
 ### Meta-Law — Conflict Resolution
 
 Laws are ordered. When they conflict, state the conflict, justify the resolution, and
