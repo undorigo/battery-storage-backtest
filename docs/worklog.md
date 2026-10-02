@@ -9,10 +9,12 @@ canonical plan — the six stages, what each delivers, and roughly when. The `Ne
 the foot of this file is the state of play, rewritten each evening, and is the right place to
 start a session.
 
-**The plan page.** The current one is <https://claude.ai/artifact/LUWuMAcbi7y14b6cVmGLzX> — a living
-document, so it can be revised as each stage closes rather than drifting. It mirrors the README's
-**Where this is going**; the README is canonical and the page is the shareable form. The version that
-stood until 2 October is archived unchanged at
+**The plan page.** The current one is <https://claude.ai/artifact/Mysse8XGB4exGFykeDcmYm>. It mirrors
+the README's **Where this is going**; the README is canonical and the page is the shareable form, so
+refreshing the page belongs to the ritual of closing a stage — a plain page cannot be revised in place,
+which is exactly how the last one drifted. A collaborative version was tried first and abandoned: the
+viewer it needs will not run in this machine's Safari, so an editable document was no use at all. The
+version that stood until 2 October is archived unchanged at
 <https://claude.ai/code/artifact/9f662615-dd72-4326-8695-6ab1f2151b59>: a dated snapshot from
 18 September, kept because it records what the plan looked like before stage 1 revised it, and
 explicitly not maintained.

@@ -96,8 +96,8 @@ Recorded so the reasoning survives, and so nobody re-opens them without new evid
 
 ### The plan as a page
 
-The same plan, shareable and kept in step with this section:
-<https://claude.ai/artifact/LUWuMAcbi7y14b6cVmGLzX>. This README is canonical; the page is the form
+The same plan, shareable and refreshed whenever a stage closes:
+<https://claude.ai/artifact/Mysse8XGB4exGFykeDcmYm>. This README is canonical; the page is the form
 that travels. The version that stood until 2 October is archived unchanged as a dated snapshot and is
 not maintained — [docs/worklog.md](docs/worklog.md) records both links and which is which.
 
