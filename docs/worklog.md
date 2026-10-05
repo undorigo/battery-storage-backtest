@@ -47,6 +47,7 @@ One row per working day. Follow the date link for the detail.
 | [29 Sep 2026](#d20260929) | Recap found a claim of mine that did not survive checking: January is the model’s *best* month once normalised, not its worst. Sources cited in the README. Open item 9 closed by measurement rather than by fetching. `final_score.py` built, mutated both ways — and deliberately not run. |
 | [30 Sep 2026](#d20260930) | **Stage 1 closed: rMAE 0.532 on the held-back years.** The ranking reversed — the tree won on validation and lost on 2024-25. Two tests found unable to fire. Stage 2 reordered around recalibration; CatBoost and Random Forest parked for stage 4. Split rationale finally written down. |
 | [2 Oct 2026](#d20261002) | Housekeeping: `HANDOVER.md` dissolved, plan page replaced, scores moved under `reports/`. Short recap, two answers reversed. **Open item 6 closed:** every day becomes 24 slots, the field's convention, chosen over keeping real hours. Decided, not built. |
+| [5 Oct 2026](#d20261005) | Recap: three partial, one forgotten, one reversed for the second time. MLflow adopted for stage 2 on a question the deferral never weighed. The grid's labels checked in the field's code and paper. **`to_slots()` built and mutated.** Split rewritten to sort by Berlin date; position tests added after finding the old ones could not see the cut. Wiring half done, uncommitted. |
 
 [Commits](#commits) · [Open items](#open-items) · [Next](#next)
 
@@ -942,6 +943,11 @@ It is a presentation of `just explore` output, never a source of a number.
    Lago et al. 2021). The UTC cache stays as pulled. Only stage 4's settlement puts forecasts
    back onto real hours. Alternatives and reasoning are under [2 October](#d20261002).
 
+   **5 October:** built as `to_slots()` in `src/data.py`. It is applied in `features.py` after the
+   loader rather than at the point `data.py` hands data out, so that test fixtures and the leak
+   test pass through it. Labels are naive Berlin wall clock, the field's form. See
+   [5 October](#d20261005).
+
    The original entry follows, unchanged.
 
    ---
@@ -1014,6 +1020,9 @@ It is a presentation of `just explore` output, never a source of a number.
 
     Related to item 6, which asks what the *rule* for a 23/25-hour day should be. This is the
     narrower question of one hour going missing inside it.
+
+    **5 October — checked: the grid does not dissolve it.** The rows sit at local midnight, not at
+    02:00, so they stay empty on the grid as they should. Still blocked on the API.
 
 <a id="d20260918"></a>
 ### 18 September 2026 — where the money actually is
@@ -2000,42 +2009,161 @@ Sources: [Lago et al. 2021](https://www.sciencedirect.com/science/article/pii/S0
 
 ---
 
-### Next — Monday 5 October 2026
+<a id="d20261005"></a>
+### 5 October 2026 — the grid built, and a convention checked rather than reasoned
 
-**Stage 1 is closed at rMAE 0.532. Open item 6 is decided (24 slots per day) but not built.
-Stage 2 starts with building it.**
+#### Recap — three partial, one forgotten, one reversed again
+
+- **What predicted the reversal?** Answered in general: results on one year need not carry over
+  to the next. True, and true of everything, so it predicts nothing. The specific warning was a
+  number: the tree was closer on only **53.4 % of hours**, barely better than a coin toss.
+- **What does "once" limit?** Half right. It limits look, adjust, look again, not how many
+  models are scored in one look. The recipe fitted to the end of 2022 was the row comparable to
+  the validation score, and the only reason the reversal was visible.
+- **The leak test that stayed green.** Not remembered. It built its own copy of the training
+  data and checked that. *A test that builds its own copy of the thing it checks is testing its
+  copy.*
+- **Why recalibration leads stage 2.** Drifted towards "choose the right training window", for
+  the second session running. The measurement says the opposite: keep every year, refit more
+  often. Asked again tomorrow.
+- **Why stage 4 needs real hours.** Right for spring (the invented 02:00 is dropped), missed
+  autumn: there are two real 02:00s, each traded and each paid at its own price.
+
+#### MLflow — the deferral had answered a different question
+
+The 23 September deferral asked *could a run be lost?* It could not, because every run
+regenerates in seconds. Today's question was *can runs be compared side by side?* The deferral
+never weighed that, and stage 2 is where it starts to matter. There will be several refitting
+variants, and the significance test needs every hour's forecast, which `reports/scores.csv`
+does not keep.
+
+**Decided:** MLflow comes in after the grid is wired and before recalibration.
+`reports/scores.csv` stays the record. It is in git, while `mlruns/` is local and ignored, so only
+the CSV satisfies the Third Law. MLflow is where runs are compared and where per-hour forecasts
+are kept. The 2023 baseline is scored into the CSV as soon as the grid is wired, then re-run
+(seeded, so identical) as MLflow's first run. The held-back years are never re-run to fill it.
+
+For stage 4: one run can log capture rate beside rMAE, which is exactly the comparison that
+decides whether error ranks models the way money does. There are two things MLflow cannot
+enforce. Every run must record its horizon convention (Contract 4), or incomparable runs sit in
+one table. And scenarios are explored on 2023 and run on 2024–25 once.
+
+The README's *Parked on purpose* table still says deferred. It changes when MLflow lands.
+
+#### Stage 2 — what to expect, written down before measuring
+
+| Step | Expected | Basis |
+|---|---|---|
+| Refit monthly, every year kept | tree 0.488 → 0.440 | **measured** |
+| Refit daily instead | small extra gain, if any | guess: monthly already removes most of the staleness |
+| Diebold-Mariano | none, by design | it tells real gains from luck |
+| LEAR | unknown | the plain line already beat the tree on 2024–25 |
+| One model per hour | more for the line than the tree | reasoning: a tree can already split on hour |
+| Public holidays | large on ~10 days, small on the year | arithmetic |
+
+Tuning the tree's settings is not in the plan. It needs its own held-out slice to stay honest,
+and is worth it only if the tree and LEAR end up close.
+
+#### The grid's labels — looked up in the field's code
+
+My first recommendation was a two-part label, date plus slot number, chosen to keep the guard
+that refuses timestamps without a timezone. The pushback asked what the field actually does.
+`epftoolbox` reads every dataset with `pd.to_datetime(data.index)`: no timezone, 24 rows a day.
+LEAR builds lags as `- pd.Timedelta(hours=24)` and daily blocks as `reshape(-1, 24)`, both of
+which only work on such an index. **So: naive timestamps, Berlin wall clock.**
+
+A follow-up asked whether a timezone is implied somewhere else. It is, in one sentence of the
+paper (§3.1), checked verbatim: *"All available time series are saved using the local time, and
+the daylight savings are treated by either arithmetically averaging two values from the extra
+hour or interpolating the neighboring values for the missing observation."* Averaging and
+interpolating only make sense on a clock that changes, and UTC never does.
+
+Second time in a week for the same lesson: check the convention before designing around it.
+
+#### Piece 1 — `to_slots()` (`f679b21`, citation in `673d835`)
+
+Built in `src/data.py` and not yet called. Tested on 2024's real clock-change dates. Four
+mutations (no spring fill, fill every gap, keep the first autumn 02:00, UTC instead of Berlin)
+each failed the test named for them. On the real cache every full day has 24 rows, and
+31 March 2024 02:00 reads 65.84, the mean of 66.71 and 64.98. `numpy` is now in
+`requirements.txt`; four test files had already been importing it unlisted.
+
+**Open item 10 is not dissolved by the grid.** Its three rows sit at local midnight, not at
+02:00, so they stay empty. Checked rather than assumed, as the last entry asked.
+
+#### Piece 2 — three jobs, and a split by date (in progress)
+
+The explanation that landed, after several that did not, was three jobs rather than two clocks:
+
+| Job | Needs | Why |
+|---|---|---|
+| Storing | world clock (UTC), every real hour | on 27 Oct 2024 Berlin's 02:00 occurs twice (82.23, 80.43); only UTC names them apart |
+| Models | Berlin clock, 24 hours a day | prices follow Berlin life; every day the same length |
+| Battery | the real hours | it is paid for what happened, both 02:00s |
+
+Decisions taken:
+
+- **The translation happens in `features.py`, after the loader, not inside it.** Three test
+  files replace the loader with world-clock fixtures. Translating afterwards sends those
+  fixtures through the same path as real data. It also means the leak test cuts the future off
+  the *original* before translating, which is the order reality has. A `load_slots()` was
+  written and withdrawn for this reason.
+- **`split()` sorts by Berlin delivery date.** Grid labels are compared directly, and world-clock
+  labels are read on the Berlin clock first. This replaces `_first/_last_delivery_hour` and the
+  four `*_UTC` constants, and their tests go with them.
+- **Found while rewriting the tests:** the three split tests (no overlap, no gap, every row
+  once) cannot see *where* the cut falls. Moving it to UTC midnight left all three green. The
+  constant tests being removed were what pinned the position. They are replaced by position
+  checks on what `split()` returns, for both clocks. Both mutations were caught.
+- **The leak test gains 1 April 2024**, the first day to read the invented 02:00 as "yesterday".
+  To fill that hour, the grid reads a *later* hour, which is exactly what this test exists to
+  catch.
+- **2023 is re-scored as soon as the wiring is done**, because the chain must run end to end.
+
+**State at close.** `src/config.py`, `tests/test_config.py` and a docstring in `src/data.py` are
+**modified and uncommitted**. `test_config.py` passes 10/10, but the full suite is red:
+`test_train.py`, `test_final_score.py` and `test_data.py` still reference the removed `*_UTC`
+constants. `main` is green at `673d835`.
+
+---
+
+### Next — Tuesday 6 October 2026
+
+**Piece 2 is half done and uncommitted (see the state above). Finish it before anything else.**
 
 #### Recap questions
 
-The four from 30 September, carried over:
-
-1. The tree beat the line on validation and lost on the held-back years. What had already been
-   measured two days earlier that predicted this, and why was a lower average not enough to
-   settle it?
-2. Five models were scored on the held-back years and Contract 2 was not broken. What exactly
-   does "once" limit, and what did scoring two recipes buy that one would not have?
-3. The test named for the leak stayed green when the leak was introduced. What was it actually
-   checking? Two tests that week had the same flaw. Describe it in one sentence.
-4. Stage 2 was reordered to lead with recalibration rather than model craft. Which measurement
-   caused that, and why does it outrank choosing a better algorithm?
-
-And one from today:
-
-5. Why does a battery backtest still need real hours in stage 4, when every model works on 24
-   slots?
+1. Time is handled three ways in this project: for storing, for the models and for the battery.
+   Which clock or version does each use, and why? Use 27 October 2024 as the example.
+2. When the split's cut was moved to world-clock midnight, three tests stayed green. What were
+   they checking, and what could they not see?
+3. Why does `features.py` translate to the grid *after* loading, instead of the loader doing it?
+   What could the leak test miss the other way round?
+4. MLflow was deferred on 23 September and adopted today. Which question did the deferral
+   answer, which question changed the decision, and why does `scores.csv` stay the record?
+5. *(Third time.)* Refitting monthly: did keeping every year or dropping the old ones win, for
+   each model, and what is the lesson?
 
 #### Then, in order
 
-1. **Build the 24-slot grid** in `src/data.py`. The first design question is what the grid's
-   index is (local date plus slot, or a timestamp), because `config.py`'s split boundaries are UTC
-   timestamps today. Test it on a real spring day and a real autumn day, then break it on purpose
-   to check that the test fails. Then re-score validation to get stage 2's baseline.
-2. **Recalibration**, because it is the largest measured lever. Decide the cadence deliberately and
-   measure daily refits against monthly rather than assuming.
-3. **Diebold-Mariano before any second model**, so that no variant is adopted on a gap that cannot
-   be told apart from luck.
-4. **Then LEAR**, the per-hour layout, and holidays.
-
-Open item 10 stays blocked until the ENTSO-E API returns. Under the 24-slot grid, its three
-clock-change rows may stop mattering altogether. Check that once the grid exists, rather than
-assuming it.
+1. **Finish piece 2.**
+   - `features.py`: `data.to_slots(data_load(key))` at the three load sites; `_hourly_span`
+     without `tz`; the daily summary as `span.normalize()`; the calendar read from the index directly.
+   - Scripts: drop `tz_convert` at `train.py:132` and `final_score.py:61,118`.
+   - Tests: replace the `*_UTC` references in `test_train.py`, `test_final_score.py` and
+     `test_data.py` with date comparisons. Turn `test_features.py`'s UTC day boundaries into
+     Berlin labels; its 23-hour day becomes 24.
+   - Parametrise the leak test over 20 March and 1 April 2024. Mutate it by filling the spring
+     hour from a neighbour 25 rows ahead, which reaches into day D, and confirm the 1 April case
+     fails.
+   - CLAUDE.md: the grid as the one named exception to "no naive timestamps"; Contract 5's
+     "not yet built" becomes built.
+   - Full suite, then `just train` (2023 only, appended to `scores.csv`). **Do not run
+     `just final-score`.** Commit and push.
+2. **MLflow**, its own commit: dependency pinned; each run logs its recipe, refit cadence and
+   convention as parameters and its per-hour forecasts as an artifact. Re-run the baseline as the
+   first run. Update the README's parked table.
+3. **Recalibration.** Time a daily-refit run first; that number says whether MLflow's artifacts
+   are earning their place. Then monthly against daily, every year kept, recipe in the label.
+4. **Diebold-Mariano before any second model.**
+5. **Then LEAR**, the per-hour layout, and holidays.
