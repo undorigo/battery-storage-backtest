@@ -23,6 +23,7 @@ from dataclasses import dataclass, replace
 from datetime import datetime, timezone
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 from dotenv import load_dotenv
 
@@ -155,6 +156,38 @@ def to_hourly(df: pd.DataFrame) -> pd.DataFrame:
     if df.index.tz is None:
         raise ValueError("Index must be tz-aware before resampling (Contract 5).")
     return df.resample(cfg.RESOLUTION).mean()
+
+
+# ── Contract 5: every delivery day becomes 24 slots ───────────────────────────
+# Models want every day the same length: "yesterday's 24 prices" as one block, and
+# a lag of 168 rows that always lands on the same clock hour.  The field's
+# convention (Weron; Lago et al. 2021) is to drop the timezone and keep wall-clock
+# Berlin time, filling the missing spring 02:00 with the mean of its neighbours
+# and averaging the doubled autumn 02:00.  The labels are naive on purpose — the
+# one place in the pipeline where they may be.  Real hours stay in the UTC cache,
+# because a battery is paid real prices in real hours.
+
+def to_slots(df: pd.DataFrame) -> pd.DataFrame:
+    """Put a UTC-indexed hourly frame on wall-clock Berlin time, 24 rows per day."""
+    if df.index.tz is None:
+        raise ValueError("Index must be tz-aware before slotting (Contract 5).")
+
+    wall = df.index.tz_convert(cfg.TZ_MARKET).tz_localize(None)   # Berlin clock, timezone dropped
+    out = df.groupby(wall).mean()                           # the two autumn 02:00s become one
+
+    full = pd.date_range(out.index.min(), out.index.max(), freq=cfg.RESOLUTION)  # always 24 a day
+    out = out.reindex(full)                                 # the spring 02:00 appears, empty
+
+    # Only hours the clock skipped are invented.  A row missing for any other
+    # reason — the 2018 load-forecast gaps — stays missing, so the decision about
+    # it remains where it was taken rather than being answered here by accident.
+    real = full.tz_localize(cfg.TZ_MARKET, ambiguous=np.zeros(len(full), bool), nonexistent="NaT")
+    skipped = full[real.isna()]                             # wall-clock times that never happened
+    neighbours = (out.shift(1) + out.shift(-1)) / 2
+    out.loc[skipped] = neighbours.loc[skipped]
+
+    out.index.name = "delivery_hour_local"                  # says what the naive label means
+    return out
 
 
 def detected_resolution(df: pd.DataFrame) -> str:

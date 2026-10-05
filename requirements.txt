@@ -10,6 +10,7 @@
 
 entsoe-py==0.8.1        # ENTSO-E transport + XML parsing; reads ENTSOE_API_KEY itself
 pandas==3.0.5           # tz-aware DatetimeIndex is the backbone of every series here
+numpy==2.4.6            # pandas's own array library; imported directly for the 24-slot grid
 pyarrow==25.0.1         # parquet engine; preserves the UTC index on round-trip
 python-dotenv==1.2.3    # loads the API token from .env, which is never committed
 matplotlib==3.11.1      # stage 0 figures: price history, negative hours, daily spread

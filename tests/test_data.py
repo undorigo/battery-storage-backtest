@@ -100,6 +100,57 @@ def test_detected_resolution_reports_what_arrived():
     assert data.detected_resolution(data.normalise(frame("2024-06-01", 8, "h"))) == "60min"
 
 
+# ── Contract 5: every day becomes 24 slots ────────────────────────────────────
+# Built on the real clock-change dates of 2024, with every hour carrying a distinct
+# value, so that an average of the wrong two hours gives a wrong number rather than
+# the same constant.
+
+
+def counted(start: str, periods: int) -> pd.DataFrame:
+    """Local hourly frame whose values are 0, 1, 2 … — each hour identifiable."""
+    idx = pd.date_range(start, periods=periods, freq="h", tz=cfg.TZ_MARKET)
+    return data.normalise(pd.DataFrame({"v": range(periods)}, index=idx).astype(float))
+
+
+def test_clock_change_days_come_out_24_slots_long():
+    spring = data.to_slots(counted("2024-03-31", 23))
+    autumn = data.to_slots(counted("2024-10-27", 25))
+    assert len(spring) == 24
+    assert len(autumn) == 24
+
+
+def test_the_missing_spring_hour_is_the_mean_of_its_neighbours():
+    slots = data.to_slots(counted("2024-03-31", 23))         # 01:00 is 1, 03:00 is 2
+    assert slots.loc["2024-03-31 02:00", "v"] == 1.5
+
+
+def test_the_doubled_autumn_hour_is_the_mean_of_its_pair():
+    slots = data.to_slots(counted("2024-10-27", 25))         # the two 02:00s are 2 and 3
+    assert slots.loc["2024-10-27 02:00", "v"] == 2.5
+    assert slots.loc["2024-10-27 03:00", "v"] == 4.0         # later hours are not displaced
+
+
+def test_labels_are_berlin_wall_clock():
+    """Noon in Berlin is 10:00 UTC in summer; the slot must read 12:00."""
+    slots = data.to_slots(counted("2024-06-01", 24))
+    assert slots.loc["2024-06-01 12:00", "v"] == 12.0
+    assert slots.index.tz is None
+
+
+def test_a_genuinely_missing_hour_is_not_invented():
+    """Only the hour the clock skipped is filled. A data gap stays a gap."""
+    june = counted("2024-06-01", 24).drop(pd.Timestamp("2024-06-01 05:00", tz=cfg.TZ_MARKET))
+    slots = data.to_slots(june)
+    assert len(slots) == 24
+    assert pd.isna(slots.loc["2024-06-01 05:00", "v"])
+
+
+def test_to_slots_rejects_a_naive_index():
+    naive = pd.DataFrame({"v": [1.0]}, index=pd.date_range("2024-06-01", periods=1, freq="h"))
+    with pytest.raises(ValueError, match="tz-aware"):
+        data.to_slots(naive)
+
+
 # ── Column flattening ─────────────────────────────────────────────────────────
 
 
