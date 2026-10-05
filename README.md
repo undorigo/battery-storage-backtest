@@ -80,6 +80,12 @@ job, and it is why stage 2 carries a significance test rather than a leaderboard
 
 ### What stage 2 does, in the order the evidence supports
 
+Before any of it, **every delivery day becomes 24 hours long.** A clock-change day has 23 or 25,
+and one model per delivery hour needs the same 24 every day. The rule is the field's own (Lago et
+al. 2021, §3.1): Berlin clock time, the missing spring hour filled from its neighbours, the doubled
+autumn hour averaged. Decided 2 October, being built. The battery is still settled on the hours
+that really happened.
+
 1. **Refit as the year runs.** Measured on validation, refitting monthly instead of once moved
    the tree from 0.488 to 0.440 — a larger gain than any model choice produced. An expanding
    window beat a rolling two-year one, so the lever is *refit more often*, not *forget the
@@ -99,7 +105,7 @@ Recorded so the reasoning survives, and so nobody re-opens them without new evid
 | Parked | Until | Why |
 |---|---|---|
 | **CatBoost, Random Forest** | stage 4 | Both are reported to trade well despite worse error scores — Random Forest for steadier margins, CatBoost in a week-ahead battery-arbitrage comparison. **Capture rate may not rank models the way rMAE does**, and ranking more algorithms on the wrong metric is wasted effort. Stage 4 settles whether the two agree |
-| **Experiment tracking (MLflow)** | a run costs more to reproduce than to record | Today a full run takes seconds and is seeded, so nothing can be lost that cannot be regenerated |
+| **Experiment tracking (MLflow)** | **unparked 5 Oct 2026**, comes in before recalibration | Parked because no run could be lost: each regenerates in seconds. Reopened by a different question, whether runs can be compared side by side. Stage 2 compares several refitting variants, and the significance test needs every hour's forecast, which the score file does not keep. `reports/scores.csv` stays the record, because it is in git; MLflow is where runs are compared |
 | **A second data source for the 37 missing load-forecast days** | closed, not parked | Dropping *all* of 2018 moved the score by nothing, so 888 hours of it cannot matter |
 
 ### The plan as a page
