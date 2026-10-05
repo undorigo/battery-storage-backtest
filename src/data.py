@@ -161,10 +161,10 @@ def to_hourly(df: pd.DataFrame) -> pd.DataFrame:
 # ── Contract 5: every delivery day becomes 24 slots ───────────────────────────
 # Models want every day the same length: "yesterday's 24 prices" as one block, and
 # a lag of 168 rows that always lands on the same clock hour.  The field's
-# convention (Weron; Lago et al. 2021) is to drop the timezone and keep wall-clock
-# Berlin time, filling the missing spring 02:00 with the mean of its neighbours
-# and averaging the doubled autumn 02:00.  The labels are naive on purpose — the
-# one place in the pipeline where they may be.  Real hours stay in the UTC cache,
+# convention (Weron; Lago et al. 2021, §3.1) is to drop the timezone and keep
+# wall-clock Berlin time, filling the missing spring 02:00 with the mean of its
+# neighbours and averaging the doubled autumn 02:00.  The labels are naive on
+# purpose — the one place in the pipeline where they may be.  Real hours stay in the UTC cache,
 # because a battery is paid real prices in real hours.
 
 def to_slots(df: pd.DataFrame) -> pd.DataFrame:
