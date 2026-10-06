@@ -48,6 +48,7 @@ One row per working day. Follow the date link for the detail.
 | [30 Sep 2026](#d20260930) | **Stage 1 closed: rMAE 0.532 on the held-back years.** The ranking reversed — the tree won on validation and lost on 2024-25. Two tests found unable to fire. Stage 2 reordered around recalibration; CatBoost and Random Forest parked for stage 4. Split rationale finally written down. |
 | [2 Oct 2026](#d20261002) | Housekeeping: `HANDOVER.md` dissolved, plan page replaced, scores moved under `reports/`. Short recap, two answers reversed. **Open item 6 closed:** every day becomes 24 slots, the field's convention, chosen over keeping real hours. Decided, not built. |
 | [5 Oct 2026](#d20261005) | Recap: three partial, one forgotten, one reversed for the second time. MLflow adopted for stage 2 on a question the deferral never weighed. The grid's labels checked in the field's code and paper. **`to_slots()` built and mutated.** Split rewritten to sort by Berlin date; position tests added after finding the old ones could not see the cut. Wiring half done, uncommitted. |
+| [6 Oct 2026](#d20261006) | Recap: two partial, three wrong, refitting missed for the third session running. |
 
 [Commits](#commits) · [Open items](#open-items) · [Next](#next)
 
@@ -2124,6 +2125,32 @@ Decisions taken:
 **modified and uncommitted**. `test_config.py` passes 10/10, but the full suite is red:
 `test_train.py`, `test_final_score.py` and `test_data.py` still reference the removed `*_UTC`
 constants. `main` is green at `673d835`.
+
+---
+
+<a id="d20261006"></a>
+### 6 October 2026
+
+#### Recap — two partial, three wrong, refitting missed a third time
+
+- **Three jobs, three clocks.** Battery right (25 real hours). Put the models on UTC, with the
+  averaging there. The models run on Berlin's clock: a UTC day has 24 hours but starts at a
+  different Berlin hour in summer and winter, so the morning peak would move twice a year. On
+  27 October 2024 the stored 82.23 and 80.43 become one model hour of 81.33.
+- **The three split tests.** Answered that they checked "the wrong time format". They check
+  that the pieces fit (no overlap, no gap, every row once) and look at no time at all. Moving
+  the first hour of 2023 into training broke nothing they looked at.
+- **Translate after loading.** "Keep the data original" holds either way, since the loader never
+  writes back. The reasons are that the tests swap the loader for world-clock fakes, and that
+  cutting before translating is the order reality has. The danger was framed as a neighbour
+  going missing. It is the reverse: a future neighbour already averaged in before the cut.
+- **MLflow.** Both questions misremembered as timing and cost. Deferred on *could a run be
+  lost?*, adopted on *can runs be compared side by side?* `scores.csv` stays the record because
+  it is in git, not because it is easier to read.
+- **Refitting.** Answered "every year wins for the tree, the recent window for the line, try
+  both". Every year wins for both: tree 0.440 against 0.442, line 0.525 against 0.709. Third
+  session running. The pull is the field's default and the "crisis distorts" story, both of
+  which lose to this project's own measurement.
 
 ---
 
