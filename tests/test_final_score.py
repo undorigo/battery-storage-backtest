@@ -64,12 +64,13 @@ def frames(monkeypatch):
 # Two fits, and the difference between them is the whole point of scoring both. Getting
 # either boundary wrong is silent: too cautious wastes a year, too loose fits on the very
 # rows being judged.  The boundary hours are written out rather than read from
-# `split()`, so these tests cannot agree with a mistake there.
+# `split()`, so these tests cannot agree with a mistake there.  Grid labels, so
+# every year ends at 23:00 on the Berlin clock.
 
-LAST_TRAIN_HOUR = pd.Timestamp("2022-12-31 22:00", tz="UTC")   # 23:00 Berlin
-LAST_VALID_HOUR = pd.Timestamp("2023-12-31 22:00", tz="UTC")
-FIRST_TEST_HOUR = pd.Timestamp("2023-12-31 23:00", tz="UTC")   # Berlin midnight, New Year
-LAST_TEST_HOUR = pd.Timestamp("2025-12-31 22:00", tz="UTC")
+LAST_TRAIN_HOUR = pd.Timestamp("2022-12-31 23:00")
+LAST_VALID_HOUR = pd.Timestamp("2023-12-31 23:00")
+FIRST_TEST_HOUR = pd.Timestamp("2024-01-01 00:00")
+LAST_TEST_HOUR = pd.Timestamp("2025-12-31 23:00")
 
 
 def test_two_recipes_are_scored(frames):
@@ -97,7 +98,7 @@ def test_the_other_recipe_uses_the_validation_year_too(frames):
     """
     train, valid, _ = frames
     history = pd.concat([train, valid])
-    years = set(history.index.tz_convert(cfg.TZ_MARKET).year)
+    years = set(history.index.year)                  # grid labels are Berlin already
     assert {2022, 2023} <= years
     assert FS.label("gbm", history).endswith("2023")
 

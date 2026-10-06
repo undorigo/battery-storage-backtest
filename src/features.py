@@ -16,6 +16,7 @@ from __future__ import annotations
 import pandas as pd
 
 from src import config as cfg
+from src import data
 from src.sources import entsoe
 
 
@@ -63,16 +64,17 @@ assert min(PRICE_LAGS) >= MIN_PRICE_LAG_HOURS, "a lag shorter than 24 h reaches 
 
 
 def _hourly_span(*indexes: pd.DatetimeIndex) -> pd.DatetimeIndex:
-    """A gapless hourly index covering everything passed in.
+    """A gapless hourly index on the 24-slot grid, covering everything passed in.
 
     Both `shift` calls below move by one row rather than by one hour, so they are
     only correct on an index with no holes.  Building that index explicitly makes
     the assumption true instead of hoping it is — a missing hour would otherwise
-    shorten every lag past it, and the result still looks like a price.
+    shorten every lag past it, and the result still looks like a price.  On the
+    grid, one row back is always the same Berlin hour, clock changes included.
     """
     lo = min(i.min() for i in indexes)
     hi = max(i.max() for i in indexes)
-    return pd.date_range(lo, hi, freq=cfg.RESOLUTION, tz=cfg.TZ_STORAGE)
+    return pd.date_range(lo, hi, freq=cfg.RESOLUTION)       # naive labels: Berlin wall clock
 
 
 def price_features(price: pd.Series, index: pd.DatetimeIndex) -> pd.DataFrame:
@@ -96,7 +98,8 @@ def price_features(price: pd.Series, index: pd.DatetimeIndex) -> pd.DataFrame:
 
     # Daily summaries are computed on market-local days, because the auction clears
     # a Berlin calendar day as one block and a battery's cycle lives inside one.
-    day = span.tz_convert(cfg.TZ_MARKET).normalize()
+    # Grid labels are already Berlin wall clock, so the date is read straight off.
+    day = span.normalize()
     daily = full.groupby(day).agg(["min", "max", "mean"])
     daily["last"] = full.groupby(day).last()                # the final hour of the day
     yesterday = daily.shift(1)                              # safe: `day` runs without gaps
@@ -121,8 +124,8 @@ def price_features(price: pd.Series, index: pd.DatetimeIndex) -> pd.DataFrame:
 
 def forecast_features() -> pd.DataFrame:
     """Demand and renewable output as forecast before gate closure, plus residual load."""
-    load = data_load("load_forecast").iloc[:, 0]
-    ws = data_load("wind_solar_forecast")
+    load = data.to_slots(data_load("load_forecast")).iloc[:, 0]
+    ws = data.to_slots(data_load("wind_solar_forecast"))
 
     out = pd.DataFrame(index=load.index)
     out["load_forecast"] = load
@@ -141,7 +144,8 @@ def forecast_features() -> pd.DataFrame:
 # ── Calendar ──────────────────────────────────────────────────────────────────
 # Read off the market clock, not UTC.  Demand follows when people in Berlin get up
 # and go to work, so an hour-of-day taken from UTC would be an hour out for half
-# the year and would smear the morning peak across two values.
+# the year and would smear the morning peak across two values.  The grid's labels
+# already are the market clock, so they are read directly.
 #
 # German public holidays are deliberately absent: they matter, but the moveable
 # feasts need a dependency, and the naive benchmark already carries weekly shape.
@@ -149,18 +153,22 @@ def forecast_features() -> pd.DataFrame:
 
 def calendar_features(index: pd.DatetimeIndex) -> pd.DataFrame:
     """Hour and weekday on the delivery day, in market time."""
-    local = index.tz_convert(cfg.TZ_MARKET)
     return pd.DataFrame(
         {
-            "hour": local.hour,
-            "dayofweek": local.dayofweek,
-            "is_weekend": local.dayofweek >= 5,             # demand drops; the price shape changes
+            "hour": index.hour,
+            "dayofweek": index.dayofweek,
+            "is_weekend": index.dayofweek >= 5,             # demand drops; the price shape changes
         },
         index=index,
     )
 
 
 # ── Assembling the frame ──────────────────────────────────────────────────────
+# Each series is put on the 24-slot grid where it is loaded, not inside `data_load`.
+# The tests replace `data_load` with world-clock fixtures, so translating out here
+# sends fake and real data down one path — and the leak test can delete the future
+# from the original before anything is averaged or filled from it.
+#
 # A row exists wherever the pre-gate-closure inputs exist, and the target is joined
 # on afterwards rather than being required.  That ordering is the point: at 12:00 on
 # D-1 tomorrow has forecasts and no price, and tomorrow is the row a schedule has to
@@ -187,13 +195,12 @@ def data_load(key: str) -> pd.DataFrame:
             f"features.py may not read {key!r}. Permitted: {list(SOURCES)}. "
             f"Adding one means adding it to SOURCES, where the catalog check will see it."
         )
-    from src import data                                    # imported here to keep the seam thin
     return data.load(key)
 
 
 def build() -> pd.DataFrame:
     """The feature frame for the whole history. NaNs intact, target possibly absent."""
-    price = data_load("day_ahead_price").iloc[:, 0].rename(TARGET)
+    price = data.to_slots(data_load("day_ahead_price")).iloc[:, 0].rename(TARGET)
     forecasts = forecast_features()                         # defines which hours get a row
 
     frame = pd.concat([price_features(price, forecasts.index), forecasts], axis=1)

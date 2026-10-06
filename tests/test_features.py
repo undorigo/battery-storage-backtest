@@ -22,10 +22,12 @@ from src.sources import entsoe
 
 
 # ── The fixture ───────────────────────────────────────────────────────────────
-# Three months of hourly data, ending just past the spring clock change on 31 March
-# 2024 so that the market-local day of 23 hours is exercised rather than assumed.
-# Values are deterministic and deliberately unlike each other, so a column that
-# picks up the wrong series is obvious instead of plausible.
+# Three months of hourly data on the world clock, as the cache stores it, ending just
+# past the spring clock change on 31 March 2024 so that the grid's invented 02:00 is
+# exercised rather than assumed.  Values are deterministic and deliberately unlike
+# each other, so a column that picks up the wrong series is obvious instead of plausible.
+#
+# `build()` returns the 24-slot grid, so rows are looked up by naive Berlin labels.
 
 START = pd.Timestamp("2024-01-01 00:00", tz="UTC")
 END = pd.Timestamp("2024-04-02 23:00", tz="UTC")
@@ -102,11 +104,17 @@ def test_no_lag_reaches_into_the_delivery_day():
 # require every value to be identical.  Prices for day D are cut because the auction
 # publishes them after the decision; the forecasts for day D are kept because they
 # were published that morning, which is exactly the distinction Contract 1 draws.
+#
+# The future is cut from the world-clock original, before `build()` translates it,
+# because that is the order reality has.  1 April is the first day whose "yesterday"
+# holds the grid's invented 02:00, filled from a later hour: if that fill ever
+# reached into day D, this is the case that would move.
 
-def test_deleting_the_future_changes_nothing(monkeypatch):
+@pytest.mark.parametrize("day", ["2024-03-20", "2024-04-01"])   # an ordinary day; the first after the fill
+def test_deleting_the_future_changes_nothing(monkeypatch, day):
     src = _sources()
-    delivery_day = pd.Timestamp("2024-03-20", tz=cfg.TZ_MARKET)
-    day_start = delivery_day.tz_convert("UTC")
+    delivery_day = pd.Timestamp(day, tz=cfg.TZ_MARKET)
+    day_start = delivery_day.tz_convert("UTC")               # where the cut falls in the cache
     day_end = (delivery_day + pd.DateOffset(days=1)).tz_convert("UTC")
 
     monkeypatch.setattr(F, "data_load", lambda key: src[key])
@@ -124,7 +132,8 @@ def test_deleting_the_future_changes_nothing(monkeypatch):
     monkeypatch.setattr(F, "data_load", lambda key: truncated[key])
     partial = F.build()
 
-    rows = (full.index >= day_start) & (full.index < day_end)
+    grid_day = pd.Timestamp(day)                            # the same day as grid labels
+    rows = full.index.normalize() == grid_day
     expected = full.loc[rows, F.feature_columns(full)]
     actual = partial.loc[partial.index.isin(full.index[rows]), F.feature_columns(partial)]
 
@@ -140,7 +149,6 @@ def test_a_day_with_no_price_still_gets_its_features(monkeypatch):
     """
     src = _sources()
     day_start = pd.Timestamp("2024-03-20", tz=cfg.TZ_MARKET).tz_convert("UTC")
-    day_end = pd.Timestamp("2024-03-21", tz=cfg.TZ_MARKET).tz_convert("UTC")
     truncated = dict(src)
     truncated["day_ahead_price"] = src["day_ahead_price"].loc[
         src["day_ahead_price"].index < day_start
@@ -148,7 +156,7 @@ def test_a_day_with_no_price_still_gets_its_features(monkeypatch):
     monkeypatch.setattr(F, "data_load", lambda key: truncated[key])
 
     frame = F.build()
-    tomorrow = frame.loc[(frame.index >= day_start) & (frame.index < day_end)]
+    tomorrow = frame.loc[frame.index.normalize() == pd.Timestamp("2024-03-20")]
 
     assert len(tomorrow) == 24
     assert tomorrow[F.TARGET].isna().all()                          # the auction has not cleared
@@ -159,9 +167,21 @@ def test_a_day_with_no_price_still_gets_its_features(monkeypatch):
 
 def test_price_lags_match_the_series_shifted(built):
     src = _sources()["day_ahead_price"].iloc[:, 0]
-    t = pd.Timestamp("2024-03-15 09:00", tz="UTC")
+    t = pd.Timestamp("2024-03-15 09:00")                            # Berlin, winter
     for lag in F.PRICE_LAGS:
-        assert built.loc[t, f"price_lag_{lag}h"] == src.loc[t - pd.Timedelta(hours=lag)]
+        then = (t - pd.Timedelta(hours=lag)).tz_localize(cfg.TZ_MARKET)   # find it in the cache
+        assert built.loc[t, f"price_lag_{lag}h"] == src.loc[then]
+
+
+def test_a_lag_across_the_clock_change_is_the_same_berlin_hour(built):
+    """What the grid changes: yesterday's 09:00, not the hour 24 real hours ago.
+
+    31 March has 23 real hours, so 24 hours before 1 April 09:00 is 31 March 08:00.
+    The morning ramp lives on the Berlin clock, and the lag should follow it.
+    """
+    src = _sources()["day_ahead_price"].iloc[:, 0]
+    yesterday_9 = pd.Timestamp("2024-03-31 09:00", tz=cfg.TZ_MARKET)
+    assert built.loc[pd.Timestamp("2024-04-01 09:00"), "price_lag_24h"] == src.loc[yesterday_9]
 
 
 def test_daily_summary_describes_the_previous_market_local_day(built):
@@ -171,7 +191,7 @@ def test_daily_summary_describes_the_previous_market_local_day(built):
         (local >= pd.Timestamp("2024-03-14", tz=cfg.TZ_MARKET))
         & (local < pd.Timestamp("2024-03-15", tz=cfg.TZ_MARKET))
     ]
-    t = pd.Timestamp("2024-03-15 09:00", tz="UTC")
+    t = pd.Timestamp("2024-03-15 09:00")
     assert built.loc[t, "price_d1_min"] == yesterday.min()
     assert built.loc[t, "price_d1_max"] == yesterday.max()
     assert built.loc[t, "price_d1_last"] == yesterday.iloc[-1]
@@ -180,8 +200,8 @@ def test_daily_summary_describes_the_previous_market_local_day(built):
 
 def test_the_summary_flips_at_local_midnight_not_utc_midnight(built):
     """23:00 Berlin and 00:00 Berlin belong to different delivery days."""
-    late = pd.Timestamp("2024-03-14 23:00", tz=cfg.TZ_MARKET).tz_convert("UTC")
-    early = pd.Timestamp("2024-03-15 00:00", tz=cfg.TZ_MARKET).tz_convert("UTC")
+    late = pd.Timestamp("2024-03-14 23:00")
+    early = pd.Timestamp("2024-03-15 00:00")
     assert built.loc[late, "price_d1_max"] != built.loc[early, "price_d1_max"]
 
 
@@ -197,7 +217,7 @@ def test_a_missing_day_yields_nan_rather_than_the_day_before_last(monkeypatch):
     monkeypatch.setattr(F, "data_load", lambda key: src[key])
 
     frame = F.build()
-    t = pd.Timestamp("2024-02-11 09:00", tz="UTC")          # its "yesterday" is the missing day
+    t = pd.Timestamp("2024-02-11 09:00")                    # its "yesterday" is the missing day
     assert pd.isna(frame.loc[t, "price_d1_max"])
 
 
@@ -211,23 +231,24 @@ def test_residual_load_is_demand_minus_wind_and_solar(built):
 
 
 def test_calendar_is_read_on_the_market_clock(built):
-    # 12:00 UTC in January is 13:00 in Berlin; in summer it would be 14:00.
-    winter = pd.Timestamp("2024-01-15 12:00", tz="UTC")
+    # 12:00 UTC in January is 13:00 in Berlin; in summer it would be 14:00.  The
+    # price pins the row to the cache's hour, so the label cannot just agree with itself.
+    src = _sources()["day_ahead_price"].iloc[:, 0]
+    winter = pd.Timestamp("2024-01-15 13:00")
+    assert built.loc[winter, F.TARGET] == src.loc[pd.Timestamp("2024-01-15 12:00", tz="UTC")]
     assert built.loc[winter, "hour"] == 13
     assert built.loc[winter, "dayofweek"] == 0                      # a Monday
     assert not built.loc[winter, "is_weekend"]
 
 
-def test_the_short_clock_change_day_has_23_hours(built):
-    local = built.index.tz_convert(cfg.TZ_MARKET)
-    on_the_day = built[local.normalize() == pd.Timestamp("2024-03-31", tz=cfg.TZ_MARKET)]
-    assert len(on_the_day) == 23                                    # 02:00 never happens
-    assert 2 not in set(on_the_day.hour)
+def test_the_short_clock_change_day_has_24_slots(built):
+    on_the_day = built[built.index.normalize() == pd.Timestamp("2024-03-31")]
+    assert len(on_the_day) == 24                                    # 02:00 is invented
+    assert sorted(on_the_day.hour) == list(range(24))
 
 
 def test_weekend_flag_marks_saturday_and_sunday(built):
-    local = built.index.tz_convert(cfg.TZ_MARKET)
-    assert built.is_weekend.to_numpy().tolist() == (local.dayofweek >= 5).tolist()
+    assert built.is_weekend.to_numpy().tolist() == (built.index.dayofweek >= 5).tolist()
 
 
 def test_complete_rows_drops_exactly_the_rows_with_a_missing_value(built):
@@ -250,4 +271,10 @@ def test_feature_columns_excludes_the_target(built):
 def test_the_frame_is_sorted_and_unique(built):
     assert built.index.is_monotonic_increasing
     assert built.index.is_unique
-    assert built.index.tz is not None                               # Contract 5
+    assert built.index.tz is None                                   # the grid: Berlin wall clock
+
+
+def test_every_whole_day_has_24_rows(built):
+    """The grid's promise, checked on the built frame; the fixture's ends are part days."""
+    per_day = built.groupby(built.index.normalize()).size()
+    assert (per_day.iloc[1:-1] == 24).all()

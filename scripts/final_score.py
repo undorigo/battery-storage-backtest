@@ -58,7 +58,7 @@ def data() -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
 
 def label(name: str, history: pd.DataFrame) -> str:
     """A model name carrying the span it learned from, e.g. `gbm 2018-2023`."""
-    years = history.index.tz_convert(cfg.TZ_MARKET)  # market-local, so the years read right
+    years = history.index                            # grid labels are Berlin, so the years read right
     return f"{name} {years.min():%Y}-{years.max():%Y}"
 
 
@@ -115,7 +115,7 @@ def main() -> int:
         print("\nNo cached data. Run `just pull` first.")
         return 2
 
-    days = holdout.index.tz_convert(cfg.TZ_MARKET)   # delivery days are market-local
+    days = holdout.index                             # grid labels: Berlin delivery hours
     print(f"Histories of {len(train):,} and {len(train) + len(valid):,} rows  ·  "
           f"scoring {len(holdout):,} held-back rows "
           f"({days.min():%Y-%m-%d} to {days.max():%Y-%m-%d})\n")

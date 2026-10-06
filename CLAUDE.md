@@ -436,17 +436,22 @@ hours; quarter-hourly data after 30 Sept 2025 is aggregated to hourly at the sam
 Handle both in one place. Handling them per-script produces series that silently disagree
 by an hour.
 
-**Every delivery day becomes 24 slots** (decided 2 October 2026, not yet built). The missing
+**Every delivery day becomes 24 slots** (decided 2 October 2026, built 6 October). The missing
 spring hour is the mean of its two neighbours, and the doubled autumn hour is the mean of its pair.
 This is the field's convention (Weron; Lago et al. 2021). The UTC cache stays as pulled, and only
 stage 4's settlement puts forecasts back onto real hours, because a battery is paid real prices.
+`data.to_slots()` does the translation, and `features.py` calls it where each series is loaded —
+not inside the loader, so the tests' world-clock fixtures take the same path as real data.
 
 ---
 
 ## DANGER ZONES
 
 - **Timezone handling.** Naive timestamps anywhere in the pipeline. Convert once at load,
-  keep tz-aware everywhere after.
+  keep tz-aware everywhere after. **One named exception:** the 24-slot grid from
+  `data.to_slots()`, whose naive labels mean Berlin wall clock. A UTC timestamp with its
+  zone stripped would be read as Berlin and land one or two hours off, silently — and a
+  tz-aware lookup in a grid index answers "not there" rather than raising.
 - **The Oct 2025 resolution change.** A series that switches from 24 to 96 periods
   mid-test-set breaks aggregation that assumes a fixed shape.
 - **Wrong bidding zone code.** `10Y1001A1001A82H` is DE-LU. `10Y1001A1001A63L` is the old

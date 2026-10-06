@@ -129,7 +129,7 @@ def main() -> int:
         print("\nNo cached data. Run `just pull` first.")
         return 2
 
-    days = valid.index.tz_convert(cfg.TZ_MARKET)         # delivery days are market-local
+    days = valid.index                                   # grid labels: Berlin delivery hours
     print(f"Train {len(train):,} rows  ·  validate {len(valid):,} rows  "
           f"({days.min():%Y-%m-%d} to {days.max():%Y-%m-%d})\n")
 

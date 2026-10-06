@@ -39,6 +39,8 @@ END = pd.Timestamp("2024-01-07 23:00", tz="UTC")
 
 BLANK_TRAIN = pd.Timestamp("2022-11-15 09:00", tz="UTC")
 BLANK_VALID = pd.Timestamp("2023-06-20 14:00", tz="UTC")
+BLANK_TRAIN_SLOT = pd.Timestamp("2022-11-15 10:00")        # the same hours on the grid: CET is UTC+1
+BLANK_VALID_SLOT = pd.Timestamp("2023-06-20 16:00")        # and CEST is UTC+2
 
 
 def _sources() -> dict[str, pd.DataFrame]:
@@ -77,11 +79,11 @@ def frames(monkeypatch):
 
 # ── Contract 2 — the boundary ─────────────────────────────────────────────────
 # The boundary hours are written out rather than read from `split()`, so these
-# tests cannot agree with a mistake there.  Berlin midnight on New Year is 23:00
-# UTC, so the last hour of each year is 22:00 UTC.
+# tests cannot agree with a mistake there.  The frames are on the 24-slot grid, so
+# the last hour of each year is 23:00 on the Berlin clock.
 
-LAST_TRAIN_HOUR = pd.Timestamp("2022-12-31 22:00", tz="UTC")
-LAST_VALID_HOUR = pd.Timestamp("2023-12-31 22:00", tz="UTC")
+LAST_TRAIN_HOUR = pd.Timestamp("2022-12-31 23:00")
+LAST_VALID_HOUR = pd.Timestamp("2023-12-31 23:00")
 
 
 def test_no_test_period_row_is_ever_returned(frames):
@@ -116,10 +118,16 @@ def test_no_blank_survives_into_either_frame(frames):
 
 
 def test_the_blanked_hours_are_the_ones_missing(frames):
-    """Not merely 'no blanks' — the two holes we made are the rows that went."""
+    """Not merely 'no blanks' — the two holes we made are the rows that went.
+
+    Asked on grid labels, with the hour before each hole required present.  A
+    UTC timestamp is never `in` a naive index, so the old form would pass whatever
+    happened, and only the neighbour check proves the question was asked right.
+    """
     train, valid = frames
-    assert BLANK_TRAIN not in train.index
-    assert BLANK_VALID not in valid.index
+    hour = pd.Timedelta(hours=1)
+    assert BLANK_TRAIN_SLOT not in train.index and BLANK_TRAIN_SLOT - hour in train.index
+    assert BLANK_VALID_SLOT not in valid.index and BLANK_VALID_SLOT - hour in valid.index
 
 
 # ── The scored table ──────────────────────────────────────────────────────────
