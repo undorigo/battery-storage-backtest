@@ -2152,6 +2152,53 @@ constants. `main` is green at `673d835`.
   session running. The pull is the field's default and the "crisis distorts" story, both of
   which lose to this project's own measurement.
 
+#### Piece 2 — the grid wired in (`406b9b0`, `7f10d59`)
+
+**The split went first, on its own** (`406b9b0`). Eight test references to the removed `*_UTC`
+constants were rewritten as boundary hours spelled out in full rather than read back from
+`split()`, so they cannot agree with a mistake there. Planting yesterday's mutation (cut at UTC
+midnight) turned eight tests red. The cut falls on the same rows as before, so no number moved.
+
+**Then the features** (`7f10d59`). `data.to_slots()` is called where `features.py` loads each
+series, not inside `data_load()`, because the tests replace `data_load()` and would otherwise skip
+the grid. Lags now mean the same Berlin hour on the day before, including across a clock change,
+and a test pins that on 1 April. The leak test runs for 20 March and 1 April 2024. A spring fill
+reaching 25 rows ahead (into day D) failed 1 April and passed 20 March, which is the intended
+result. CLAUDE.md names the grid as the one exception to "no naive timestamps".
+
+**Found while moving the tests:** `BLANK_TRAIN not in train.index` would have passed whatever
+happened. A UTC timestamp is never `in` a naive index (checked: `False` for an hour that is
+there). The check now uses the grid label and also requires the hour before to be present.
+
+#### 2023 on the grid — a prediction that missed, and why
+
+| | rMAE before | rMAE on the grid |
+|---|---|---|
+| linear | 0.532 | 0.532 |
+| gbm | 0.488 | **0.483** |
+
+Predicted beforehand: a change in the third decimal. Right for the line, wrong for the tree.
+The old and new code were run side by side to find out where the 0.005 came from:
+
+- **4 % of training rows changed, not "two days a year".** The 168-hour lag carries a clock
+  change through the following week, so each of the nine changes in 2018–22 touches about eight
+  days, 1,448 rows across 70 days. My estimate forgot the longest lag.
+- **On the 8,040 validation hours away from any clock change**, the actual prices and the
+  benchmark are identical, the line's forecasts differ by 0.02 EUR/MWh on average, and the
+  tree's differ by **4.8 EUR/MWh**, in every hour. Its rMAE on just those hours moves
+  0.499 → 0.494.
+
+So the tree's gain is not the grid helping. It is the tree landing differently after 4 % of its
+training rows changed. **A tree score can move about 0.005 from a small change in its data.**
+That is a calibration for stage 2: tree variants closer than this are not distinguishable by
+rMAE alone, which is one more reason Diebold-Mariano comes before any second model. It also
+fits the measured tie between keeping every year and keeping two (0.440 against 0.442).
+
+**Comparability.** Earlier 2023 rows (`90e57fb`) are on the old convention, and the new ones are
+on the grid. Stage 2 compares only against grid rows. The held-back years were not re-run. The
+stage 1 headline 0.532 stands as recorded, on the old convention.
+
+
 ---
 
 ### Next — Tuesday 6 October 2026
