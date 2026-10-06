@@ -48,7 +48,7 @@ One row per working day. Follow the date link for the detail.
 | [30 Sep 2026](#d20260930) | **Stage 1 closed: rMAE 0.532 on the held-back years.** The ranking reversed — the tree won on validation and lost on 2024-25. Two tests found unable to fire. Stage 2 reordered around recalibration; CatBoost and Random Forest parked for stage 4. Split rationale finally written down. |
 | [2 Oct 2026](#d20261002) | Housekeeping: `HANDOVER.md` dissolved, plan page replaced, scores moved under `reports/`. Short recap, two answers reversed. **Open item 6 closed:** every day becomes 24 slots, the field's convention, chosen over keeping real hours. Decided, not built. |
 | [5 Oct 2026](#d20261005) | Recap: three partial, one forgotten, one reversed for the second time. MLflow adopted for stage 2 on a question the deferral never weighed. The grid's labels checked in the field's code and paper. **`to_slots()` built and mutated.** Split rewritten to sort by Berlin date; position tests added after finding the old ones could not see the cut. Wiring half done, uncommitted. |
-| [6 Oct 2026](#d20261006) | Recap: two partial, three wrong, refitting missed for the third session running. |
+| [6 Oct 2026](#d20261006) | Recap: two partial, three wrong, refitting missed for the third session running. **The grid wired in:** split by Berlin date, features on 24 slots, 1 April leak case caught a planted bug. 2023 re-scored, and the tree's 0.005 move traced to instability, not the grid. Significance test moved ahead of recalibration. MLflow begun: forecasts now survive the run. |
 
 [Commits](#commits) · [Open items](#open-items) · [Next](#next)
 
@@ -2209,43 +2209,59 @@ alternative of building the test on in-memory forecasts and adding MLflow later 
 
 ---
 
-### Next — Tuesday 6 October 2026
+#### MLflow begun
 
-**Piece 2 is half done and uncommitted (see the state above). Finish it before anything else.**
+Decided: its calls live in a new `src/tracking.py`. A `track()` beside `record()` in `train.py`
+was recommended instead, on the precedent of `final_score.py` borrowing `record()` and on there
+being one caller. Overruled in favour of a module from the start.
+
+Checked rather than assumed: MLflow 3.16.1 now stores runs in a SQLite file, `mlflow.db`, in
+whatever folder it starts from, and older guides mention only `mlruns/`. Both paths are now
+fixed from the project root in `config.py`, and `mlflow.db` is ignored. A dry run showed no
+pinned package would change. MLflow brings about 60 packages of its own.
+
+**Step 2 done** (`01eeda2`): `run()` hands back the hourly forecasts beside the scores. A new
+test rescores each column of that table and requires the exact rMAE of the score rows. Adding
+0.01 to the kept forecast after scoring failed it.
+
+**State at close.** `requirements.txt`, `.gitignore` and `src/config.py` hold step 1 (the pin,
+the ignore rule, the two paths), **uncommitted on purpose**: the pin goes in with the first
+import, which is `src/tracking.py`. `main` is green at `01eeda2`, 163 tests.
+
+---
+
+### Next — Wednesday 7 October 2026
+
+**Step 1 of MLflow is uncommitted (see the state above). It goes in with step 3.**
 
 #### Recap questions
 
-1. Time is handled three ways in this project: for storing, for the models and for the battery.
-   Which clock or version does each use, and why? Use 27 October 2024 as the example.
-2. When the split's cut was moved to world-clock midnight, three tests stayed green. What were
-   they checking, and what could they not see?
-3. Why does `features.py` translate to the grid *after* loading, instead of the loader doing it?
-   What could the leak test miss the other way round?
-4. MLflow was deferred on 23 September and adopted today. Which question did the deferral
-   answer, which question changed the decision, and why does `scores.csv` stay the record?
-5. *(Third time.)* Refitting monthly: did keeping every year or dropping the old ones win, for
-   each model, and what is the lesson?
+1. *(Fourth time.)* Refitting monthly: keeping every year or only the last two, which won for
+   each model, by how much, and what is the lesson?
+2. The tree went from 0.488 to 0.483 on the grid. Where did the 0.005 come from, how was that
+   found, and what did it change in the plan?
+3. In `price_features()`, which two lines would a leak hide in, and why does the unbroken
+   timeline from `_hourly_span()` matter for both?
+4. `build()` takes its rows from the forecasts. What would break if they came from the prices,
+   and why would no backtest ever show it?
+5. Why was `BLANK_TRAIN not in train.index` unable to fail, and what makes a "not in" check
+   trustworthy?
 
 #### Then, in order
 
-1. **Finish piece 2.**
-   - `features.py`: `data.to_slots(data_load(key))` at the three load sites; `_hourly_span`
-     without `tz`; the daily summary as `span.normalize()`; the calendar read from the index directly.
-   - Scripts: drop `tz_convert` at `train.py:132` and `final_score.py:61,118`.
-   - Tests: replace the `*_UTC` references in `test_train.py`, `test_final_score.py` and
-     `test_data.py` with date comparisons. Turn `test_features.py`'s UTC day boundaries into
-     Berlin labels; its 23-hour day becomes 24.
-   - Parametrise the leak test over 20 March and 1 April 2024. Mutate it by filling the spring
-     hour from a neighbour 25 rows ahead, which reaches into day D, and confirm the 1 April case
-     fails.
-   - CLAUDE.md: the grid as the one named exception to "no naive timestamps"; Contract 5's
-     "not yet built" becomes built.
-   - Full suite, then `just train` (2023 only, appended to `scores.csv`). **Do not run
-     `just final-score`.** Commit and push.
-2. **MLflow**, its own commit: dependency pinned; each run logs its recipe, refit cadence and
-   convention as parameters and its per-hour forecasts as an artifact. Re-run the baseline as the
-   first run. Update the README's parked table.
-3. **Recalibration.** Time a daily-refit run first; that number says whether MLflow's artifacts
-   are earning their place. Then monthly against daily, every year kept, recipe in the label.
-4. **Diebold-Mariano before any second model.**
-5. **Then LEAR**, the per-hour layout, and holidays.
+1. **Finish MLflow (steps 3–6).** About an hour with walkthroughs.
+   - `src/tracking.py`: point MLflow at `cfg.MLFLOW_DB`, experiment artifacts at `cfg.MLRUNS`.
+     One run per model with params (model, training span, refit cadence `once`, convention
+     `24-slot Berlin grid`), metrics (MAE, rMAE), and the hourly forecasts as a file.
+   - A test that writes to a temporary location, reads the run back, and fails if the convention
+     is missing.
+   - `main()` in `train.py` calls it. Run the 2023 baseline: it must reproduce 0.532 and 0.483.
+     Recompute rMAE from the forecasts **read back out of MLflow**.
+   - README's *Parked on purpose* row, CLAUDE.md's file table (`src/tracking.py`), commit with
+     step 1.
+2. **Diebold-Mariano** in `src/evaluate.py`, before any comparison is read.
+3. **Recalibration.** Time a daily-refit run first. Then monthly against daily, every year kept.
+4. **Then LEAR**, the per-hour layout, and holidays.
+
+Small, found today: the Contract 5 comment in `src/config.py` (under *Time and resolution*)
+still says series are "joined in UTC". Joining now happens on the grid.
