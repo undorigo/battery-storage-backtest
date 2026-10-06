@@ -19,6 +19,7 @@ import pytest
 
 from scripts import train as T
 from src import config as cfg
+from src import evaluate as E
 from src import features as F
 
 
@@ -139,26 +140,27 @@ def test_every_forecast_is_scored_on_the_same_hours(frames):
     If it is not, the rMAE column is comparing scores drawn from different sets of
     hours and the table means nothing.
     """
-    rows = T.run(*frames)
+    rows, _ = T.run(*frames)
     assert len({row["n"] for row in rows}) == 1
 
 
 def test_the_benchmark_scores_exactly_one(frames):
     """A free check on the wiring: the benchmark divided by itself is 1.000."""
-    rows = T.run(*frames)
+    rows, _ = T.run(*frames)
     naive = [r for r in rows if r["model"] == "naive"]
     assert len(naive) == 1
     assert naive[0]["rmae"] == pytest.approx(1.0)
 
 
 def test_all_three_forecasts_are_reported(frames):
-    rows = T.run(*frames)
+    rows, _ = T.run(*frames)
     assert {r["model"] for r in rows} == {"naive", "linear", "gbm"}
 
 
 def test_every_row_is_labelled_as_validation(frames):
     """Contract 2 again: nothing produced here may claim to be a test score."""
-    assert all(row["split"] == "valid" for row in T.run(*frames))
+    rows, _ = T.run(*frames)
+    assert all(row["split"] == "valid" for row in rows)
 
 
 def test_a_model_is_not_its_own_benchmark(frames):
@@ -169,9 +171,25 @@ def test_a_model_is_not_its_own_benchmark(frames):
     fixture's price is built from the load, which is a feature, so a model that is
     wired up properly must beat a week-old lookup rather than tie with it.
     """
-    rows = {row["model"]: row for row in T.run(*frames)}
+    scored, _ = T.run(*frames)
+    rows = {row["model"]: row for row in scored}
     for name in ("linear", "gbm"):
         assert rows[name]["rmae"] < 1.0, f"{name} scored as though it were its own benchmark"
+
+
+def test_the_kept_forecasts_are_the_ones_that_were_scored(frames):
+    """The hourly table must reproduce every score, or a test built on it reads other numbers.
+
+    One row per validation hour, one column per forecast, and rescoring each column
+    from the table gives back the rMAE in the score rows exactly.
+    """
+    rows, forecasts = T.run(*frames)
+    _, valid = frames
+    assert forecasts.index.equals(valid.index)
+    assert set(forecasts.columns) == {"actual", "naive", "linear", "gbm"}
+    for row in rows:
+        again = E.rmae(forecasts[row["model"]], forecasts["naive"], forecasts["actual"])
+        assert again == row["rmae"]
 
 
 # ── The record ────────────────────────────────────────────────────────────────

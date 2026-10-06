@@ -68,19 +68,24 @@ def data() -> tuple[pd.DataFrame, pd.DataFrame]:
 # row has to read exactly 1.000, and it is a free check on everything underneath: if it
 # does not, the lining-up or the scoring is wrong, and every other row in the table is
 # wrong with it.
+#
+# The hourly forecasts are handed back beside the scores.  A score is one number per
+# model; the significance test compares two models hour by hour, so it needs the
+# 8,759 values each score was computed from, not a second set made afterwards.
 
-def run(train: pd.DataFrame, valid: pd.DataFrame) -> list[dict]:
-    """Fit, forecast and score. One row per forecast, benchmark first."""
+def run(train: pd.DataFrame, valid: pd.DataFrame) -> tuple[list[dict], pd.DataFrame]:
+    """Fit, forecast and score. Score rows, benchmark first, and the hourly forecasts."""
     benchmark = M.naive_forecast(valid)                  # a lookup, not a fit: no training needed
     actual = valid[F.TARGET]                             # the prices that actually happened
+    forecasts = pd.DataFrame({"actual": actual, "naive": benchmark})   # one column per forecast
 
     rows = [E.score("naive", "valid", benchmark, benchmark, actual)]   # must come out at 1.000
     for name, estimator in (("linear", M.linear()), ("gbm", M.gbm())):
         model = M.fit(estimator, train)                  # the training years only, never refitted
-        forecast = M.forecast(model, valid)              # one price per hour of 2023
-        rows.append(E.score(name, "valid", forecast, benchmark, actual))
+        forecasts[name] = M.forecast(model, valid)       # one price per hour of 2023
+        rows.append(E.score(name, "valid", forecasts[name], benchmark, actual))
 
-    return rows
+    return rows, forecasts
 
 
 # ── Writing it down — PLUMBING, already written ───────────────────────────────
@@ -133,7 +138,7 @@ def main() -> int:
     print(f"Train {len(train):,} rows  ·  validate {len(valid):,} rows  "
           f"({days.min():%Y-%m-%d} to {days.max():%Y-%m-%d})\n")
 
-    rows = run(train, valid)
+    rows, _ = run(train, valid)                          # the forecasts go to MLflow, next
     print(E.table(rows))
 
     history = record(rows)
