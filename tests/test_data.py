@@ -448,4 +448,5 @@ def test_path_resolves_through_the_catalog(tmp_path):
 
 def test_pull_window_covers_the_whole_project_history():
     assert str(data.PULL_START.date()) == cfg.HISTORY_START
-    assert data.PULL_END > cfg.TEST_END_UTC           # exclusive upper bound, past the last hour
+    last_hour = pd.Timestamp("2025-12-31 22:00", tz="UTC")   # 23:00 Berlin, the final delivery hour
+    assert data.PULL_END > last_hour                  # exclusive upper bound, past the last hour

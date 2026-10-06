@@ -79,10 +79,10 @@ HISTORY_START = "2018-10-01"                    # first day DE-LU existed as a z
 
 # ── The split — Contract 2 ────────────────────────────────────────────────────
 # The dates are written exactly as the contract states them: bare calendar days,
-# readable at a glance.  The tz-aware boundaries below are derived from them, and
-# they are what code touches.  A bare date string sliced against a UTC index is
-# off by the UTC offset, and pandas .loc is inclusive at both ends, so the
-# obvious form puts the boundary hour in two sets at once and nothing errors.
+# readable at a glance, and `split()` compares against them directly.  A split is
+# a question about delivery days, so every row is first given the Berlin date it
+# delivers on.  Comparing a bare date against UTC timestamps instead puts the
+# boundary one or two hours away from Berlin midnight, and nothing errors.
 
 TRAIN_END = "2022-12-31"
 VALID_END = "2023-12-31"
@@ -107,44 +107,24 @@ TEST_END = "2025-12-31"
 # years.  Changing any boundary invalidates every number already published.
 
 
-def _first_delivery_hour(day: str) -> pd.Timestamp:
-    """First delivery hour of a market-local day, expressed in UTC."""
-    return pd.Timestamp(day, tz=TZ_MARKET).tz_convert(TZ_STORAGE)
-
-
-def _last_delivery_hour(day: str) -> pd.Timestamp:
-    """Last delivery hour of a market-local day, expressed in UTC.
-
-    Derived as "next local midnight minus one hour" rather than as a fixed 23:00,
-    because a clock-change day has 23 or 25 hours and its final hour is not 23:00.
-    """
-    next_midnight = pd.Timestamp(day, tz=TZ_MARKET) + pd.DateOffset(days=1)  # calendar-aware, not 24h
-    return (next_midnight - pd.Timedelta(hours=1)).tz_convert(TZ_STORAGE)
-
-
-TRAIN_END_UTC = _last_delivery_hour(TRAIN_END)      # last hour that may train a model
-VALID_END_UTC = _last_delivery_hour(VALID_END)
-TEST_START_UTC = _first_delivery_hour(TEST_START)
-TEST_END_UTC = _last_delivery_hour(TEST_END)
-
-
 def split(
     df: pd.DataFrame | pd.Series,
 ) -> tuple[pd.DataFrame | pd.Series, pd.DataFrame | pd.Series, pd.DataFrame | pd.Series]:
-    """Partition a UTC-indexed series into train, validate and test.
+    """Partition rows into train, validate and test by the Berlin day they deliver on.
 
-    The intervals are half-open so that no hour can appear in two sets.  Every
-    training and evaluation script goes through here rather than slicing on its
-    own, which is what keeps the boundary arithmetic in one place instead of
-    scattered across the scripts that Contract 2 warns about.
+    Takes both clocks the project uses: real hours in UTC (what settlement will
+    split) and the 24-slot grid, whose naive labels are already Berlin wall clock
+    (what the models split).  Every script goes through here rather than slicing
+    on its own, so the boundaries live in one place, as Contract 2 requires.
     """
-    if df.index.tz is None:                                     # a naive index cannot be placed
-        raise ValueError("Index must be tz-aware; normalise at load time (Contract 5).")
+    idx = df.index
+    if idx.tz is not None:                                      # real hours: read them on the Berlin clock
+        idx = idx.tz_convert(TZ_MARKET).tz_localize(None)
+    day = idx.normalize()                                       # the delivery day of each row
 
-    idx = df.index.tz_convert(TZ_STORAGE)                       # compare in one timezone only
-    train = df.loc[idx <= TRAIN_END_UTC]
-    valid = df.loc[(idx > TRAIN_END_UTC) & (idx <= VALID_END_UTC)]
-    test = df.loc[(idx >= TEST_START_UTC) & (idx <= TEST_END_UTC)]
+    train = df.loc[day <= pd.Timestamp(TRAIN_END)]
+    valid = df.loc[(day > pd.Timestamp(TRAIN_END)) & (day <= pd.Timestamp(VALID_END))]
+    test = df.loc[(day >= pd.Timestamp(TEST_START)) & (day <= pd.Timestamp(TEST_END))]
     return train, valid, test
 
 

@@ -324,7 +324,7 @@ def load_raw(key: str, root: Path | None = None) -> pd.DataFrame:
 
 
 def load(key: str, root: Path | None = None) -> pd.DataFrame:
-    """The cached series on the project's hourly convention."""
+    """The cached series on the project's hourly convention: real hours, UTC."""
     return to_hourly(load_raw(key, root))
 
 

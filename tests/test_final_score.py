@@ -63,7 +63,14 @@ def frames(monkeypatch):
 # ── What each recipe learns from ──────────────────────────────────────────────
 # Two fits, and the difference between them is the whole point of scoring both. Getting
 # either boundary wrong is silent: too cautious wastes a year, too loose fits on the very
-# rows being judged.
+# rows being judged.  The boundary hours are written out rather than read from
+# `split()`, so these tests cannot agree with a mistake there.
+
+LAST_TRAIN_HOUR = pd.Timestamp("2022-12-31 22:00", tz="UTC")   # 23:00 Berlin
+LAST_VALID_HOUR = pd.Timestamp("2023-12-31 22:00", tz="UTC")
+FIRST_TEST_HOUR = pd.Timestamp("2023-12-31 23:00", tz="UTC")   # Berlin midnight, New Year
+LAST_TEST_HOUR = pd.Timestamp("2025-12-31 22:00", tz="UTC")
+
 
 def test_two_recipes_are_scored(frames):
     """One reading, two histories. Five rows, not three."""
@@ -78,7 +85,7 @@ def test_one_recipe_stops_at_the_training_years(frames):
     between it and the 0.488 is which years are being forecast.
     """
     train, _, _ = frames
-    assert train.index.max() <= cfg.TRAIN_END_UTC
+    assert train.index.max() <= LAST_TRAIN_HOUR
     assert FS.label("gbm", train).endswith("2022")
 
 
@@ -116,7 +123,7 @@ def test_no_fit_ever_sees_a_held_back_row(frames, monkeypatch):
 
     assert len(seen) == 4, "expected two estimators over two histories"
     for frame in seen:
-        assert frame.index.max() <= cfg.VALID_END_UTC
+        assert frame.index.max() <= LAST_VALID_HOUR
         assert frame.index.intersection(holdout.index).empty
 
 
@@ -130,8 +137,8 @@ def test_the_label_is_derived_rather_than_written(frames):
 
 def test_only_held_back_rows_are_scored(frames):
     _, _, holdout = frames
-    assert holdout.index.min() >= cfg.TEST_START_UTC
-    assert holdout.index.max() <= cfg.TEST_END_UTC
+    assert holdout.index.min() >= FIRST_TEST_HOUR
+    assert holdout.index.max() <= LAST_TEST_HOUR
 
 
 def test_no_blank_survives_into_any_frame(frames):

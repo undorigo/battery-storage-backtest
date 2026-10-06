@@ -76,6 +76,13 @@ def frames(monkeypatch):
 
 
 # ── Contract 2 — the boundary ─────────────────────────────────────────────────
+# The boundary hours are written out rather than read from `split()`, so these
+# tests cannot agree with a mistake there.  Berlin midnight on New Year is 23:00
+# UTC, so the last hour of each year is 22:00 UTC.
+
+LAST_TRAIN_HOUR = pd.Timestamp("2022-12-31 22:00", tz="UTC")
+LAST_VALID_HOUR = pd.Timestamp("2023-12-31 22:00", tz="UTC")
+
 
 def test_no_test_period_row_is_ever_returned(frames):
     """The claim the module docstring makes, as an assertion.
@@ -85,7 +92,7 @@ def test_no_test_period_row_is_ever_returned(frames):
     """
     train, valid = frames
     for name, part in (("train", train), ("valid", valid)):
-        assert part.index.max() <= cfg.VALID_END_UTC, f"{name} reaches into the test years"
+        assert part.index.max() <= LAST_VALID_HOUR, f"{name} reaches into the test years"
 
 
 def test_train_and_validate_never_share_an_hour(frames):
@@ -95,8 +102,8 @@ def test_train_and_validate_never_share_an_hour(frames):
 
 def test_training_stops_at_the_split_date(frames):
     train, valid = frames
-    assert train.index.max() <= cfg.TRAIN_END_UTC
-    assert valid.index.min() > cfg.TRAIN_END_UTC
+    assert train.index.max() <= LAST_TRAIN_HOUR
+    assert valid.index.min() > LAST_TRAIN_HOUR
 
 
 # ── Complete rows only ────────────────────────────────────────────────────────
