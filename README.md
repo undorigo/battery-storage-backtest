@@ -83,20 +83,26 @@ job, and it is why stage 2 carries a significance test rather than a leaderboard
 Before any of it, **every delivery day becomes 24 hours long.** A clock-change day has 23 or 25,
 and one model per delivery hour needs the same 24 every day. The rule is the field's own (Lago et
 al. 2021, §3.1): Berlin clock time, the missing spring hour filled from its neighbours, the doubled
-autumn hour averaged. Decided 2 October, being built. The battery is still settled on the hours
-that really happened.
+autumn hour averaged. Built 6 October. The battery is still settled on the hours that really
+happened.
+
+**Then the significance test (Diebold-Mariano), before the first comparison.** Moving onto the
+grid shifted the tree's validation score from 0.488 to 0.483 without improving any forecast: 4 %
+of its training rows changed and it landed differently, in every hour. Refitting monthly against
+daily may differ by less than that, so rMAE alone cannot read the first comparison stage 2 makes.
 
 1. **Refit as the year runs.** Measured on validation, refitting monthly instead of once moved
    the tree from 0.488 to 0.440 — a larger gain than any model choice produced. An expanding
    window beat a rolling two-year one, so the lever is *refit more often*, not *forget the
-   crisis*.
+   crisis*. Measured before the grid; re-run on it.
 2. **LEAR**, the field's statistical benchmark. Not beating it would be the interesting result.
 3. **One model per delivery hour.** Error spans 7.79 €/MWh between the quietest night hours
    and the 19:00 peak; 3 a.m. and 7 p.m. are different problems sharing one set of
    coefficients.
 4. **German public holidays**, which are not in the feature frame at all.
-5. **Diebold-Mariano throughout**, because stage 1 demonstrated that a gap of 0.044 on one
-   year is not evidence of anything.
+
+Every step is judged with the significance test, because stage 1 demonstrated that a gap of
+0.044 on one year is not evidence of anything.
 
 ### Parked on purpose
 

@@ -2199,6 +2199,14 @@ on the grid. Stage 2 compares only against grid rows. The held-back years were n
 stage 1 headline 0.532 stands as recorded, on the old convention.
 
 
+#### Stage 2 reordered: the significance test before recalibration
+
+The 0.005 above changes what the first stage 2 comparison can show. Monthly against daily
+refitting is expected to differ by little, and a tree can move that much from 4 % changed rows.
+So the order is **MLflow → Diebold-Mariano → recalibration**, not recalibration first. MLflow
+stays first because the test needs every hour's forecast, which is what MLflow keeps. The
+alternative of building the test on in-memory forecasts and adding MLflow later was declined.
+
 ---
 
 ### Next — Tuesday 6 October 2026
