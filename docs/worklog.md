@@ -2319,9 +2319,55 @@ and the same figures were recomputed from the forecasts read back from the new l
 UI command was updated and served all three runs. `scores.csv` gains three identical rows. That
 is a third reproduction, not a new result. The same orphaning would follow a rename of the project folder.
 
+#### Recalibration built and measured (`bb7501a`)
+
+Explained first in plain terms, and two confusions cleared that are worth keeping. **Hourly is the
+size of a row, monthly/daily is how often the model is retrained.** And **walking forward does not
+break the split**: each period is forecast before it joins the training rows, so every score is
+still earned on unseen hours. Validation becomes *never seen before it is forecast*, not *never
+seen*. Test years stay locked, and all choices are made on 2023.
+
+**Timing measured instead of run.** One tree fit on 36,335 rows took 0.49 s and one line fit under
+0.01 s. That made daily retraining an estimated 3–4 minutes, and the timing step was dropped from the
+plan. Actual daily run: **233 s**.
+
+**`M.walk_forward(make, history, scored, every)`.** For each period of 2023 it fits a fresh model on
+every hour strictly before the period starts, then forecasts it. `every` is a pandas period: `"Y"`
+once, `"M"` monthly, `"D"` daily. "Once" is the same loop with one period, so the stage 1 recipe runs
+through the new path. The schedule is a flag (`just train daily`) rather than all three per run,
+so one run is one recipe in `scores.csv` and MLflow, and `just train` alone is unchanged.
+
+**Tests** (4, with a spy model that records the hours it was shown): never learns from the period it
+forecasts, but learns everything up to one hour before it, from the very first hour. Also one fit per
+period, every hour forecast exactly once, and "Y" equal to the single fit. Four planted bugs each
+failed two tests: learning the first forecast hour, learning the whole period, learning from
+everything, and keeping only the last 14 days. Suite 175 green.
+
+Leakage check: for day D the model learns up to D−1 23:00, and those prices were published around 13:00 on
+D−2. Nothing is fitted outside those rows. Settlement is untouched.
+
+| 2023, walk-forward, every year kept | line | tree |
+|---|---|---|
+| once | 0.532 | 0.483 |
+| monthly | 0.525 | 0.437 |
+| daily | **0.523** | **0.430** |
+
+| Diebold-Mariano, read from MLflow | line p | tree p |
+|---|---|---|
+| once → monthly | 0.0001 | < 0.0001 |
+| monthly → daily | 0.0012 | **0.11** (0.08 without the echo correction) |
+| once → daily | 0.0001 | < 0.0001 |
+
+**The size of a gain and its reality are different things.** The line's 0.002 from monthly to daily
+is real. The tree's 0.007 is not distinguishable from noise. The line moves smoothly and steadily, so
+a small lead repeats day after day. The tree's daily gaps wobble more, which is the instability seen
+on 6 October. Monthly on the grid (0.437) sits close to the pre-grid 0.440.
+
+Once fitted, "once" reproduced 0.532 and 0.483 exactly through the new loop.
+
 ### Next — Wednesday 7 October 2026
 
-**MLflow and Diebold-Mariano are done (see 7 October above). Start at recalibration.**
+**MLflow, Diebold-Mariano and recalibration are done (see 7 October above). Decide the default schedule, then LEAR.**
 
 #### Recap questions
 
@@ -2340,5 +2386,5 @@ is a third reproduction, not a new result. The same orphaning would follow a ren
 
 1. ~~**Finish MLflow (steps 3–6).**~~ Done, `29023c8`.
 2. ~~**Diebold-Mariano**~~ Done, `1d90457`.
-3. **Recalibration.** Time a daily-refit run first. Then monthly against daily, every year kept.
+3. ~~**Recalibration.**~~ Done, `bb7501a`. Line: daily wins. Tree: monthly vs daily cannot tell.
 4. **Then LEAR**, the per-hour layout, and holidays.

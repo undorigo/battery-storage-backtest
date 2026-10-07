@@ -94,7 +94,9 @@ daily may differ by less than that, so rMAE alone cannot read the first comparis
 1. **Refit as the year runs.** Measured on validation, refitting monthly instead of once moved
    the tree from 0.488 to 0.440 — a larger gain than any model choice produced. An expanding
    window beat a rolling two-year one, so the lever is *refit more often*, not *forget the
-   crisis*. Measured before the grid; re-run on it.
+   crisis*. **Re-run on the grid, walking forward** (`just train once|monthly|daily`, built
+   7 Oct): the tree goes 0.483 → 0.437 → 0.430, the line 0.532 → 0.525 → 0.523. Every step is
+   significant except the tree's monthly → daily, which cannot be told from noise (p = 0.11).
 2. **LEAR**, the field's statistical benchmark. Not beating it would be the interesting result.
 3. **One model per delivery hour.** Error spans 7.79 €/MWh between the quietest night hours
    and the 19:00 peak; 3 a.m. and 7 p.m. are different problems sharing one set of
