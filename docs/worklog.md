@@ -49,6 +49,7 @@ One row per working day. Follow the date link for the detail.
 | [2 Oct 2026](#d20261002) | Housekeeping: `HANDOVER.md` dissolved, plan page replaced, scores moved under `reports/`. Short recap, two answers reversed. **Open item 6 closed:** every day becomes 24 slots, the field's convention, chosen over keeping real hours. Decided, not built. |
 | [5 Oct 2026](#d20261005) | Recap: three partial, one forgotten, one reversed for the second time. MLflow adopted for stage 2 on a question the deferral never weighed. The grid's labels checked in the field's code and paper. **`to_slots()` built and mutated.** Split rewritten to sort by Berlin date; position tests added after finding the old ones could not see the cut. Wiring half done, uncommitted. |
 | [6 Oct 2026](#d20261006) | Recap: two partial, three wrong, refitting missed for the third session running. **The grid wired in:** split by Berlin date, features on 24 slots, 1 April leak case caught a planted bug. 2023 re-scored, and the tree's 0.005 move traced to instability, not the grid. Significance test moved ahead of recalibration. MLflow begun: forecasts now survive the run. |
+| [7 Oct 2026](#d20261007) | Recap: the refitting lesson right, which model won wrong for the fourth time. **MLflow finished** and moved to `reports/mlflow/`; the full path inside it cannot be hidden, only kept out of git. **Diebold-Mariano built**, with the field's daily test plus a correction for the 0.25 day-to-day echo. **Recalibration built and measured:** daily wins for the line, while the tree's monthly → daily gain cannot be told from noise. Daily made the stage 2 schedule. LEAR introduced, not built. |
 
 [Commits](#commits) · [Open items](#open-items) · [Next](#next)
 
@@ -2230,6 +2231,7 @@ import, which is `src/tracking.py`. `main` is green at `01eeda2`, 163 tests.
 
 ---
 
+<a id="d20261007"></a>
 ### 7 October 2026
 
 **Recap (questions 1–2):** 1 half right: the lesson "keep every year" was right, but which model won was wrong for the fourth time (every year wins for both). 2 the plan change was right, but "we don't know where the 0.005 came from" was wrong: it was measured side by side.
@@ -2365,28 +2367,48 @@ on 6 October. Monthly on the grid (0.437) sits close to the pre-grid 0.440.
 
 Once fitted, "once" reproduced 0.532 and 0.483 exactly through the new loop.
 
-### Next — Wednesday 7 October 2026
+#### LEAR introduced, not built
 
-**MLflow, Diebold-Mariano and recalibration are done (see 7 October above). Start at LEAR.**
+LEAR was introduced in plain terms, after reading epftoolbox's `_lear.py` rather than recalling it.
+Confirmed there: 24 Lasso models, one per delivery hour. The inputs are all 24 prices of D−1, D−2,
+D−3 and D−7 (96), each exogenous series for D, D−1 and D−7 (72 each), and 7 weekday dummies. The
+asinh-median transformation is fitted on the training window. Alpha comes from `LassoLarsIC(criterion='aic')`,
+then a plain `Lasso` is refitted with it. Daily recalibration on a 1,092-day window. **Not confirmed in
+the code:** the paper's ensemble over several calibration windows. Check it in Lago et al. 2021
+before relying on it. No new dependency is needed, because sklearn has both estimators.
 
-**Decided: daily retraining is the schedule for every stage 2 comparison from here on.** It gives a real gain for the line, no evidence against it for the tree, and it is the field's standard. Chosen over monthly (6 s, faster iteration) and over monthly-while-building. The cost is about 4 minutes per run now. LEAR and the per-hour models multiply the fits, so time one fit before each step. `just train` with no flag stays `once`, because the stage 1 headline is reproduced by that command.
+Also today: the walkthrough covered `walk_forward` and its use in `train.py`, including why `make`
+is passed without brackets. `history` in `main()` was renamed `recorded` (`6eecab1`). The tests'
+walkthrough was skipped by choice.
+
+**State at close.** `main` is green at `6eecab1`, 175 tests, working tree clean. MLflow holds
+the once, monthly and daily runs of `bb7501a` in `reports/mlflow/`.
+
+---
+
+### Next — Thursday 8 October 2026
+
+**Start at LEAR. Nothing is uncommitted.**
 
 #### Recap questions
 
-1. *(Fourth time.)* Refitting monthly: keeping every year or only the last two, which won for
-   each model, by how much, and what is the lesson?
-2. The tree went from 0.488 to 0.483 on the grid. Where did the 0.005 come from, how was that
-   found, and what did it change in the plan?
-3. In `price_features()`, which two lines would a leak hide in, and why does the unbroken
-   timeline from `_hourly_span()` matter for both?
-4. `build()` takes its rows from the forecasts. What would break if they came from the prices,
-   and why would no backtest ever show it?
-5. Why was `BLANK_TRAIN not in train.index` unable to fail, and what makes a "not in" check
-   trustworthy?
+1. *(Fifth time.)* Refitting monthly: keeping every year or only the last two, which won for
+   each model, and by how much?
+2. Why does the significance test count days rather than hours, and what does the echo
+   correction change? Give the 2023 numbers.
+3. Refitting daily through 2023 trains on validation rows. Why does that not break the split,
+   and what has to stay locked?
+4. Monthly → daily moved the line by 0.002 and the tree by 0.007. Which gain is real, and why
+   can the smaller one be the real one?
+5. Why does `train.py` pass `M.linear` to `walk_forward` and not `M.linear()`?
 
 #### Then, in order
 
-1. ~~**Finish MLflow (steps 3–6).**~~ Done, `29023c8`.
-2. ~~**Diebold-Mariano**~~ Done, `1d90457`.
-3. ~~**Recalibration.**~~ Done, `bb7501a`. Line: daily wins. Tree: monthly vs daily cannot tell.
-4. **Then LEAR**, the per-hour layout, and holidays.
+1. **LEAR**, one decision at a time:
+   - **Time one fit first:** a daily run is about 17,500 small fits.
+   - **Training window:** the field's 1,092 days against every year, measured, since every year
+     won for both of our models.
+   - **The table's shape:** one row per day with the 24 hours side by side. This brings in the
+     per-hour layout. It is the largest piece, so walk it through before writing.
+   - Judged against the daily line and tree with Diebold-Mariano.
+2. **German public holidays**, which are not in the feature frame.
