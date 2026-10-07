@@ -37,11 +37,11 @@ MLRUNS = ROOT / "mlruns"              # MLflow's files per run, e.g. the hourly 
 # because re-fetching it is slow, rate-limited and — after a revision — impossible.
 
 # ── Time and resolution — Contract 5 ──────────────────────────────────────────
-# Two timezones with two different jobs.  Series are stored and joined in UTC,
-# where every day has exactly 24 hours and no timestamp is ambiguous.  Calendar
-# features are derived in market-local time, because load and solar follow the
-# local clock, and because a delivery day is a local-day concept: the auction
-# clears 23, 24 or 25 hours depending on the date.
+# Two timezones with two different jobs.  Series are stored in UTC, where no
+# timestamp is ambiguous, and the cache stays that way.  The models work on Berlin
+# delivery days, because load and solar follow the local clock and the auction
+# clears 23, 24 or 25 hours depending on the date: `data.to_slots()` puts every
+# day onto 24 slots, and series are joined there.  Settlement goes back to real hours.
 
 TZ_STORAGE = "UTC"                              # index of every stored series
 TZ_MARKET = "Europe/Berlin"                     # delivery days, hour-of-day features
