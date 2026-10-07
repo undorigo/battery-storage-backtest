@@ -6,6 +6,9 @@ means the function is right rather than merely running.
 
 from __future__ import annotations
 
+from statistics import NormalDist
+
+import numpy as np
 import pandas as pd
 import pytest
 
@@ -132,6 +135,77 @@ def test_an_hour_missing_from_the_benchmark_is_dropped_too():
     # Both sides scored on hours 1 and 2 only: model 10, benchmark 20 -> 0.5.
     # Score the model on all three and its MAE becomes 23.3, giving 1.17.
     assert E.rmae(model, benchmark, actual) == pytest.approx(0.5)
+
+
+# ── Diebold-Mariano ───────────────────────────────────────────────────────────
+# Too many numbers to check on paper, so the anchor is the field's own code instead:
+# epftoolbox's multivariate test, transcribed below, must come out identical once
+# the echo correction is switched off.  Forecasts sit on grid labels, 24 a day.
+
+def _days(n_days: int, seed: int) -> tuple[pd.Series, pd.Series, pd.Series]:
+    """Actual prices and two forecasts; the second misses a little less on average."""
+    rng = np.random.default_rng(seed)
+    idx = pd.date_range("2023-03-01", periods=24 * n_days, freq="h")   # naive, as on the grid
+    actual = pd.Series(rng.normal(100, 30, len(idx)), index=idx)
+    first = actual + rng.normal(0, 12, len(idx))
+    second = actual + rng.normal(0, 11, len(idx))
+    return first, second, actual
+
+
+def _epftoolbox(first, second, actual) -> float:
+    """epftoolbox `DM(..., norm=1, version='multivariate')`, line for line."""
+    p_real, p_pred_1, p_pred_2 = (s.to_numpy().reshape(-1, 24) for s in (actual, first, second))
+    errors_pred_1 = p_real - p_pred_1
+    errors_pred_2 = p_real - p_pred_2
+    d = np.mean(np.abs(errors_pred_1), axis=1) - np.mean(np.abs(errors_pred_2), axis=1)
+    N = d.size
+    DM_stat = np.mean(d) / np.sqrt((1 / N) * np.var(d, ddof=0))
+    return 1 - NormalDist().cdf(DM_stat)                 # stats.norm.cdf, without scipy
+
+
+def test_dm_without_the_echo_correction_is_the_field_reference():
+    """The departure from epftoolbox is one switch; with it off, the answers agree."""
+    first, second, actual = _days(60, seed=1)
+    assert E.dm(first, second, actual, lags=0) == pytest.approx(_epftoolbox(first, second, actual))
+
+
+def test_dm_echo_correction_worked_out_by_hand():
+    """Three days whose gaps are 1, 3 and 2, with one day of echo.
+
+    Mean 2, deviations -1, 1, 0.  Plain spread (1 + 1 + 0) / 3 = 2/3.  Echo one day
+    apart (-1·1 + 1·0) / 3 = -1/3, weighted 2 · (1 - 1/2) = 1, so the spread is
+    2/3 - 1/3 = 1/3.  Statistic 2 / sqrt((1/3) / 3) = 6.
+    """
+    idx = pd.date_range("2023-03-01", periods=72, freq="h")
+    actual = pd.Series(0.0, index=idx)
+    first = actual + 10                                  # misses by 10 every hour
+    second = actual + 10 - np.repeat([1.0, 3.0, 2.0], 24)  # misses by 1, 3, 2 less, day by day
+    assert E.dm(first, second, actual, lags=1) == pytest.approx(1 - NormalDist().cdf(6))
+
+
+def test_dm_says_which_forecast_is_better():
+    """One-sided: small when the second is clearly better, near one when it is worse."""
+    first, second, actual = _days(365, seed=2)
+    better = actual + (second - actual) / 3              # the second, missing a third as much
+    assert E.dm(first, better, actual) < 0.01
+    assert E.dm(better, first, actual) > 0.99
+
+
+def test_dm_is_more_cautious_when_days_echo_each_other():
+    """Gaps that run in streaks of good and bad weeks are weaker evidence than scattered ones.
+
+    The second forecast's edge comes and goes by the week, so neighbouring days agree
+    with each other.  Counting them as unconnected overstates the evidence.
+    """
+    rng = np.random.default_rng(3)
+    idx = pd.date_range("2023-01-02", periods=364 * 24, freq="h")
+    actual = pd.Series(100.0, index=idx)
+    miss = 20 + rng.normal(0, 2, len(idx))                       # the first's miss, always above
+    weeks = rng.normal(0, 3, 52)
+    weeks -= weeks.mean()                                        # streaks, but no net edge of their own
+    edge = 0.5 + np.repeat(weeks, 7 * 24) + rng.normal(0, 1, len(idx))
+    first, second = actual + miss, actual + miss - edge          # the second misses by less
+    assert E.dm(first, second, actual, lags=7) > E.dm(first, second, actual, lags=0)
 
 
 # ── The report ────────────────────────────────────────────────────────────────

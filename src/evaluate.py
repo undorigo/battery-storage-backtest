@@ -12,6 +12,8 @@ every function here starts by calling it.
 
 from __future__ import annotations
 
+import math
+
 import pandas as pd
 
 
@@ -110,6 +112,38 @@ def rmae(predicted: pd.Series, benchmark: pd.Series, actual: pd.Series) -> float
     """The model's error as a fraction of the benchmark's. Below 1 is a win."""
     p, b, a = aligned(predicted, benchmark, actual)     # one trim, so one set of hours
     return mae(p, a) / mae(b, a)
+
+
+# ── Is the gap real? — Diebold-Mariano ───────────────────────────────────────
+# A lower rMAE is not evidence on its own: in 2023 the tree beat the line by 1.65
+# EUR/MWh a day on average, while the daily gap swung by about 9.6.  The test asks
+# whether the average stands out from the swing.
+#
+# Days, not hours, are the evidence.  All 24 hours of a day are forecast at once,
+# so one hour's gap predicts the next (0.79 in 2023), and 8,759 hours would pretend
+# to far more evidence than there is.  As in the field's reference code
+# (epftoolbox, Lago et al. 2021) each day collapses to one number: the first
+# forecast's average miss minus the second's.  One-sided, as there: a small p says
+# the second forecast is more accurate.  A large p means *cannot tell*, not *same*.
+#
+# One departure, measured rather than assumed.  epftoolbox treats days as
+# unconnected; in 2023 one day's gap echoes into the next (0.25, gone by day four),
+# which makes the plain test too confident.  So the spread is widened by the echo
+# over the past `lags` days (*Newey-West*).  `lags=0` is epftoolbox exactly.
+
+def dm(first: pd.Series, second: pd.Series, actual: pd.Series, lags: int = 7) -> float:
+    """One-sided p-value that `second` is more accurate than `first`, from daily gaps."""
+    f, s, a = aligned(first, second, actual)            # one set of hours for both
+    hourly = (f - a).abs() - (s - a).abs()              # positive where second missed less
+    d = hourly.groupby(hourly.index.normalize()).mean().to_numpy()   # one number per day
+    n = len(d)
+    c = d - d.mean()
+    var = c @ c / n                                     # the plain spread, as epftoolbox
+    for k in range(1, lags + 1):
+        echo = c[k:] @ c[:-k] / n                       # how gaps k days apart move together
+        var += 2 * (1 - k / (lags + 1)) * echo          # weight fades with distance
+    stat = d.mean() / math.sqrt(var / n)
+    return 0.5 * math.erfc(stat / math.sqrt(2))         # upper tail of the normal curve
 
 
 # ── Reporting ─────────────────────────────────────────────────────────────────
