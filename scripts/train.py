@@ -159,9 +159,9 @@ def main(argv: list[str] | None = None) -> int:
     print(f"Refit {refit}: {time.perf_counter() - started:.0f} s\n")   # checks the timing estimate
     print(E.table(rows))
 
-    history = record(rows)
+    recorded = record(rows)
     print(f"\nAppended {len(rows)} rows to {SCORES.relative_to(cfg.ROOT)} "
-          f"— {len(history):,} recorded in total.")
+          f"— {len(recorded):,} recorded in total.")
 
     params = {"refit": refit,                            # once, monthly or daily
               "train_start": f"{train.index.min():%Y-%m-%d %H:%M}",
