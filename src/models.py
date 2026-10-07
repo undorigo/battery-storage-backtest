@@ -11,6 +11,8 @@ actual prices without knowing, or caring, which model produced it.
 
 from __future__ import annotations
 
+from collections.abc import Callable
+
 import pandas as pd
 from sklearn.base import BaseEstimator
 from sklearn.ensemble import HistGradientBoostingRegressor
@@ -90,3 +92,25 @@ def forecast(model: BaseEstimator, frame: pd.DataFrame) -> pd.Series:
     """Predict one price per delivery hour, indexed like the frame it came from."""
     features = F.feature_columns(frame)                 # the same call, so the same promise
     return pd.Series(model.predict(frame[features]), index=frame.index, name="predicted")
+
+# ── Walking forward: refitting as the year runs ───────────────────────────────
+# A model fitted once on 2018–22 forecasts December 2023 knowing nothing of 2023.
+# Refitting lets it keep up, under one rule: **each period is forecast before the
+# model may learn from it.**  Every score is still earned on hours the model had not
+# seen, which is what the split protects (*walk-forward evaluation*).
+#
+# Learning from all of day D−1 to forecast day D is legal: D−1's prices were
+# published around 13:00 on D−2, a day before the 12:00 decision on D−1.
+#
+# `every` is a pandas period: "D" daily, "M" monthly, "Y" once a year.  "Y" over
+# a single year is one fit on everything before it — the stage 1 recipe, so the
+# old numbers must come back unchanged through this path.
+
+def walk_forward(make: Callable[[], BaseEstimator], history: pd.DataFrame,
+                 scored: pd.DataFrame, every: str) -> pd.Series:
+    """Forecast `scored` period by period, each from a model fitted on everything before it."""
+    parts = []
+    for _, period in scored.groupby(scored.index.to_period(every)):   # grid labels: Berlin days
+        known = history[history.index < period.index.min()]          # strictly before: the rule
+        parts.append(forecast(fit(make(), known), period))           # a fresh model each time
+    return pd.concat(parts)

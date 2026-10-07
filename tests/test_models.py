@@ -140,3 +140,75 @@ def test_fit_returns_the_estimator_rather_than_none():
     """`sklearn`'s own fit returns self; the wrapper must pass that back."""
     est = M.linear()
     assert M.fit(est, frame()) is not None
+
+
+# ── Walking forward ───────────────────────────────────────────────────────────
+# The rule under test: each period is forecast before the model may learn from it.
+# A spy stands in for the model and records what it was shown, so the rule is
+# checked on the hours themselves rather than inferred from a score.
+#
+# Three months on naive grid labels, as `train.run` passes them: December 2022 is
+# history only, January to February 2023 is forecast.
+
+def grid_frames() -> tuple[pd.DataFrame, pd.DataFrame]:
+    idx = pd.date_range("2022-12-01", "2023-02-28 23:00", freq="h")   # naive: Berlin wall clock
+    rng = np.random.default_rng(1)
+    history = pd.DataFrame({"price": rng.normal(80, 20, len(idx)),
+                            "residual_load": rng.normal(30_000, 4_000, len(idx))}, index=idx)
+    return history, history.loc["2023-01-01":]
+
+
+class Spy:
+    """A model that learns nothing and remembers which hours it saw, fit by fit."""
+
+    def __init__(self, log: list):
+        self.log = log
+
+    def fit(self, X, y):
+        self.log.append({"first_seen": X.index.min(), "last_seen": X.index.max()})
+        return self
+
+    def predict(self, X):
+        self.log[-1]["forecast"] = X.index                 # the hours this fit was used for
+        return np.zeros(len(X))
+
+
+def spied(every: str) -> tuple[list, pd.Series, pd.DataFrame]:
+    log: list = []
+    history, scored = grid_frames()
+    out = M.walk_forward(lambda: Spy(log), history, scored, every)
+    return log, out, scored
+
+
+def test_walk_forward_never_learns_from_the_period_it_forecasts():
+    """The leak this loop could introduce, checked hour by hour for every fit.
+
+    It must also learn from everything right up to the period — every hour since
+    the start, ending exactly one hour before the first forecast hour.
+    """
+    for every in ("D", "M"):
+        log, _, _ = spied(every)
+        for fit in log:
+            first = fit["forecast"].min()
+            assert fit["last_seen"] < first, f"{every}: learned from {first:%Y-%m-%d}"
+            assert fit["last_seen"] == first - pd.Timedelta(hours=1)
+            assert fit["first_seen"] == pd.Timestamp("2022-12-01 00:00")
+
+
+def test_walk_forward_refits_once_per_period():
+    """Daily means 59 fits for January and February, monthly means two."""
+    assert len(spied("D")[0]) == 59
+    assert len(spied("M")[0]) == 2
+
+
+def test_walk_forward_forecasts_every_hour_exactly_once():
+    _, out, scored = spied("D")
+    assert out.index.equals(scored.index)
+
+
+def test_walk_forward_once_a_year_is_the_single_fit():
+    """One period, one fit on everything before it: the stage 1 recipe, unchanged."""
+    history, scored = grid_frames()
+    single = M.forecast(M.fit(M.linear(), history.loc[:"2022-12-31"]), scored)
+    walked = M.walk_forward(M.linear, history, scored, "Y")
+    pd.testing.assert_series_equal(walked, single)

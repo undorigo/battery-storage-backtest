@@ -13,7 +13,9 @@ be scored once, when the stage closes, and that is a different command run once.
 
 from __future__ import annotations
 
+import argparse
 import subprocess
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -59,11 +61,12 @@ def data() -> tuple[pd.DataFrame, pd.DataFrame]:
 # numerator with nothing underneath it — and a quiet pull towards choosing the
 # denominator that flatters it.
 #
-# The two models are fitted on the training years only, and never refitted.  That is
-# the stricter test, because the model never sees a single validation row, and it
-# keeps the stage 1 question clean: any win belongs to the model rather than to the
-# refitting.  Walking the fit forward through the year is stage 2 work, and it is
-# measured against this number rather than instead of it.
+# How often the models are refitted is the run's one setting.  `once` fits on the
+# training years alone and never again: the stage 1 recipe, the strictest test,
+# because no validation row is ever learned from.  `monthly` and `daily` walk
+# forward through 2023, each period forecast before it joins the training rows.
+# All three sit the same exam — the same hours, prices and benchmark — so their
+# scores compare directly, and only the model's freshness differs.
 #
 # The benchmark is also scored against itself, which looks redundant and is not.  That
 # row has to read exactly 1.000, and it is a free check on everything underneath: if it
@@ -74,16 +77,20 @@ def data() -> tuple[pd.DataFrame, pd.DataFrame]:
 # model; the significance test compares two models hour by hour, so it needs the
 # 8,759 values each score was computed from, not a second set made afterwards.
 
-def run(train: pd.DataFrame, valid: pd.DataFrame) -> tuple[list[dict], pd.DataFrame]:
+REFIT = {"once": "Y", "monthly": "M", "daily": "D"}   # schedule → the period refitted on
+
+
+def run(train: pd.DataFrame, valid: pd.DataFrame,
+        refit: str = "once") -> tuple[list[dict], pd.DataFrame]:
     """Fit, forecast and score. Score rows, benchmark first, and the hourly forecasts."""
     benchmark = M.naive_forecast(valid)                  # a lookup, not a fit: no training needed
     actual = valid[F.TARGET]                             # the prices that actually happened
     forecasts = pd.DataFrame({"actual": actual, "naive": benchmark})   # one column per forecast
 
     rows = [E.score("naive", "valid", benchmark, benchmark, actual)]   # must come out at 1.000
-    for name, estimator in (("linear", M.linear()), ("gbm", M.gbm())):
-        model = M.fit(estimator, train)                  # the training years only, never refitted
-        forecasts[name] = M.forecast(model, valid)       # one price per hour of 2023
+    history = pd.concat([train, valid])                  # what a refit may learn from, if it came first
+    for name, make in (("linear", M.linear), ("gbm", M.gbm)):
+        forecasts[name] = M.walk_forward(make, history, valid, REFIT[refit])   # one per hour of 2023
         rows.append(E.score(name, "valid", forecasts[name], benchmark, actual))
 
     return rows, forecasts
@@ -131,7 +138,11 @@ def record(rows: list[dict], path: Path = SCORES) -> pd.DataFrame:
 # facts only this script knows: the models were fitted once, on which span, from
 # which commit.
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description="Score the models on the validation year.")
+    parser.add_argument("--refit", choices=REFIT, default="once", help="how often to refit")
+    refit = parser.parse_args(argv).refit
+
     try:
         train, valid = data()
     except FileNotFoundError as exc:
@@ -143,14 +154,16 @@ def main() -> int:
     print(f"Train {len(train):,} rows  ·  validate {len(valid):,} rows  "
           f"({days.min():%Y-%m-%d} to {days.max():%Y-%m-%d})\n")
 
-    rows, forecasts = run(train, valid)
+    started = time.perf_counter()
+    rows, forecasts = run(train, valid, refit)
+    print(f"Refit {refit}: {time.perf_counter() - started:.0f} s\n")   # checks the timing estimate
     print(E.table(rows))
 
     history = record(rows)
     print(f"\nAppended {len(rows)} rows to {SCORES.relative_to(cfg.ROOT)} "
           f"— {len(history):,} recorded in total.")
 
-    params = {"refit": "once",                           # stage 1 recipe: fitted once, never again
+    params = {"refit": refit,                            # once, monthly or daily
               "train_start": f"{train.index.min():%Y-%m-%d %H:%M}",
               "train_end": f"{train.index.max():%Y-%m-%d %H:%M}",
               "commit": git_commit()}

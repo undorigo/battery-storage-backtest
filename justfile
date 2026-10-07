@@ -54,10 +54,11 @@ verify:
 explore:
     {{py}} -m scripts.explore
 
-# Stage 1 scores on the validation year. Offline. Appends to results/scores.csv.
+# Scores on the validation year. Offline. Appends to reports/scores.csv and MLflow.
 # Cannot reach the test years — Contract 2 evaluates those once, when the stage ends.
-train:
-    {{py}} -m scripts.train
+# `just train` refits once (stage 1); `just train monthly` or `just train daily` walk forward.
+train refit="once":
+    {{py}} -m scripts.train --refit {{refit}}
 
 # The number a stage ends on, from the years held back. Offline.
 #
