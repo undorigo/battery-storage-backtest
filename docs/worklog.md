@@ -2384,11 +2384,28 @@ walkthrough was skipped by choice.
 **State at close.** `main` is green at `6eecab1`, 175 tests, working tree clean. MLflow holds
 the once, monthly and daily runs of `bb7501a` in `reports/mlflow/`.
 
+#### Both plan pages brought up to date, the plan re-dated
+
+Asked at close whether the two pages were current. They were not. The old page (18 September)
+is archived on purpose, but **said so nowhere on the page**, so a reader saw "Now in stage 0".
+It now opens with a banner naming it a snapshot and linking the current plan, and nothing else on it
+changed. The current page was a week behind. It now shows stage 2 under way, the grid, MLflow,
+the significance test and walk-forward retraining built, the walk-forward results with their DM
+verdicts, and 175 tests. The README was updated first, because it is canonical (`6fe2672`).
+
+**Dates re-estimated, not dropped,** from what the stages took: seven, six and so far four working
+days at about three and a half a week. Stage 2 runs about a week long, because the grid, MLflow and the
+significance test went in front of recalibration. Stage 2 ends around the week of 19 October and stage 5
+around the week of 16 November.
+
+**The ENTSO-E API answers again** (HTTP 401 without a token, 7 October). That reopens open item 10
+(the autumn clock-change hour), which can now be checked with a fresh request. Not done today.
+
 ---
 
 ### Next — Thursday 8 October 2026
 
-**Start at LEAR. Nothing is uncommitted.**
+**Start at LEAR. Nothing is uncommitted.** Open item 10 is unblocked (the API answers again), and is a short check whenever it fits.
 
 #### Recap questions
 
