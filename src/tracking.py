@@ -35,6 +35,7 @@ FORECASTS = "forecasts.parquet"           # parquet keeps the naive grid labels 
 
 
 def _client(db: Path) -> MlflowClient:
+    db.parent.mkdir(parents=True, exist_ok=True)         # SQLite makes the file, not its folder
     return MlflowClient(tracking_uri=f"sqlite:///{db}")
 
 

@@ -40,9 +40,11 @@ data/**
 # ─────────────────────────────────────────────────────────────────────────────
 # Model artefacts and experiment tracking
 # ─────────────────────────────────────────────────────────────────────────────
+# MLflow writes this machine's full path, username included, into its database
+# for every run. The whole folder stays local for that reason as well as size.
+reports/mlflow/
 mlruns/
 mlartifacts/
-mlflow.db
 models/
 *.pkl
 *.joblib
