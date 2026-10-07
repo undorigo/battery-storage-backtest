@@ -49,7 +49,7 @@ so a claim can always be traced back to the run that produced it.
 |---|---|---|---|
 | 0 | Reproducible data pull, split locked | negative hours, daily spread | **done** 17 Sep 2026 |
 | 1 | First model against a naive benchmark | **rMAE 0.532** | **done** 30 Sep 2026 |
-| 2 | Recalibration, LEAR, one model per delivery hour | rMAE per variant, DM significance | next |
+| 2 | Recalibration, LEAR, one model per delivery hour | rMAE per variant, DM significance | under way |
 | 3 | Quantile forecasts | pinball loss, coverage | |
 | 4 | MILP dispatch optimiser, revenue | **capture rate** | |
 | 5 | Drift monitoring, scheduled run | reproducibility | |
@@ -90,6 +90,9 @@ happened.
 grid shifted the tree's validation score from 0.488 to 0.483 without improving any forecast: 4 %
 of its training rows changed and it landed differently, in every hour. Refitting monthly against
 daily may differ by less than that, so rMAE alone cannot read the first comparison stage 2 makes.
+Built 7 October: the field's daily version (epftoolbox), plus a correction for good and bad days
+running in streaks, which in 2023 turns a plain p of 0.02 into 0.058. Every hour's forecast is kept
+in MLflow so the test can be run on any two runs.
 
 1. **Refit as the year runs.** Measured on validation, refitting monthly instead of once moved
    the tree from 0.488 to 0.440 — a larger gain than any model choice produced. An expanding
@@ -97,7 +100,7 @@ daily may differ by less than that, so rMAE alone cannot read the first comparis
    crisis*. **Re-run on the grid, walking forward** (`just train once|monthly|daily`, built
    7 Oct): the tree goes 0.483 → 0.437 → 0.430, the line 0.532 → 0.525 → 0.523. Every step is
    significant except the tree's monthly → daily, which cannot be told from noise (p = 0.11).
-2. **LEAR**, the field's statistical benchmark. Not beating it would be the interesting result.
+2. **LEAR**, the field's statistical benchmark, and next. Not beating it would be the interesting result.
 3. **One model per delivery hour.** Error spans 7.79 €/MWh between the quietest night hours
    and the 19:00 peak; 3 a.m. and 7 p.m. are different problems sharing one set of
    coefficients.
@@ -125,16 +128,21 @@ not maintained — [docs/worklog.md](docs/worklog.md) records both links and whi
 
 ### Roughly when
 
-Estimated from what stages 0 and 1 actually took — seven and six working days — rather than
-from a wish. Stage 2 and stage 4 are larger: one adds a recalibration loop and a significance
-test, the other is a mixed-integer optimiser that does not exist yet.
+Re-estimated on 7 October from what the stages actually took — seven working days for stage 0,
+six for stage 1, and four so far for stage 2, at about three and a half working days a week.
+
+**Stage 2 runs about a week longer than first planned.** Three things went in front of
+recalibration that the first estimate did not hold: the 24-hour grid, MLflow, and the
+significance test. What is left is LEAR with the one-model-per-hour layout it brings (the largest
+piece), holidays, and the stage's one reading of the held-back years: about five or six working
+days. Stage 4 is the least certain estimate, because the optimiser does not exist yet.
 
 | Stage | Estimate | Ends around |
 |---|---|---|
-| 2 | ~2 weeks | mid-October 2026 |
-| 3 | ~1 week | late October 2026 |
-| 4 | ~2 weeks | mid-November 2026 |
-| 5 | ~1 week | late November 2026 |
+| 2 | ~3 weeks in all, ~1½ left | week of 19 October 2026 |
+| 3 | ~1 week | week of 26 October 2026 |
+| 4 | ~2 weeks | week of 9 November 2026 |
+| 5 | ~1 week | week of 16 November 2026 |
 
 ## Setup
 

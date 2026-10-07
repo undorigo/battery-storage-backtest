@@ -58,7 +58,7 @@ by an overlapping horizon: optimise 48 hours, implement the first 24, carry forw
 |-------|-----------------|-----------------|--------|
 | 0 | Reproducible data pull, split locked | negative-price hours, daily spread | done 17 Sep 2026 |
 | 1 | First model against naive benchmark | **rMAE 0.532** | done 30 Sep 2026 |
-| 2 | Recalibration, LEAR, one model per delivery hour | rMAE per variant, DM significance | next |
+| 2 | Recalibration, LEAR, one model per delivery hour | rMAE per variant, DM significance | under way |
 | 3 | Quantile forecasts | pinball loss, coverage | |
 | 4 | MILP optimiser, revenue | capture rate | |
 | 5 | Drift monitoring, scheduled run | reproducibility | |
