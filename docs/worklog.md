@@ -2265,9 +2265,43 @@ forecasts are read by nothing on the decision path.
 Not done: a run logged from a working tree with uncommitted changes is stamped with the last
 commit, the same as `scores.csv` has always been. Not observed to matter; noted, not guarded.
 
+#### Diebold-Mariano (`1d90457`)
+
+`E.dm(first, second, actual, lags=7)` returns a one-sided p-value that `second` is more accurate.
+The field's reference was read before anything was proposed: epftoolbox's `DM`, multivariate
+version, norm 1. It collapses each day to one number (the first's average miss minus the
+second's) and tests those days with a plain spread. Days rather than hours because the hourly
+gaps echo strongly (0.79 one hour apart in 2023): all 24 are forecast at once.
+
+**One departure, chosen by the measurement.** The daily gaps between line and tree in 2023 echo
+too: 0.25 one day apart, 0.11 at two, gone by four. epftoolbox assumes none, which makes it too
+confident. Options were the field's version exactly, with the echo as a stated limit, or the
+field's version plus a one-week correction (*Newey-West*, fading weights). **The second was
+chosen.** On 2023 the correction widens the spread ×1.31: a plain p of 0.02 becomes 0.058. That is
+the difference between "real" and "cannot tell" for exactly the close calls stage 2 will make.
+`lags=0` reproduces epftoolbox.
+
+No dependency added: the normal tail is `math.erfc`, so scipy stays out of `requirements.txt`.
+
+**Tests** (4): with `lags=0`, it matches epftoolbox's code transcribed line for line, with the normal
+curve from `statistics` rather than `erfc`; a three-day case worked out on paper (p at statistic
+6); direction; and streaky weeks giving a weaker verdict than scattered days. Five planted
+mutations each turned at least one red: hours instead of days, echo counted once, no fading weight,
+direction flipped, correction never run. The "more cautious" test first failed on its own fixture.
+Uncentred weekly shifts made the second forecast worse on average, so p sat near 1, and the
+correction pulled it *down* toward 0.5. Cautious means *toward cannot tell*, from either side.
+Suite 171 green.
+
+Leakage check: evaluation only. No feature, nothing fitted, and settlement is untouched.
+Nothing calls `dm` yet, so no reported number moved.
+
+Also today: `c773fa7` fixed the stale Contract 5 comment (joined on the grid, not in UTC).
+`d991a08` moved the README's MLflow UI command to port 5001: on macOS, AirPlay holds 5000, and
+`localhost:5000` answered 403 while `127.0.0.1:5000` reached MLflow.
+
 ### Next — Wednesday 7 October 2026
 
-**MLflow is done (`29023c8`, see 7 October above). Start at Diebold-Mariano.**
+**MLflow and Diebold-Mariano are done (see 7 October above). Start at recalibration.**
 
 #### Recap questions
 
@@ -2285,9 +2319,6 @@ commit, the same as `scores.csv` has always been. Not observed to matter; noted,
 #### Then, in order
 
 1. ~~**Finish MLflow (steps 3–6).**~~ Done, `29023c8`.
-2. **Diebold-Mariano** in `src/evaluate.py`, before any comparison is read.
+2. ~~**Diebold-Mariano**~~ Done, `1d90457`.
 3. **Recalibration.** Time a daily-refit run first. Then monthly against daily, every year kept.
 4. **Then LEAR**, the per-hour layout, and holidays.
-
-Small, found today: the Contract 5 comment in `src/config.py` (under *Time and resolution*)
-still says series are "joined in UTC". Joining now happens on the grid.
