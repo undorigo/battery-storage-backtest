@@ -263,6 +263,27 @@ directly, because their reader is already inside the file. Nor does it govern a 
 established earlier in the same session: plain language is for the first encounter, and
 repeating the scaffolding after that is its own kind of noise.
 
+### Standing Protocol — Refresh the Plan at Every Milestone
+
+The overall status has to be findable in one look, so the plan is refreshed whenever a milestone
+is crossed off, not only when a stage closes. Waiting for a stage to close let the page fall a
+week behind while stage 2 was half built.
+
+A milestone is any of these:
+
+- a step in the stage's ordered list built and measured (e.g. recalibration, LEAR)
+- a stage closing
+- a decision that changes the plan's order, scope or dates
+- a blocker appearing or clearing
+
+The order is fixed. First update the README's **Where this is going**, because it is canonical. Then
+rebuild the plan page from it (<https://claude.ai/artifact/Mysse8XGB4exGFykeDcmYm>): the header
+date, the facts line, *Where things stand*, the stage table, the current stage's list and *Roughly
+when*. Then add one line to the work log. Mention the refresh when reporting the milestone.
+
+The archived page (18 September snapshot) stays frozen. It is touched only if the current plan's
+link changes.
+
 ### Standing Protocol — Commit & Push After Every Change
 
 Every completed change is committed and pushed immediately. Do not batch.
