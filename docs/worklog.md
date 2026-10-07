@@ -2299,6 +2299,26 @@ Also today: `c773fa7` fixed the stale Contract 5 comment (joined on the grid, no
 `d991a08` moved the README's MLflow UI command to port 5001: on macOS, AirPlay holds 5000, and
 `localhost:5000` answered 403 while `127.0.0.1:5000` reached MLflow.
 
+#### MLflow moved to `reports/mlflow/` (`76f15f8`)
+
+The database and run files sat in the project root, beside things people read and edit. They are
+machine output, so they now sit beside `scores.csv`. Not named `mlflow/` at the root, which would
+share a name with the package on the import path.
+
+**Asked for: hide the full path, username included. Not possible inside MLflow, and checked.**
+MLflow stores every run's file location as a full machine path. A plain relative path, `./…` and
+`file:…` were each turned into one, and its built-in Default experiment does the same on its own.
+Keeping the forecasts outside MLflow's storage would leave the experiment's own location string
+behind, so it would not achieve it either. What protects the path is where it lives: the whole
+folder is ignored by git (`reports/mlflow/`, with the reason beside the rule), and the UI answers
+only on this machine. Checked: no tracked file and no commit in the history contains the home path.
+
+The move orphaned the three runs from `29023c8`, because their stored links pointed at the old
+folder. They were deleted and regenerated: `just train` at `76f15f8` gave 0.532 and 0.483 again,
+and the same figures were recomputed from the forecasts read back from the new location. The README's
+UI command was updated and served all three runs. `scores.csv` gains three identical rows. That
+is a third reproduction, not a new result. The same orphaning would follow a rename of the project folder.
+
 ### Next — Wednesday 7 October 2026
 
 **MLflow and Diebold-Mariano are done (see 7 October above). Start at recalibration.**
