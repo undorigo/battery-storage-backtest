@@ -2367,7 +2367,9 @@ Once fitted, "once" reproduced 0.532 and 0.483 exactly through the new loop.
 
 ### Next — Wednesday 7 October 2026
 
-**MLflow, Diebold-Mariano and recalibration are done (see 7 October above). Decide the default schedule, then LEAR.**
+**MLflow, Diebold-Mariano and recalibration are done (see 7 October above). Start at LEAR.**
+
+**Decided: daily retraining is the schedule for every stage 2 comparison from here on.** It gives a real gain for the line, no evidence against it for the tree, and it is the field's standard. Chosen over monthly (6 s, faster iteration) and over monthly-while-building. The cost is about 4 minutes per run now. LEAR and the per-hour models multiply the fits, so time one fit before each step. `just train` with no flag stays `once`, because the stage 1 headline is reproduced by that command.
 
 #### Recap questions
 
