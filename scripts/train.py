@@ -23,6 +23,7 @@ from src import config as cfg
 from src import evaluate as E
 from src import features as F
 from src import models as M
+from src import tracking as TR
 
 
 # ── The rows every forecast is scored on ──────────────────────────────────────
@@ -122,9 +123,13 @@ def record(rows: list[dict], path: Path = SCORES) -> pd.DataFrame:
     return pd.read_csv(path)
 
 
-# ── Running it — PLUMBING, already written ────────────────────────────────────
+# ── Running it ────────────────────────────────────────────────────────────────
 # Prints the table for the work log, then says how many runs the file now holds, so
 # a run that failed to record is noticed at the time rather than a week later.
+#
+# The same run then goes to MLflow with its hourly forecasts.  The params are the
+# facts only this script knows: the models were fitted once, on which span, from
+# which commit.
 
 def main() -> int:
     try:
@@ -138,12 +143,20 @@ def main() -> int:
     print(f"Train {len(train):,} rows  ·  validate {len(valid):,} rows  "
           f"({days.min():%Y-%m-%d} to {days.max():%Y-%m-%d})\n")
 
-    rows, _ = run(train, valid)                          # the forecasts go to MLflow, next
+    rows, forecasts = run(train, valid)
     print(E.table(rows))
 
     history = record(rows)
     print(f"\nAppended {len(rows)} rows to {SCORES.relative_to(cfg.ROOT)} "
           f"— {len(history):,} recorded in total.")
+
+    params = {"refit": "once",                           # stage 1 recipe: fitted once, never again
+              "train_start": f"{train.index.min():%Y-%m-%d %H:%M}",
+              "train_end": f"{train.index.max():%Y-%m-%d %H:%M}",
+              "commit": git_commit()}
+    ids = TR.log(rows, forecasts, params)
+    print(f"Logged {len(ids)} runs to MLflow: "
+          + ", ".join(f"{model} {run[:8]}" for model, run in ids.items()))
     return 0
 
 

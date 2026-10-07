@@ -492,3 +492,4 @@ not inside the loader, so the tests' world-clock fixtures take the same path as 
 | `src/models.py` | Training, benchmarks, quantile models |
 | `src/backtest.py` | Dispatch optimiser and settlement |
 | `src/evaluate.py` | rMAE, Diebold-Mariano, pinball loss, capture rate |
+| `src/tracking.py` | MLflow runs: one per forecast, stating its convention, keeping its hourly forecasts. `scores.csv` stays the record |
