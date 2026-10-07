@@ -2230,9 +2230,44 @@ import, which is `src/tracking.py`. `main` is green at `01eeda2`, 163 tests.
 
 ---
 
+### 7 October 2026
+
+**Recap (questions 1–2):** 1 half right: the lesson "keep every year" was right, but which model won was wrong for the fourth time (every year wins for both). 2 the plan change was right, but "we don't know where the 0.005 came from" was wrong: it was measured side by side.
+
+#### MLflow finished (`29023c8`)
+
+`src/tracking.py` writes one run per scored forecast, the benchmark included, and reads a run
+back. Two choices were walked through first. **An explicit client per call** rather than the
+global `set_tracking_uri`, so a test pointed at a temporary folder cannot leave later code
+writing there. **Each run keeps actual, benchmark and its own forecast**, the three columns its
+rMAE comes from, rather than its own column only, so one run proves its own score without a join.
+The convention is written by `tracking.py` from a constant, not passed in, so no run can be
+stored without it.
+
+Asked why SQLite rather than MLflow's "native" folder format, and checked rather than answered
+from memory: 3.16.1 reports `sqlite:///…/mlflow.db` as its default, and asked for the folder
+store it **raises an error** ("maintenance mode … migrate to a database backend"). The folder
+`mlruns/` still holds the files; the database holds the index.
+
+**Tests** (`tests/test_tracking.py`, 4) log once into a temporary folder and read back. Removing
+the convention from the stored params failed one; storing only the model's own column failed two.
+Suite 167 green.
+
+**Baseline**, `just train` at `29023c8`: naive 1.000, linear **0.532**, gbm **0.483**, identical to
+`7f10d59` to the last digit. Recomputed in a fresh process from the forecasts **read back out of
+MLflow**, found by their commit param: 0.531806 and 0.482824, matching the stored metrics, 8,759
+naive grid hours each. The README's `mlflow ui --backend-store-uri sqlite:///mlflow.db` was started
+and served all three runs.
+
+Leakage check: no feature changed, nothing fitted, and the actual prices MLflow stores beside the
+forecasts are read by nothing on the decision path.
+
+Not done: a run logged from a working tree with uncommitted changes is stamped with the last
+commit, the same as `scores.csv` has always been. Not observed to matter; noted, not guarded.
+
 ### Next — Wednesday 7 October 2026
 
-**Step 1 of MLflow is uncommitted (see the state above). It goes in with step 3.**
+**MLflow is done (`29023c8`, see 7 October above). Start at Diebold-Mariano.**
 
 #### Recap questions
 
@@ -2249,16 +2284,7 @@ import, which is `src/tracking.py`. `main` is green at `01eeda2`, 163 tests.
 
 #### Then, in order
 
-1. **Finish MLflow (steps 3–6).** About an hour with walkthroughs.
-   - `src/tracking.py`: point MLflow at `cfg.MLFLOW_DB`, experiment artifacts at `cfg.MLRUNS`.
-     One run per model with params (model, training span, refit cadence `once`, convention
-     `24-slot Berlin grid`), metrics (MAE, rMAE), and the hourly forecasts as a file.
-   - A test that writes to a temporary location, reads the run back, and fails if the convention
-     is missing.
-   - `main()` in `train.py` calls it. Run the 2023 baseline: it must reproduce 0.532 and 0.483.
-     Recompute rMAE from the forecasts **read back out of MLflow**.
-   - README's *Parked on purpose* row, CLAUDE.md's file table (`src/tracking.py`), commit with
-     step 1.
+1. ~~**Finish MLflow (steps 3–6).**~~ Done, `29023c8`.
 2. **Diebold-Mariano** in `src/evaluate.py`, before any comparison is read.
 3. **Recalibration.** Time a daily-refit run first. Then monthly against daily, every year kept.
 4. **Then LEAR**, the per-hour layout, and holidays.
