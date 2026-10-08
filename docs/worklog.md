@@ -1028,6 +1028,18 @@ It is a presentation of `just explore` output, never a source of a number.
     **5 October — checked: the grid does not dissolve it.** The rows sit at local midnight, not at
     02:00, so they stay empty on the grid as they should. Still blocked on the API.
 
+12. **The wind/solar forecast may legally appear after gate closure.** *(opened 8 October)*
+    Regulation 543/2013, Art. 14(1)(d), sets its deadline at **18:00 Brussels time on D−1**, six
+    hours after the auction closes. The catalog's claim "D-1, before gate closure" rests on
+    practice, not on the rule, and the data cannot settle it: ENTSO-E stores the hour a value
+    describes, not when it was published. The real German publication time is unverified.
+
+    **Decided: stated as a limit, not fixed.** Every model so far uses the series the same
+    way, so comparisons between them stay fair; the *level* of every score is what is in
+    question. The working assumption is that a forecast of this kind is at hand by 12:00, if
+    not from ENTSO-E then from a vendor or the TSOs directly. **Trigger for revisiting:** the
+    actual publication time is found, or stage 5 runs live and has to fetch it before noon.
+
 <a id="d20260918"></a>
 ### 18 September 2026 — where the money actually is
 
@@ -2407,6 +2419,10 @@ around the week of 16 November.
 ### 8 October 2026
 
 **Recap (questions 1, 2, 4):** 1 half right: every year wins for both, but the big drop was put on the tree, not the line (0.709), for the fifth time. 2 half right: days because the 24 hours miss together, but the echo correction (×1.31, p 0.02 → 0.058) was missing. 4 not remembered: the line's 0.002 is real (p 0.0012), the tree's 0.007 is not (p 0.11).
+
+**LEAR, one fit timed.** Real data, epftoolbox's recipe (`LassoLarsIC` then `Lasso`), one core: one delivery hour 0.15–0.26 s, a day of 24 fits 3–6 s, so a daily refit through 2023 runs **about 20 min** with 247 columns (load + wind/solar summed) and **about 37 min** with 391 (four separate series). Window length barely matters; width does.
+
+**Open item 12 opened:** the wind/solar forecast's legal deadline is 18:00 on D−1, after gate closure. Stated as a limit, not fixed.
 
 ---
 
