@@ -51,6 +51,7 @@ One row per working day. Follow the date link for the detail.
 | [5 Oct 2026](#d20261005) | Recap: three partial, one forgotten, one reversed for the second time. MLflow adopted for stage 2 on a question the deferral never weighed. The grid's labels checked in the field's code and paper. **`to_slots()` built and mutated.** Split rewritten to sort by Berlin date; position tests added after finding the old ones could not see the cut. Wiring half done, uncommitted. |
 | [6 Oct 2026](#d20261006) | Recap: two partial, three wrong, refitting missed for the third session running. **The grid wired in:** split by Berlin date, features on 24 slots, 1 April leak case caught a planted bug. 2023 re-scored, and the tree's 0.005 move traced to instability, not the grid. Significance test moved ahead of recalibration. MLflow begun: forecasts now survive the run. |
 | [7 Oct 2026](#d20261007) | Recap: the refitting lesson right, which model won wrong for the fourth time. **MLflow finished** and moved to `reports/mlflow/`; the full path inside it cannot be hidden, only kept out of git. **Diebold-Mariano built**, with the field's daily test plus a correction for the 0.25 day-to-day echo. **Recalibration built and measured:** daily wins for the line, while the tree's monthly → daily gain cannot be told from noise. Daily made the stage 2 schedule. LEAR introduced, not built. |
+| [8 Oct 2026](#d20261008) | Recap: two half right, one forgotten; the refitting numbers swapped between models for the fifth time. |
 
 [Commits](#commits) · [Open items](#open-items) · [Next](#next)
 
@@ -2401,6 +2402,11 @@ around the week of 16 November.
 
 **The ENTSO-E API answers again** (HTTP 401 without a token, 7 October). That reopens open item 10
 (the autumn clock-change hour), which can now be checked with a fresh request. Not done today.
+
+<a id="d20261008"></a>
+### 8 October 2026
+
+**Recap (questions 1, 2, 4):** 1 half right: every year wins for both, but the big drop was put on the tree, not the line (0.709), for the fifth time. 2 half right: days because the 24 hours miss together, but the echo correction (×1.31, p 0.02 → 0.058) was missing. 4 not remembered: the line's 0.002 is real (p 0.0012), the tree's 0.007 is not (p 0.11).
 
 ---
 
