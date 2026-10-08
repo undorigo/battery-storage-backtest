@@ -51,7 +51,7 @@ One row per working day. Follow the date link for the detail.
 | [5 Oct 2026](#d20261005) | Recap: three partial, one forgotten, one reversed for the second time. MLflow adopted for stage 2 on a question the deferral never weighed. The grid's labels checked in the field's code and paper. **`to_slots()` built and mutated.** Split rewritten to sort by Berlin date; position tests added after finding the old ones could not see the cut. Wiring half done, uncommitted. |
 | [6 Oct 2026](#d20261006) | Recap: two partial, three wrong, refitting missed for the third session running. **The grid wired in:** split by Berlin date, features on 24 slots, 1 April leak case caught a planted bug. 2023 re-scored, and the tree's 0.005 move traced to instability, not the grid. Significance test moved ahead of recalibration. MLflow begun: forecasts now survive the run. |
 | [7 Oct 2026](#d20261007) | Recap: the refitting lesson right, which model won wrong for the fourth time. **MLflow finished** and moved to `reports/mlflow/`; the full path inside it cannot be hidden, only kept out of git. **Diebold-Mariano built**, with the field's daily test plus a correction for the 0.25 day-to-day echo. **Recalibration built and measured:** daily wins for the line, while the tree's monthly → daily gain cannot be told from noise. Daily made the stage 2 schedule. LEAR introduced, not built. |
-| [8 Oct 2026](#d20261008) | Recap: two half right, one forgotten; the refitting numbers swapped between models for the fifth time. |
+| [8 Oct 2026](#d20261008) | Recap: two half right, one forgotten; the refitting numbers swapped for the fifth time. **One LEAR fit timed:** a daily run over 2023 is 20–37 min. **Open item 12:** the wind/solar forecast's legal deadline is after gate closure, stated as a limit. **Open item 10 answered:** the autumn hour is missing from the publication itself. LEAR's day table walked through; the price rule written in whole days. Nothing built. |
 
 [Commits](#commits) · [Open items](#open-items) · [Next](#next)
 
@@ -1027,6 +1027,18 @@ It is a presentation of `just explore` output, never a source of a number.
 
     **5 October — checked: the grid does not dissolve it.** The rows sit at local midnight, not at
     02:00, so they stay empty on the grid as they should. Still blocked on the API.
+
+    **8 October — checked against a fresh request; the A03 guess was wrong.** The raw XML for
+    26–27 October 2024 (read only, cache untouched) splits each series into one `Period` per day.
+    The 26th ends at 22:00 UTC and the 27th starts at **23:00 UTC**, which is midnight in winter time,
+    so the first hour of the clock-change day falls between the two and is in neither. This holds
+    for load, onshore wind and solar. Offshore wind comes as one continuous `Period` and has the hour.
+    A03 compression is real but harmless: solar at night sends 48 of 96 positions, and entsoe-py
+    fills them, which is why the cache has no solar gaps. So the 28 September conclusion stands
+    (absent from the publication), and the mechanism is the publisher's day boundary, not ours.
+    Checked for 2024 only. **It now matters more:** on LEAR's one-row-per-day table, one missing
+    hour empties a whole day, and through the D−1 and D−7 inputs, two more (29 and 30 October and
+    5 November 2023). Fill or drop is decision 4 of LEAR's table.
 
 12. **The wind/solar forecast may legally appear after gate closure.** *(opened 8 October)*
     Regulation 543/2013, Art. 14(1)(d), sets its deadline at **18:00 Brussels time on D−1**, six
@@ -2424,31 +2436,49 @@ around the week of 16 November.
 
 **Open item 12 opened:** the wind/solar forecast's legal deadline is 18:00 on D−1, after gate closure. Stated as a limit, not fixed.
 
+**LEAR's table walked through, not built.** One row per delivery day: the 24 prices of D as targets, and as inputs
+all 24 hours of the prices of D−1, D−2, D−3 and D−7, the forecasts for D, D−1 and D−7, and the weekday. Shown on
+15 March 2023 against today's one-row-per-hour layout. Same numbers, laid out differently: the 18:00 model can
+now see every hour of earlier days, not only 18:00. Four decisions follow from it. **Decision 1 taken: the price
+rule is written in whole days** (inputs move back at least one day), with its own check beside
+`MIN_PRICE_LAG_HOURS` and the leak test run on the day table too. For delivery hour 00:00, D−1 at 23:00 is one
+hour earlier but was published around 13:00 on D−2. CLAUDE.md's rule is *prices of days ≤ D−1*, and the 24
+hours was the hourly table's way of enforcing it. The existing `price_d1_last` already uses this form. Rejected:
+keeping 24 hours per hour-model, which is stricter than the boundary, gives the 24 models different inputs and
+is no longer the field's LEAR.
+
+**Open item 10 checked** (above): the hour is absent from the publication because the operators start the
+clock-change day at midnight winter time. The A03 guess was wrong.
+
 ---
 
-### Next — Thursday 8 October 2026
+### Next — Friday 9 October 2026
 
-**Start at LEAR. Nothing is uncommitted.** Open item 10 is unblocked (the API answers again), and is a short check whenever it fits.
+**Continue LEAR's table at decision 2. Nothing is uncommitted.** The scratch timing script was not kept; the
+numbers above guide choices but are not README results.
 
 #### Recap questions
 
-1. *(Fifth time.)* Refitting monthly: keeping every year or only the last two, which won for
-   each model, and by how much?
-2. Why does the significance test count days rather than hours, and what does the echo
-   correction change? Give the 2023 numbers.
-3. Refitting daily through 2023 trains on validation rows. Why does that not break the split,
-   and what has to stay locked?
-4. Monthly → daily moved the line by 0.002 and the tree by 0.007. Which gain is real, and why
-   can the smaller one be the real one?
-5. Why does `train.py` pass `M.linear` to `walk_forward` and not `M.linear()`?
+1. *(Sixth time.)* Refitting monthly: when only the last two years were kept, which model got much
+   worse and which barely moved? Give both pairs of numbers.
+2. What is a "daily LEAR run", how long does one take over 2023, and why does that matter for the
+   backtest but not for a real morning?
+3. LEAR's 00:00 model sees a price from one hour earlier. Why is that allowed, when the code says 24 hours?
+4. The wind/solar forecast's legal deadline is 18:00 on D−1. Why does that question every score's level
+   but not the comparisons between models?
+5. Why is the first hour of the autumn clock-change day missing, and why does it cost LEAR three days
+   rather than one hour?
 
 #### Then, in order
 
-1. **LEAR**, one decision at a time:
-   - **Time one fit first:** a daily run is about 17,500 small fits.
-   - **Training window:** the field's 1,092 days against every year, measured, since every year
-     won for both of our models.
-   - **The table's shape:** one row per day with the 24 hours side by side. This brings in the
-     per-hour layout. It is the largest piece, so walk it through before writing.
-   - Judged against the daily line and tree with Diebold-Mariano.
-2. **German public holidays**, which are not in the feature frame.
+1. **LEAR's table**, decisions 2–4, one at a time:
+   - **2. Where it is built and how it is scored:** the day table beside the hourly frame in `features.py`, and
+     its forecasts turned back into one row per hour so rMAE and DM see the same hours as line and tree.
+   - **3. Which forecast series:** epftoolbox's two (load, and wind plus solar summed, ~20 min a daily run)
+     or our four separate ones (~37 min).
+   - **4. A day with a missing hour (item 10):** fill the hour, or lose the day and the two that use it.
+   - Then build, walked through before writing.
+2. **Training window:** the field's 1,092 days against every year, measured. Moved after the table, because
+   it cannot be measured until LEAR exists in the repo.
+3. Judge LEAR against the daily line and tree with Diebold-Mariano.
+4. **German public holidays**, which are not in the feature frame.
