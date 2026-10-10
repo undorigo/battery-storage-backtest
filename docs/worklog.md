@@ -2450,6 +2450,11 @@ is no longer the field's LEAR.
 **Open item 10 checked** (above): the hour is absent from the publication because the operators start the
 clock-change day at midnight winter time. The A03 guess was wrong.
 
+<a id="d20261010"></a>
+### 10 October 2026
+
+**Recap (all five):** 1 right at last: the line lurches, the tree ties; numbers dropped from this question by request. 2 half right: what a daily run is and ~20 min, but not that the backtest repeats a 3–6 s morning 365 times. 3 right. 4 half right: comparisons fair, but not why every score's level is in question. 5 not known: the publishers' day blocks start at midnight winter time, and one row per day turns one hour into three days.
+
 ---
 
 ### Next — Friday 9 October 2026
