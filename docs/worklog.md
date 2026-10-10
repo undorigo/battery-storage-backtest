@@ -1040,6 +1040,9 @@ It is a presentation of `just explore` output, never a source of a number.
     hour empties a whole day, and through the D−1 and D−7 inputs, two more (29 and 30 October and
     5 November 2023). Fill or drop is decision 4 of LEAR's table.
 
+    **10 October — decided: fill**, with the mean of its neighbours, for every model (see 10 October).
+    The hole exists in 2023, 2024 and 2025 only; 2019–22 publish the hour.
+
 12. **The wind/solar forecast may legally appear after gate closure.** *(opened 8 October)*
     Regulation 543/2013, Art. 14(1)(d), sets its deadline at **18:00 Brussels time on D−1**, six
     hours after the auction closes. The catalog's claim "D-1, before gate closure" rests on
@@ -2467,6 +2470,15 @@ decision 4: fill the hour. With it, LEAR covers 8,760 hours, the shared set stay
 run). Shown on 15 March 2023: load flat across 07:00, 13:00 and 19:00, price 160 → 91 → 199, and the sum alone carries
 the swing (21.8, 40.0, 16.5 GW). Rejected for now: our four separate series (391 inputs, ~37 min). Splitting is a
 second change on top of the method, so it is left as a later measured variant rather than mixed into the first LEAR.
+
+**Decision 4 taken: the autumn midnight hour is filled, for every model**, with the mean of its two neighbours (the
+grid's spring rule; 29 Oct 2023: load 40,116, wind plus solar 24,411). Both neighbours are forecasts published on D−1,
+so nothing leaks. Found while checking: the hole exists only in 2023–25, not in the 2019–22 training years, so three
+rows change in the whole history. Filled in `features.py` where the forecasts load, not in LEAR's table alone, so one
+table holds one answer per hour. Cost: line and tree gain an hour (8,760 in 2023) and their daily scores are re-run
+once as new rows; the old 8,759-hour rows are a different exam. Rejected: LEAR-only filling, which leaves two tables
+disagreeing and is dropped again by shared-hours scoring. Separately, 2022 has two whole blank days (22 Feb, 24 Mar),
+skipped by every model as now.
 
 ---
 
