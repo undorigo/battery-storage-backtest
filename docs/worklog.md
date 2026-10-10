@@ -52,6 +52,7 @@ One row per working day. Follow the date link for the detail.
 | [6 Oct 2026](#d20261006) | Recap: two partial, three wrong, refitting missed for the third session running. **The grid wired in:** split by Berlin date, features on 24 slots, 1 April leak case caught a planted bug. 2023 re-scored, and the tree's 0.005 move traced to instability, not the grid. Significance test moved ahead of recalibration. MLflow begun: forecasts now survive the run. |
 | [7 Oct 2026](#d20261007) | Recap: the refitting lesson right, which model won wrong for the fourth time. **MLflow finished** and moved to `reports/mlflow/`; the full path inside it cannot be hidden, only kept out of git. **Diebold-Mariano built**, with the field's daily test plus a correction for the 0.25 day-to-day echo. **Recalibration built and measured:** daily wins for the line, while the tree's monthly → daily gain cannot be told from noise. Daily made the stage 2 schedule. LEAR introduced, not built. |
 | [8 Oct 2026](#d20261008) | Recap: two half right, one forgotten; the refitting numbers swapped for the fifth time. **One LEAR fit timed:** a daily run over 2023 is 20–37 min. **Open item 12:** the wind/solar forecast's legal deadline is after gate closure, stated as a limit. **Open item 10 answered:** the autumn hour is missing from the publication itself. LEAR's day table walked through; the price rule written in whole days. Nothing built. |
+| [10 Oct 2026](#d20261010) | Recap: two right, two half right, one not known (the autumn hour); the refitting question finally right. **LEAR's table decided, decisions 2–4:** built in `features.py` and scored on shared hours; the field's two forecast series; the autumn midnight hour filled for every model. The fill walked through as code, not written. Nothing built. |
 
 [Commits](#commits) · [Open items](#open-items) · [Next](#next)
 
@@ -2482,33 +2483,53 @@ skipped by every model as now.
 
 ---
 
-### Next — Friday 9 October 2026
+**State at close.** `main` at `dcb5143`, no code changed today, working tree clean. The plan page was not
+refreshed: no step was built or measured, and the decisions sit inside the existing LEAR step.
 
-**Continue LEAR's table at decision 2. Nothing is uncommitted.** The scratch timing script was not kept; the
-numbers above guide choices but are not README results.
+---
+
+### Next — next session
+
+**Write piece 1, the autumn-midnight fill, already walked through.** Then the day table. Nothing is uncommitted.
 
 #### Recap questions
 
-1. *(Sixth time.)* Refitting monthly: when only the last two years were kept, which model got much
-   worse and which barely moved? Give both pairs of numbers.
-2. What is a "daily LEAR run", how long does one take over 2023, and why does that matter for the
-   backtest but not for a real morning?
-3. LEAR's 00:00 model sees a price from one hour earlier. Why is that allowed, when the code says 24 hours?
-4. The wind/solar forecast's legal deadline is 18:00 on D−1. Why does that question every score's level
-   but not the comparisons between models?
-5. Why is the first hour of the autumn clock-change day missing, and why does it cost LEAR three days
-   rather than one hour?
+1. *(Second time.)* Why is the first hour of the autumn clock-change day missing from the forecasts, and why
+   would it have cost LEAR three days?
+2. LEAR's forecasts come back as one row per day. What happens to its 18:00 number on 15 March before it is
+   scored, and why does that only work because of the 24-slot grid?
+3. Why does the first LEAR get the field's two forecast series and not our four, when four might be better?
+4. The autumn hour is filled for every model, not only LEAR. Why, and what does that cost the scores already
+   recorded?
+5. *(Half missed.)* A daily LEAR run over 2023 takes about 20 minutes. Why does that not mean a real morning
+   is slow?
 
 #### Then, in order
 
-1. **LEAR's table**, decisions 2–4, one at a time:
-   - **2. Where it is built and how it is scored:** the day table beside the hourly frame in `features.py`, and
-     its forecasts turned back into one row per hour so rMAE and DM see the same hours as line and tree.
-   - **3. Which forecast series:** epftoolbox's two (load, and wind plus solar summed, ~20 min a daily run)
-     or our four separate ones (~37 min).
-   - **4. A day with a missing hour (item 10):** fill the hour, or lose the day and the two that use it.
-   - Then build, walked through before writing.
-2. **Training window:** the field's 1,092 days against every year, measured. Moved after the table, because
-   it cannot be measured until LEAR exists in the repo.
-3. Judge LEAR against the daily line and tree with Diebold-Mariano.
-4. **German public holidays**, which are not in the feature frame.
+1. **Piece 1 — the fill**, as walked through on 10 October. In `features.py`, above `forecast_features`:
+
+   ```python
+   def fill_autumn_midnight(df: pd.DataFrame) -> pd.DataFrame:
+       """Fill a blank 00:00 on each autumn clock-change day from 23:00 and 01:00."""
+       twice = df.index.tz_localize(cfg.TZ_MARKET, ambiguous="NaT",
+                                    nonexistent="shift_forward").isna()   # the 02:00 that happens twice
+       midnight = df.index.isin(df.index[twice].normalize())              # 00:00 on those days
+       neighbours = (df.shift(1) + df.shift(-1)) / 2                      # the grid has no gaps
+       out = df.copy()
+       out.loc[midnight] = df.loc[midnight].fillna(neighbours.loc[midnight])   # blanks only
+       return out
+   ```
+
+   Called on load and wind/solar right after `data.to_slots`. Narrow on purpose: the general rule ("any single
+   blank hour") fills the same three rows today but would fill holes of other causes undecided. Three tests on a
+   small frame around 27 Oct 2024, each checked by planting its bug: a blank autumn midnight gets the mean; a blank
+   ordinary midnight stays blank (catches the general rule); a published autumn midnight is untouched (catches
+   overwriting). Then the suite, and `just train daily` once: line and tree on 8,760 hours, new rows, flagged as a
+   new exam beside the 8,759-hour ones.
+2. **Piece 2 — the day table** in `features.py`: one row per day, 24 targets, prices of D−1, D−2, D−3, D−7, load
+   and wind plus solar for D, D−1, D−7, weekday. A fold/unfold round-trip test, and the leak test run on it.
+3. **Piece 3 — LEAR** in `models.py`: asinh-median fitted on the window, `LassoLarsIC(aic)` then `Lasso`, 24 models,
+   daily walk-forward.
+4. **Piece 4 — `train.py`**: LEAR unfolded to hour labels and scored on the hours all three share.
+5. Training window: 1,092 days against every year, measured. Then Diebold-Mariano against daily line and tree.
+6. **German public holidays**, which are not in the feature frame.
