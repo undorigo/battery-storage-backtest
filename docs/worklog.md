@@ -2463,6 +2463,11 @@ all three models are scored on the hours every one covers, `train.py`'s existing
 48 real prices folded and unfolded came back identical. Works only because every day has 24 slots. Leaning for
 decision 4: fill the hour. With it, LEAR covers 8,760 hours, the shared set stays 8,759, and no recorded score moves.
 
+**Decision 3 taken: the field's two forecast series**, load and wind plus solar summed (247 inputs, ~20 min a daily
+run). Shown on 15 March 2023: load flat across 07:00, 13:00 and 19:00, price 160 → 91 → 199, and the sum alone carries
+the swing (21.8, 40.0, 16.5 GW). Rejected for now: our four separate series (391 inputs, ~37 min). Splitting is a
+second change on top of the method, so it is left as a later measured variant rather than mixed into the first LEAR.
+
 ---
 
 ### Next — Friday 9 October 2026
