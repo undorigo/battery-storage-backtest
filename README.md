@@ -104,6 +104,9 @@ in MLflow so the test can be run on any two runs.
    p = 0.11: a single extra training row moved every November and December forecast of the
    monthly tree. That verdict rests on the tree's wobble, not on a settled difference.
 2. **LEAR**, the field's statistical benchmark, and next. Not beating it would be the interesting result.
+   Under way: its day table (one row per delivery day, whole earlier days as inputs) is built and
+   tested, and the first LEAR uses one 1,092-day window, as epftoolbox does. Lago et al.'s average
+   over four windows is their benchmark for methods that average, so it is a later variant.
 3. **One model per delivery hour.** Error spans 7.79 €/MWh between the quietest night hours
    and the 19:00 peak; 3 a.m. and 7 p.m. are different problems sharing one set of
    coefficients.
