@@ -62,6 +62,17 @@ PRICE_LAGS = (24, 48, 72, 168)
 
 assert min(PRICE_LAGS) >= MIN_PRICE_LAG_HOURS, "a lag shorter than 24 h reaches into day D"
 
+# The same rule for the day table, where it can be said directly: a price input
+# comes from a whole earlier day.  For the 00:00 model, D-1 at 23:00 is one hour
+# back, but it cleared in D-1's auction, around 13:00 on D-2.  Forecasts need no
+# lag, as below: those for day D are public on D-1.
+
+MIN_PRICE_LAG_DAYS = 1
+PRICE_DAYS = (1, 2, 3, 7)                                   # LEAR's set: D-1, D-2, D-3, D-7
+FORECAST_DAYS = (0, 1, 7)                                   # D itself, D-1, D-7
+
+assert min(PRICE_DAYS) >= MIN_PRICE_LAG_DAYS, "a price input reaches into day D"
+
 
 def _hourly_span(*indexes: pd.DatetimeIndex) -> pd.DatetimeIndex:
     """A gapless hourly index on the 24-slot grid, covering everything passed in.
@@ -244,3 +255,65 @@ def complete_rows(frame: pd.DataFrame) -> pd.DataFrame:
 def feature_columns(frame: pd.DataFrame) -> list[str]:
     """Every column except the target — what a model is allowed to see."""
     return [c for c in frame.columns if c != TARGET]
+
+
+# ── The day table, for LEAR ───────────────────────────────────────────────────
+# The same numbers as `build()`, one row per delivery day instead of per hour: the
+# 24 prices of D as answers, and whole earlier days as clues, so the 18:00 model
+# sees every hour of yesterday, not only 18:00.  Built here, not inside the model,
+# so this file still answers "was this public by 12:00 on D-1?" for every table.
+# Folding needs exactly 24 hours a day, which is what the grid guarantees.
+
+def fold(series: pd.Series) -> pd.DataFrame:
+    """One row per day, one column per hour. The label is split, nothing computed."""
+    days_hours = pd.MultiIndex.from_arrays([series.index.normalize(), series.index.hour])
+    return series.set_axis(days_hours).unstack()
+
+
+def unfold(table: pd.DataFrame) -> pd.Series:
+    """Back to one value per grid hour: date of the row plus hour of the column."""
+    s = table.stack()                                       # keeps blanks, one per cell
+    days, hours = s.index.get_level_values(0), s.index.get_level_values(1)
+    return s.set_axis(days + pd.to_timedelta(hours, unit="h"))
+
+
+def day_table() -> pd.DataFrame:
+    """One row per delivery day: 24 answers, 240 day-shaped clues, 7 weekday columns."""
+    price = fold(data.to_slots(data_load("day_ahead_price")).iloc[:, 0])
+    fc = forecast_features()                                # filled, and on the grid
+    load = fold(fc.load_forecast)
+    renewables = fold(fc.wind_onshore + fc.wind_offshore + fc.solar)   # the field's sum
+    days = load.index                                       # a row wherever forecasts exist
+
+    # Every series is stretched over one shared run of days before shifting.  At
+    # gate closure the price stops at D-1 while the forecasts reach D, and without
+    # this, day D would have no row in the price table to receive yesterday from.
+    # `to_slots` already returns every day, blank ones included, so one row back
+    # is always one day back.
+    span = pd.date_range(min(price.index.min(), days.min()),
+                         max(price.index.max(), days.max()), freq="D")
+    price, load, renewables = (t.reindex(span) for t in (price, load, renewables))
+
+    blocks = {"price_d0": price}                            # the answers
+    for k in PRICE_DAYS:
+        blocks[f"price_d{k}"] = price.shift(k)              # k whole days back
+    for k in FORECAST_DAYS:
+        blocks[f"load_d{k}"] = load.shift(k)
+        blocks[f"renew_d{k}"] = renewables.shift(k)
+
+    table = pd.concat(blocks, axis=1).reindex(days)
+    table.columns = [f"{name}_h{hour:02d}" for name, hour in table.columns]   # "price_d1_h18"
+    for i in range(7):                                      # one yes/no column per weekday
+        table[f"weekday_{i}"] = (table.index.dayofweek == i).astype(float)
+    return table
+
+
+def day_answer_columns(table: pd.DataFrame) -> list[str]:
+    """The 24 prices of day D — what LEAR forecasts."""
+    return [c for c in table.columns if c.startswith("price_d0_")]
+
+
+def day_feature_columns(table: pd.DataFrame) -> list[str]:
+    """Every column except the answers — what LEAR is allowed to see."""
+    answers = set(day_answer_columns(table))
+    return [c for c in table.columns if c not in answers]

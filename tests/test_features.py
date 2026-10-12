@@ -97,6 +97,7 @@ def test_no_lag_reaches_into_the_delivery_day():
     # Day D's prices are published after gate closure for day D. A lag below 24 h
     # would reach them for the late evening hours.
     assert min(F.PRICE_LAGS) >= F.MIN_PRICE_LAG_HOURS == 24
+    assert min(F.PRICE_DAYS) >= F.MIN_PRICE_LAG_DAYS == 1     # the same rule, in whole days
 
 
 # ── The headline test ─────────────────────────────────────────────────────────
@@ -110,25 +111,27 @@ def test_no_lag_reaches_into_the_delivery_day():
 # holds the grid's invented 02:00, filled from a later hour: if that fill ever
 # reached into day D, this is the case that would move.
 
-@pytest.mark.parametrize("day", ["2024-03-20", "2024-04-01"])   # an ordinary day; the first after the fill
-def test_deleting_the_future_changes_nothing(monkeypatch, day):
-    src = _sources()
+def _at_gate_closure(src: dict[str, pd.DataFrame], day: str) -> dict[str, pd.DataFrame]:
+    """Everything the market had at 12:00 on D-1: prices to the end of D-1, forecasts to the end of D."""
     delivery_day = pd.Timestamp(day, tz=cfg.TZ_MARKET)
     day_start = delivery_day.tz_convert("UTC")               # where the cut falls in the cache
     day_end = (delivery_day + pd.DateOffset(days=1)).tz_convert("UTC")
-
-    monkeypatch.setattr(F, "data_load", lambda key: src[key])
-    full = F.build()
-
-    # Everything the market had at 12:00 on D-1: prices up to the end of D-1, and
-    # forecasts up to the end of D. Nothing beyond either.
-    truncated = {
+    return {
         "day_ahead_price": src["day_ahead_price"].loc[src["day_ahead_price"].index < day_start],
         "load_forecast": src["load_forecast"].loc[src["load_forecast"].index < day_end],
         "wind_solar_forecast": src["wind_solar_forecast"].loc[
             src["wind_solar_forecast"].index < day_end
         ],
     }
+
+
+@pytest.mark.parametrize("day", ["2024-03-20", "2024-04-01"])   # an ordinary day; the first after the fill
+def test_deleting_the_future_changes_nothing(monkeypatch, day):
+    src = _sources()
+    monkeypatch.setattr(F, "data_load", lambda key: src[key])
+    full = F.build()
+
+    truncated = _at_gate_closure(src, day)
     monkeypatch.setattr(F, "data_load", lambda key: truncated[key])
     partial = F.build()
 
@@ -318,3 +321,51 @@ def test_a_published_autumn_midnight_is_left_alone():
     df.loc[AUTUMN, "load"] = 999.0                          # unlike the neighbours' mean
     out = F.fill_autumn_midnight(df)
     pd.testing.assert_frame_equal(out, df)
+
+
+# ── The day table ─────────────────────────────────────────────────────────────
+# LEAR's table holds the same numbers as the hourly one, so it answers to the same
+# two promises: folding loses nothing, and a world cut off at gate closure builds
+# the same row for day D.  The third test is the day-shaped twin of the hourly
+# missing-day test, because folding is a new place for a blank day to vanish.
+
+def test_folding_and_unfolding_gives_back_every_value_and_label(built):
+    """The fixture starts and ends on part days, which folding pads with blank cells."""
+    prices = built[F.TARGET]
+    back = F.unfold(F.fold(prices))
+    padding = back.index.difference(prices.index)
+    assert back.loc[padding].isna().all()                   # only blanks were added
+    pd.testing.assert_series_equal(back.loc[prices.index], prices, check_names=False, check_freq=False)
+
+
+@pytest.mark.parametrize("day", ["2024-03-20", "2024-04-01"])
+def test_deleting_the_future_changes_nothing_in_the_day_table(monkeypatch, day):
+    src = _sources()
+    monkeypatch.setattr(F, "data_load", lambda key: src[key])
+    full = F.day_table()
+
+    truncated = _at_gate_closure(src, day)
+    monkeypatch.setattr(F, "data_load", lambda key: truncated[key])
+    partial = F.day_table()
+
+    d = pd.Timestamp(day)
+    clues = F.day_feature_columns(full)
+    assert len(clues) == 247                                # 4 x 24 prices, 6 x 24 forecasts, 7 weekdays
+    assert partial.loc[d, clues].notna().all()              # the row a schedule is built from
+    pd.testing.assert_series_equal(partial.loc[d, clues], full.loc[d, clues])
+
+
+def test_a_missing_day_leaves_tomorrows_yesterday_blank(monkeypatch):
+    """Not the day before last, which is what one row back would give if the day vanished."""
+    src = _sources()
+    price = src["day_ahead_price"]
+    local = price.index.tz_convert(cfg.TZ_MARKET)
+    gap = (local >= pd.Timestamp("2024-02-10", tz=cfg.TZ_MARKET)) & (
+        local < pd.Timestamp("2024-02-11", tz=cfg.TZ_MARKET)
+    )
+    src["day_ahead_price"] = price.loc[~gap]                # 10 February removed entirely
+    monkeypatch.setattr(F, "data_load", lambda key: src[key])
+
+    table = F.day_table()
+    yesterday = [c for c in table.columns if c.startswith("price_d1_")]
+    assert table.loc[pd.Timestamp("2024-02-11"), yesterday].isna().all()
