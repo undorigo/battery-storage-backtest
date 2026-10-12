@@ -2583,14 +2583,41 @@ not built), and every year first (departs from the field's LEAR on the first run
 
 ---
 
-**State at close.** `main` at `2e0272f`, suite 182 green, working tree clean apart from this log. Plan page
-refreshed to 12 October for the re-run and the flipped verdict; not again for piece 2, which sits inside the LEAR step.
+#### LEAR walked through, not built: three ideas on the 18:00 model of 15 March 2023
+
+Shown with a scratch fit on the 1,092 days before 15 March, outside the repository. The recipe was read in
+epftoolbox first: `InvariantScaler` is the median, statsmodels' `mad` (divided by 0.6745) and `arcsinh`, on prices
+and on every column except the 7 weekday dummies; then `LassoLarsIC(criterion='aic', max_iter=2500)` for alpha
+and `Lasso(max_iter=2500, alpha=...)` refitted. statsmodels is not needed: median and MAD are two numpy lines.
+
+1. **Lasso, a line that pays for every clue it uses.** Of 247 clues it kept 128, every kind somewhere, six of
+   seven weekdays. Forecast 167.3 against 182.3 actual, one day so it means nothing. Warned against reading
+   single weights: the largest were load at 11:00 and the price two days ago at 09:00, because neighbouring
+   hours move together and one stands in for a group. Landed first time.
+2. **Same scale, then squash.** Load is in tens of thousands of MW, price in hundreds of euros, and the cost is
+   per unit of weight, so scaling makes it fair. Median 105.5 and spread 100.1 against mean 160.7 and std 144.0;
+   29 August 2022 at 837.7 goes from 7.31 spreads to 2.69 after asinh. Asked whether this is "scaling as feature
+   engineering": steps 0–1 are scaling (the robust kind), asinh is a transformation that changes the shape, and
+   both are preprocessing rather than feature engineering, which adds information. Our line and tree never
+   needed it: the tree splits on order, the plain line just rescales its weights. The cost is what makes it matter.
+3. **AIC chooses the cost.** 391 steps on the path from 0 clues to 246; lowest AIC at 124 clues. **Did not land
+   the first time**, explained with "fit term", "fixed charge" and a trade-off. **Re-explained** as each clue
+   paying a 2-point fee to join: the first clue saved about 16,600 points, while the last 122 clues cost 244
+   and saved only 152, most likely luck. Whether that version landed is not yet known; the session closed on it.
+
+The path keeps 124 clues and the refitted `Lasso` 128 at the same alpha. The paper does not say why epftoolbox
+refits, and no reason was guessed.
+
+---
+
+**State at close.** `main` at `fcd5948`, suite 182 green, working tree clean. The day table is built; LEAR is
+explained, not written. README and plan page refreshed at close (day table built, one window, 182 tests).
 
 ---
 
 ### Next — next session
 
-**Write piece 3, LEAR, in `models.py`.** The day table is built and tested. Nothing is uncommitted.
+**Check that AIC landed, then walk through piece 3's code before writing it.** Nothing is uncommitted.
 
 #### Recap questions
 
@@ -2598,18 +2625,20 @@ refreshed to 12 October for the re-run and the flipped verdict; not again for pi
    is not, and why is spring's missing hour a different thing?
 2. One extra hour in 2023 changed every November and December forecast of the monthly tree. Why those two
    months, and what does it do to the verdict on monthly against daily?
-3. In the day table, where does Tuesday's `price_d1_h18` come from, and why can no row ever hold its own day's
-   price as a clue?
-4. Why is the price table stretched to day D before shifting? What would the row for tomorrow look like at
-   12:00 on D−1 without it?
-5. The missing-day test stayed green when blank hours were dropped before folding. Why, and what does it
-   actually guarantee?
+3. In the day table, where does Tuesday's `price_d1_h18` come from? And why is the price table stretched to
+   day D before shifting: what would tomorrow's row look like at 12:00 on D−1 without it?
+4. Lasso needs its clues scaled, while the plain line and the tree did not. Why? And why the median and asinh
+   rather than the average?
+5. *(Re-explained once.)* In your own words: why can't LEAR keep every clue that fits the past better, and how
+   does it decide where to stop?
 
 #### Then, in order
 
-1. **Piece 3 — LEAR** in `models.py`: asinh-median fitted on the window, `LassoLarsIC(aic)` then `Lasso`, 24
-   models reading `day_feature_columns`, daily walk-forward. Single window, 1,092 days (decided 12 Oct).
+1. **Piece 3 — LEAR** in `models.py`: walk through the code first. Asinh-median fitted on the window (numpy, no
+   statsmodels), `LassoLarsIC(aic)` then `Lasso`, 24 models reading `day_feature_columns`, daily walk-forward on
+   a single 1,092-day window (decided 12 Oct).
 2. **Piece 4 — `train.py`**: LEAR unfolded to hour labels and scored on the hours all three share (8,760 in 2023).
+   Check a suspiciously good first number for hindsight before believing it.
 3. Training window: 1,092 days against every year, measured. Then Diebold-Mariano against daily line and tree.
 4. **A documented command for the p-values.** The README's are read from MLflow by hand (Third Law gap, noted 12 Oct).
 5. **German public holidays**, which are not in the feature frame.
