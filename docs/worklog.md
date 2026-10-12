@@ -2515,7 +2515,17 @@ before gate closure; nothing fitted; settlement untouched. The leak test passes 
 | `efd0a3b` (new exam) | **8,760** | **0.5233** | **0.4294** |
 
 Nothing moved that matters, as predicted. The old rows stay in `scores.csv`, told apart by the `n` column.
-The README's walk-forward line (0.483 → 0.437 → 0.430) still quotes the old exam.
+**All three re-run on the new exam, by decision**, so the README matches what the commands produce (`f0d17ba`):
+once 0.532 / 0.483, monthly 0.525 / **0.440** (was 0.437), daily 0.523 / 0.429, line / tree. Once is identical,
+because no training row before 2023 changed. Diebold-Mariano re-read from MLflow: every step is real, and the
+tree's monthly → daily **flips from 0.11 to 0.028**. Daily did not improve; monthly got worse. January–October are
+identical to the hour; every November and December forecast moved (MAE +0.64, +0.59), because those two refits
+gained one training row, 29 Oct 00:00. Guessed cause, the tree's 10 % early-stopping hold-back being redrawn,
+**checked and mostly wrong**: with it off, the one row still moves November by 2.64 €/MWh on average. The tree is
+that sensitive to its data, as on 6 October; why exactly was not chased. The README states the verdict as fragile.
+Plan page refreshed to 12 October: 8,760 hours, the fragile verdict, 178 tests, the autumn-hour note closed.
+
+**Third Law gap noticed, not fixed:** the README's p-values are read from MLflow by hand, not by a documented command.
 
 ---
 
