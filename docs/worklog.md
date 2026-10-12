@@ -2565,6 +2565,22 @@ were added.
 Leakage check: prices from whole earlier days only (assert and leak test); forecasts for D, D−1, D−7, public
 at gate closure; nothing fitted; settlement untouched.
 
+#### Calibration windows read: the first LEAR is single, 1,092 days
+
+Read before the walkthrough, as the 7 October note asked. **epftoolbox's `_lear.py`:** one window, default
+`364 * 3` = 1,092 days, no averaging over windows anywhere. **Lago et al. 2021, §4.2:** LEAR recalibrated daily
+on four windows, 8 weeks, 12 weeks, 3 and 4 years. **§4.4:** their plain average is offered "as open-access
+benchmarks of ensembles methods", i.e. the yardstick for methods that average, not for single models.
+**Not read:** the paper's tables comparing the average with single windows; the HTML stops before them and
+the PDF could not be parsed here without a new tool. A later paper on DE 2022–May 2023 (arXiv 2311.02610)
+used 56/84/364/728 days because its data starts in 2019; the longest did best (rMAE 0.40 against 0.42–0.44),
+on a different period and setup, so only the direction carries over.
+
+**Decision: a single LEAR on 1,092 days first.** Line and tree are single models, so the fair opponent is a
+single LEAR; averaging four would add a second change and about four times the run (~80 min). Every year
+against 1,092 days stays the measured second run. Rejected for now: the four-window average (a later variant,
+not built), and every year first (departs from the field's LEAR on the first run).
+
 ---
 
 **State at close.** `main` at `2e0272f`, suite 182 green, working tree clean apart from this log. Plan page
@@ -2592,8 +2608,7 @@ refreshed to 12 October for the re-run and the flipped verdict; not again for pi
 #### Then, in order
 
 1. **Piece 3 — LEAR** in `models.py`: asinh-median fitted on the window, `LassoLarsIC(aic)` then `Lasso`, 24
-   models reading `day_feature_columns`, daily walk-forward. Check the paper's ensemble over calibration
-   windows (Lago et al. 2021) before relying on it.
+   models reading `day_feature_columns`, daily walk-forward. Single window, 1,092 days (decided 12 Oct).
 2. **Piece 4 — `train.py`**: LEAR unfolded to hour labels and scored on the hours all three share (8,760 in 2023).
 3. Training window: 1,092 days against every year, measured. Then Diebold-Mariano against daily line and tree.
 4. **A documented command for the p-values.** The README's are read from MLflow by hand (Third Law gap, noted 12 Oct).
