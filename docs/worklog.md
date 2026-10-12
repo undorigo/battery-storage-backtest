@@ -2488,6 +2488,13 @@ refreshed: no step was built or measured, and the decisions sit inside the exist
 
 ---
 
+<a id="d20261012"></a>
+### 12 October 2026
+
+**Recap (all five):** 1 wrong for the second time: spring's never-happening hour was given, not autumn's forecast hour that falls between two publishing blocks; the three days roughly right. 2 half right: two dimensions yes, but not that unfolding only gives the cell its label back, and the 18:00 model was put back to seeing 18:00 only. 3 half right: speed, but not *one change at a time*. 4 mostly right, except old rows are kept as a different exam, not thrown away. 5 not remembered and judged minor; retired from the recap.
+
+---
+
 ### Next — next session
 
 **Write piece 1, the autumn-midnight fill, already walked through.** Then the day table. Nothing is uncommitted.
