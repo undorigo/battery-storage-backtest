@@ -2493,6 +2493,30 @@ refreshed: no step was built or measured, and the decisions sit inside the exist
 
 **Recap (all five):** 1 wrong for the second time: spring's never-happening hour was given, not autumn's forecast hour that falls between two publishing blocks; the three days roughly right. 2 half right: two dimensions yes, but not that unfolding only gives the cell its label back, and the 18:00 model was put back to seeing 18:00 only. 3 half right: speed, but not *one change at a time*. 4 mostly right, except old rows are kept as a different exam, not thrown away. 5 not remembered and judged minor; retired from the recap.
 
+#### Piece 1 — the autumn midnight filled (`efd0a3b`)
+
+`fill_autumn_midnight` in `features.py`, called on load and wind/solar right after `data.to_slots`, as
+walked through on 10 October. Three tests on a grid frame of 26–28 October 2024, each checked by planting
+its bug, each bug failing exactly its own test: a fill from the hour before only; the general rule (any
+blank hour); overwriting a published value. Suite 178 green.
+
+**On real data it fills 8 cells, not 9.** Load 2023 and 2024 (29 Oct 2023: 40,116 as predicted), onshore
+wind and solar in all three years. The **2025 load forecast has its autumn midnight** (42,213, published),
+so it was left alone, which is the case the third test guards. Offshore untouched in every year.
+
+Leakage check: the fill averages the 23:00 forecast for D−1 and the 01:00 forecast for D, both published
+before gate closure; nothing fitted; settlement untouched. The leak test passes unchanged.
+
+**`just train daily` once, a new exam** (213 s). Same recipe as `bb7501a`, one more hour:
+
+| 2023, daily walk-forward | hours | line | tree |
+|---|---|---|---|
+| `bb7501a` (old exam) | 8,759 | 0.5233 | 0.4299 |
+| `efd0a3b` (new exam) | **8,760** | **0.5233** | **0.4294** |
+
+Nothing moved that matters, as predicted. The old rows stay in `scores.csv`, told apart by the `n` column.
+The README's walk-forward line (0.483 → 0.437 → 0.430) still quotes the old exam.
+
 ---
 
 ### Next — next session
