@@ -2529,48 +2529,72 @@ Plan page refreshed to 12 October: 8,760 hours, the fragile verdict, 178 tests, 
 
 ---
 
+#### Piece 2 — the day table (`2e0272f`)
+
+Walked through first on 15 March 2023 (a Wednesday), then shown as four real rows, 13–16 March: each row one
+delivery day, columns named *what, which day, which hour* (`price_d1_h18`). Monday's `price_d0` reappears as
+Tuesday's `price_d1`, one row down. 271 columns: 24 answers, 96 price clues, 144 forecast clues (load and wind
+plus solar summed, for D, D−1, D−7), 7 weekday columns. 2,649 days; all 365 of 2023 complete, thanks to piece 1.
+
+`fold`, `unfold`, `day_table`, `day_answer_columns`, `day_feature_columns` in `features.py`, plus
+`MIN_PRICE_LAG_DAYS = 1` with its own assert beside `MIN_PRICE_LAG_HOURS`. Nothing calls it yet.
+
+**A claim of mine corrected twice, by a question.** I proposed a `reindex(days)` "so a missing day can't turn
+`shift(1)` into the day before last", and a test planted by removing it. Asked whether the test would catch
+that, I ran it: it would not, because `to_slots` already returns every day, blank ones as 24 blank hours. So the
+line was dropped from the plan. Writing the code then showed **a reindex is needed after all, for another
+reason**: at gate closure prices stop at D−1 and forecasts reach D, so without stretching the price table onto
+one shared run of days, day D has no row to receive yesterday into and its clues come out blank. The leak test
+catches that.
+
+**Tests** (4, suite 182 green), each bug planted:
+
+| Planted bug | Caught by |
+|---|---|
+| unfold puts values at the wrong time | round trip |
+| "today's" forecast is really tomorrow's | leak test, both days |
+| price not stretched to day D | leak test, both days |
+| blank hours dropped before folding | **nothing**: the stretch puts the day back |
+| that and no stretch | leak test and missing-day test |
+
+So the missing-day test guards the outcome ("tomorrow's yesterday is blank"), which two lines each provide; it
+cannot be shown failing by removing one. Kept by decision. The round trip first failed for a real reason: the
+fixture starts and ends on part days, and folding pads them with blank cells, so the test now says only blanks
+were added.
+
+Leakage check: prices from whole earlier days only (assert and leak test); forecasts for D, D−1, D−7, public
+at gate closure; nothing fitted; settlement untouched.
+
+---
+
+**State at close.** `main` at `2e0272f`, suite 182 green, working tree clean apart from this log. Plan page
+refreshed to 12 October for the re-run and the flipped verdict; not again for piece 2, which sits inside the LEAR step.
+
+---
+
 ### Next — next session
 
-**Write piece 1, the autumn-midnight fill, already walked through.** Then the day table. Nothing is uncommitted.
+**Write piece 3, LEAR, in `models.py`.** The day table is built and tested. Nothing is uncommitted.
 
 #### Recap questions
 
-1. *(Second time.)* Why is the first hour of the autumn clock-change day missing from the forecasts, and why
-   would it have cost LEAR three days?
-2. LEAR's forecasts come back as one row per day. What happens to its 18:00 number on 15 March before it is
-   scored, and why does that only work because of the 24-slot grid?
-3. Why does the first LEAR get the field's two forecast series and not our four, when four might be better?
-4. The autumn hour is filled for every model, not only LEAR. Why, and what does that cost the scores already
-   recorded?
-5. *(Half missed.)* A daily LEAR run over 2023 takes about 20 minutes. Why does that not mean a real morning
-   is slow?
+1. *(Third time, asked differently.)* On 27 October 2024, which hour is missing from which forecasts, which one
+   is not, and why is spring's missing hour a different thing?
+2. One extra hour in 2023 changed every November and December forecast of the monthly tree. Why those two
+   months, and what does it do to the verdict on monthly against daily?
+3. In the day table, where does Tuesday's `price_d1_h18` come from, and why can no row ever hold its own day's
+   price as a clue?
+4. Why is the price table stretched to day D before shifting? What would the row for tomorrow look like at
+   12:00 on D−1 without it?
+5. The missing-day test stayed green when blank hours were dropped before folding. Why, and what does it
+   actually guarantee?
 
 #### Then, in order
 
-1. **Piece 1 — the fill**, as walked through on 10 October. In `features.py`, above `forecast_features`:
-
-   ```python
-   def fill_autumn_midnight(df: pd.DataFrame) -> pd.DataFrame:
-       """Fill a blank 00:00 on each autumn clock-change day from 23:00 and 01:00."""
-       twice = df.index.tz_localize(cfg.TZ_MARKET, ambiguous="NaT",
-                                    nonexistent="shift_forward").isna()   # the 02:00 that happens twice
-       midnight = df.index.isin(df.index[twice].normalize())              # 00:00 on those days
-       neighbours = (df.shift(1) + df.shift(-1)) / 2                      # the grid has no gaps
-       out = df.copy()
-       out.loc[midnight] = df.loc[midnight].fillna(neighbours.loc[midnight])   # blanks only
-       return out
-   ```
-
-   Called on load and wind/solar right after `data.to_slots`. Narrow on purpose: the general rule ("any single
-   blank hour") fills the same three rows today but would fill holes of other causes undecided. Three tests on a
-   small frame around 27 Oct 2024, each checked by planting its bug: a blank autumn midnight gets the mean; a blank
-   ordinary midnight stays blank (catches the general rule); a published autumn midnight is untouched (catches
-   overwriting). Then the suite, and `just train daily` once: line and tree on 8,760 hours, new rows, flagged as a
-   new exam beside the 8,759-hour ones.
-2. **Piece 2 — the day table** in `features.py`: one row per day, 24 targets, prices of D−1, D−2, D−3, D−7, load
-   and wind plus solar for D, D−1, D−7, weekday. A fold/unfold round-trip test, and the leak test run on it.
-3. **Piece 3 — LEAR** in `models.py`: asinh-median fitted on the window, `LassoLarsIC(aic)` then `Lasso`, 24 models,
-   daily walk-forward.
-4. **Piece 4 — `train.py`**: LEAR unfolded to hour labels and scored on the hours all three share.
-5. Training window: 1,092 days against every year, measured. Then Diebold-Mariano against daily line and tree.
-6. **German public holidays**, which are not in the feature frame.
+1. **Piece 3 — LEAR** in `models.py`: asinh-median fitted on the window, `LassoLarsIC(aic)` then `Lasso`, 24
+   models reading `day_feature_columns`, daily walk-forward. Check the paper's ensemble over calibration
+   windows (Lago et al. 2021) before relying on it.
+2. **Piece 4 — `train.py`**: LEAR unfolded to hour labels and scored on the hours all three share (8,760 in 2023).
+3. Training window: 1,092 days against every year, measured. Then Diebold-Mariano against daily line and tree.
+4. **A documented command for the p-values.** The README's are read from MLflow by hand (Third Law gap, noted 12 Oct).
+5. **German public holidays**, which are not in the feature frame.
