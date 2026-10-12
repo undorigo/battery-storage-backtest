@@ -111,6 +111,27 @@ def price_features(price: pd.Series, index: pd.DatetimeIndex) -> pd.DataFrame:
     return out.reindex(index)
 
 
+# ── The autumn midnight the publishers leave out ──────────────────────────────
+# The TSOs publish each forecast in day blocks starting at midnight winter time,
+# but the autumn clock-change day starts an hour earlier, at midnight summer time.
+# So 00:00 on that day is in neither block: blank for load, onshore wind and solar
+# in 2023-25.  It is filled the way the grid fills spring's 02:00, from two
+# neighbours that were both published on D-1, so nothing leaks.
+#
+# Narrow on purpose.  "Fill any single blank hour" fills the same three rows today,
+# but would also fill holes of other causes that nobody has decided about.
+
+def fill_autumn_midnight(df: pd.DataFrame) -> pd.DataFrame:
+    """Fill a blank 00:00 on each autumn clock-change day from 23:00 and 01:00."""
+    twice = df.index.tz_localize(cfg.TZ_MARKET, ambiguous="NaT",
+                                 nonexistent="shift_forward").isna()   # the 02:00 that happens twice
+    midnight = df.index.isin(df.index[twice].normalize())              # 00:00 on those days
+    neighbours = (df.shift(1) + df.shift(-1)) / 2                      # the grid has no gaps
+    out = df.copy()
+    out.loc[midnight] = df.loc[midnight].fillna(neighbours.loc[midnight])   # blanks only
+    return out
+
+
 # ── The forecasts, used at their own timestamp ────────────────────────────────
 # These need no lag, and that is the whole reason they are worth having: the TSOs
 # publish them on the morning of D-1, so the value for the hour being predicted was
@@ -124,8 +145,8 @@ def price_features(price: pd.Series, index: pd.DatetimeIndex) -> pd.DataFrame:
 
 def forecast_features() -> pd.DataFrame:
     """Demand and renewable output as forecast before gate closure, plus residual load."""
-    load = data.to_slots(data_load("load_forecast")).iloc[:, 0]
-    ws = data.to_slots(data_load("wind_solar_forecast"))
+    load = fill_autumn_midnight(data.to_slots(data_load("load_forecast"))).iloc[:, 0]
+    ws = fill_autumn_midnight(data.to_slots(data_load("wind_solar_forecast")))
 
     out = pd.DataFrame(index=load.index)
     out["load_forecast"] = load

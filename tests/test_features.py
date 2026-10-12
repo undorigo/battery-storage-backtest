@@ -278,3 +278,43 @@ def test_every_whole_day_has_24_rows(built):
     """The grid's promise, checked on the built frame; the fixture's ends are part days."""
     per_day = built.groupby(built.index.normalize()).size()
     assert (per_day.iloc[1:-1] == 24).all()
+
+
+# ── The autumn midnight fill ──────────────────────────────────────────────────
+# A small frame already on the grid, 26-28 October 2024, so the three cases are
+# readable on their own.  A ramp makes every hour different: the mean of 23:00 and
+# 01:00 is neither neighbour, so a fill that copies one of them is caught.  Each
+# test was checked by planting the bug named in its docstring and watching it fail.
+
+AUTUMN = pd.Timestamp("2024-10-27 00:00")                   # the clock goes back at 03:00
+
+
+def _autumn_grid() -> pd.DataFrame:
+    idx = pd.date_range("2024-10-26 00:00", "2024-10-28 23:00", freq="h")   # 24 slots a day
+    return pd.DataFrame({"load": np.arange(len(idx), dtype=float) * 100}, index=idx)
+
+
+def test_a_blank_autumn_midnight_gets_the_mean_of_its_neighbours():
+    """Catches no fill, or a fill from one neighbour only."""
+    df = _autumn_grid()
+    df.loc[AUTUMN, "load"] = np.nan                         # as the publishers leave it
+    out = F.fill_autumn_midnight(df)
+    before, after = df.loc[AUTUMN - pd.Timedelta("1h"), "load"], df.loc[AUTUMN + pd.Timedelta("1h"), "load"]
+    assert out.loc[AUTUMN, "load"] == (before + after) / 2
+
+
+def test_a_blank_ordinary_midnight_stays_blank():
+    """Catches the general rule: filling any single blank hour."""
+    df = _autumn_grid()
+    ordinary = pd.Timestamp("2024-10-28 00:00")             # a Monday, no clock change
+    df.loc[ordinary, "load"] = np.nan
+    out = F.fill_autumn_midnight(df)
+    assert pd.isna(out.loc[ordinary, "load"])
+
+
+def test_a_published_autumn_midnight_is_left_alone():
+    """Catches overwriting a value the publishers did send."""
+    df = _autumn_grid()
+    df.loc[AUTUMN, "load"] = 999.0                          # unlike the neighbours' mean
+    out = F.fill_autumn_midnight(df)
+    pd.testing.assert_frame_equal(out, df)
