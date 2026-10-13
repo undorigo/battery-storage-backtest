@@ -126,12 +126,13 @@ def walk_forward(make: Callable[[], BaseEstimator], history: pd.DataFrame,
 # stay 0/1: their spread is zero, and the ruler would divide by it.
 
 WINDOW_DAYS = 364 * 3                                       # epftoolbox's default: 1,092 days
+MAD_TO_STD = 0.6744897501960817                             # statsmodels' Gaussian.ppf(3/4), not 0.6745
 
 
 def robust_ruler(df: pd.DataFrame) -> tuple[pd.Series, pd.Series]:
     """Median and spread of each column, which a single spike cannot move."""
     median = df.median()
-    spread = (df - median).abs().median() / 0.6745          # MAD, sized like a std
+    spread = (df - median).abs().median() / MAD_TO_STD      # MAD, sized like a std
     return median, spread
 
 

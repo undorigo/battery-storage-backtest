@@ -300,3 +300,10 @@ def test_the_ruler_ignores_how_far_a_spike_goes():
     spiked.iloc[-1] = 9_000.0                               # the same spike, ten times higher
     for a, b in zip(M.robust_ruler(prices), M.robust_ruler(spiked)):
         pd.testing.assert_series_equal(a, b)
+
+
+def test_the_spread_is_statsmodels_mad_exactly():
+    """epftoolbox divides by Gaussian.ppf(3/4); a rounded 0.6745 moved LEAR's
+    forecasts by up to 0.0012 EUR/MWh against it on 2023 (checked 13 Oct 2026)."""
+    _, spread = M.robust_ruler(pd.DataFrame({"p": [-1.0, 0.0, 1.0]}))   # median 0, MAD 1
+    assert spread["p"] == pytest.approx(1.482602218505602, rel=1e-12)
