@@ -53,6 +53,7 @@ One row per working day. Follow the date link for the detail.
 | [7 Oct 2026](#d20261007) | Recap: the refitting lesson right, which model won wrong for the fourth time. **MLflow finished** and moved to `reports/mlflow/`; the full path inside it cannot be hidden, only kept out of git. **Diebold-Mariano built**, with the field's daily test plus a correction for the 0.25 day-to-day echo. **Recalibration built and measured:** daily wins for the line, while the tree's monthly → daily gain cannot be told from noise. Daily made the stage 2 schedule. LEAR introduced, not built. |
 | [8 Oct 2026](#d20261008) | Recap: two half right, one forgotten; the refitting numbers swapped for the fifth time. **One LEAR fit timed:** a daily run over 2023 is 20–37 min. **Open item 12:** the wind/solar forecast's legal deadline is after gate closure, stated as a limit. **Open item 10 answered:** the autumn hour is missing from the publication itself. LEAR's day table walked through; the price rule written in whole days. Nothing built. |
 | [10 Oct 2026](#d20261010) | Recap: two right, two half right, one not known (the autumn hour); the refitting question finally right. **LEAR's table decided, decisions 2–4:** built in `features.py` and scored on shared hours; the field's two forecast series; the autumn midnight hour filled for every model. The fill walked through as code, not written. Nothing built. |
+| [13 Oct 2026](#d20261013) | Recap: AIC re-explained with 20 random columns, which it keeps at tiny weights, correcting 12 October. **LEAR built and measured** (pieces 3 and 4): **0.429, a tie with the daily tree** (DM p 0.50), better at night, worse through solar hours. Checked for hindsight on real data. A third of the Lasso refits do not converge in 2,500 steps; 40× longer moves forecasts 0.09 €/MWh. |
 
 [Commits](#commits) · [Open items](#open-items) · [Next](#next)
 
@@ -2622,30 +2623,97 @@ explained, not written. README and plan page refreshed at close (day table built
 
 ---
 
+#### Piece 3 — LEAR in `models.py` (`3081fec`)
+
+Walked through first, in a scratch copy, then written. epftoolbox's source read today rather than recalled:
+the ruler is per column (`np.median(axis=0)`, statsmodels `mad` = MAD / 0.6745), for clues and for the 24
+answers alike, then asinh; the last 7 columns (weekdays) unscaled; the window is `iloc[-1092 * 24:]` on a
+gapless frame. `robust_ruler`, `LEAR` (fit / predict, 24 models in a dict) and `lear_walk_forward`, beside
+`walk_forward` rather than inside it, because that one reads hourly rows and has no window.
+
+**Decision 5b taken: the window counts complete days**, as epftoolbox's `iloc` counts rows: every fit sees
+1,092 days and the blank days of 2022 push the start back 6 days. Rejected: calendar days (1,086 usable).
+
+**Tests** (4, five cases), each bug planted in a scratch copy:
+
+| Planted bug | Caught by |
+|---|---|
+| window includes day D | window spy, deleting the future |
+| no window / window one day too long | window spy only (no future used, so not a leak) |
+| window from the end of the table | window spy, deleting the future |
+| no unsquash / 00:00's ruler for every hour / hour labels one off | wiring (rMAE 0.144 against a 0.5 limit) |
+| mean and std instead of median and MAD | ruler |
+| ruler measured on every complete day | deleting the future |
+| weekdays squashed / forecast day read with its own ruler | **crash**, "Input X contains NaN": spread 0. Loud, so no test |
+| my first whole-table-ruler plant | **nothing**: it computed a ruler and never used it. Faulty plant, replaced |
+
+#### Piece 4 — `train.py` (`c177c07`)
+
+**Decision taken: LEAR joins `just train daily` only**, because daily refitting is its recipe (run 1,280 s).
+Rejected: its own switch. Scoring moved after all fitting, with `forecasts.dropna()` as the shared-hours rule;
+trimming before fitting would remove hours from later refits too. `day_rows()` drops the test years from the
+day table with `cfg.split`, as `data()` does; `lear_days` keeps the days whose 247 clues are present. Three
+tests with a stand-in LEAR, each planted: own-hours scoring and asking for blank-clue days fail the
+same-hours test; trimming before fitting fails *adding LEAR changes no other forecast* (monthly); the whole
+table fails *never handed a test-year day*. Suite 190 green.
+
+Leakage check: no feature changed; LEAR sees `day_feature_columns` only, its ruler and models fitted on the
+window strictly before D; the day table split by `cfg.split`; settlement untouched.
+
+#### LEAR on 2023: a tie with the tree, checked before believed
+
+| 2023, daily walk-forward (`c177c07`) | hours | MAE | rMAE |
+|---|---|---|---|
+| naive | 8,760 | 33.65 | 1.000 |
+| line | 8,760 | 17.61 | 0.523 |
+| tree | 8,760 | 14.45 | 0.429 |
+| **LEAR** | 8,760 | **14.44** | **0.429** |
+
+Line and tree identical to `efd0a3b`, as the new test says they must be. Diebold-Mariano (read from MLflow
+by hand, the Third Law gap of 12 October): LEAR against tree p 0.496 / 0.504, cannot tell; LEAR better than
+the line, p 4.5e-08.
+
+**Hindsight, four checks, none fired.** (1) Four real days (2 Jan, 15 Mar, 29 Oct, 24 Dec) rebuilt from the
+cache cut at gate closure: forecasts identical to the bit, every window 1,092 days ending D−1. (2) Not
+suspiciously good: closer than the tree on 49.6 % of hours. (3) Uneven, as a leak would not be: LEAR wins at
+night (00:00 8.2 against 11.6 €/MWh), loses through the solar hours (14:00 19.5 against 17.1); worst misses
+2 July 13–15:00 and 11 September 19–20:00, the days hindsight would fix. (4) Under the field's naive rule
+(yesterday Tue–Fri, last week otherwise) LEAR is 0.505, *worse* than arXiv 2311.02610's ~0.40 on DE
+2022–May 2023; different period, so only the direction counts.
+
+**3,186 of 8,760 refits stop before converging** at epftoolbox's `max_iter=2500` (gap up to 122× the
+tolerance). Eight days rerun at 100,000 steps: forecasts move 0.09 €/MWh on average, 1.69 at most; MAE on
+those days 31.26 → 31.23. Kept as the field's recipe; the warnings flood the run's output (1.4 MB).
+One day rerun at 2,500 reproduces the recorded forecast exactly.
+
+README and plan page refreshed (LEAR done, 190 tests, about four working days left in stage 2).
+
+---
+
+**State at close.** `main` after this entry's commit, suite 190 green.
+
+---
+
 ### Next — next session
 
-**Check that AIC landed, then walk through piece 3's code before writing it.** Nothing is uncommitted.
+**LEAR ties the tree. Decide what that means before measuring more.**
 
 #### Recap questions
 
-1. *(Third time, asked differently.)* On 27 October 2024, which hour is missing from which forecasts, which one
-   is not, and why is spring's missing hour a different thing?
-2. One extra hour in 2023 changed every November and December forecast of the monthly tree. Why those two
-   months, and what does it do to the verdict on monthly against daily?
-3. In the day table, where does Tuesday's `price_d1_h18` come from? And why is the price table stretched to
-   day D before shifting: what would tomorrow's row look like at 12:00 on D−1 without it?
-4. Lasso needs its clues scaled, while the plain line and the tree did not. Why? And why the median and asinh
-   rather than the average?
-5. *(Re-explained once.)* In your own words: why can't LEAR keep every clue that fits the past better, and how
-   does it decide where to stop?
+1. Lasso with AIC kept 17–20 of 20 random columns. Why does that not ruin the forecast, and what question
+   is AIC answering instead of "is this clue real"?
+2. LEAR and the tree both score 0.429. What did the significance test add, and where in the day do the two
+   differ?
+3. The scoring in `train.py` moved after all the fitting. What would go wrong if the skipped days were
+   removed from `valid` first?
+4. Name two of today's four hindsight checks and what a leak would have looked like in each.
+5. A third of LEAR's refits did not converge. How was it decided that this does not matter for the score?
 
 #### Then, in order
 
-1. **Piece 3 — LEAR** in `models.py`: walk through the code first. Asinh-median fitted on the window (numpy, no
-   statsmodels), `LassoLarsIC(aic)` then `Lasso`, 24 models reading `day_feature_columns`, daily walk-forward on
-   a single 1,092-day window (decided 12 Oct).
-2. **Piece 4 — `train.py`**: LEAR unfolded to hour labels and scored on the hours all three share (8,760 in 2023).
-   Check a suspiciously good first number for hindsight before believing it.
-3. Training window: 1,092 days against every year, measured. Then Diebold-Mariano against daily line and tree.
-4. **A documented command for the p-values.** The README's are read from MLflow by hand (Third Law gap, noted 12 Oct).
-5. **German public holidays**, which are not in the feature frame.
+1. **The convergence warnings**: silence them in the run's output, or raise `max_iter`? Raising it departs
+   from epftoolbox and lengthens the run; silencing hides a fact. Ask.
+2. **Training window**: 1,092 days against every year, measured, with Diebold-Mariano.
+3. **A documented command for the p-values** (Third Law gap, 12 Oct). Today's LEAR p-values were also read by hand.
+4. **One model per delivery hour** for line and tree: LEAR already is one. Does the item still stand as written?
+5. **German public holidays**, not in the feature frame.

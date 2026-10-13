@@ -103,10 +103,17 @@ in MLflow so the test can be run on any two runs.
    tree's monthly → daily (p = 0.028) is fragile. One hour earlier it read 0.437 → 0.430 and
    p = 0.11: a single extra training row moved every November and December forecast of the
    monthly tree. That verdict rests on the tree's wobble, not on a settled difference.
-2. **LEAR**, the field's statistical benchmark, and next. Not beating it would be the interesting result.
-   Under way: its day table (one row per delivery day, whole earlier days as inputs) is built and
-   tested, and the first LEAR uses one 1,092-day window, as epftoolbox does. Lago et al.'s average
-   over four windows is their benchmark for methods that average, so it is a later variant.
+2. **LEAR**, the field's statistical benchmark. **Built and measured 13 October** (`just train
+   daily`): 24 Lasso models on a day table (one row per delivery day, whole earlier days as inputs),
+   one 1,092-day window refitted every day, as epftoolbox does. **0.429, a tie with the daily
+   tree** (MAE 14.44 against 14.45; Diebold-Mariano p = 0.50 either way) and clearly ahead of the
+   line (p < 0.001). The tie hides a split: LEAR is better at night (00:00: 8.2 against 11.6 €/MWh)
+   and worse through the solar hours (14:00: 19.5 against 17.1). Checked for hindsight before
+   being believed: four days rebuilt from data cut off at gate closure give identical forecasts.
+   About a third of the 8,760 daily refits stop at epftoolbox's 2,500-step limit before settling;
+   letting eight days run 40 times longer moved their forecasts by 0.09 €/MWh on average. Lago et
+   al.'s average over four windows is their benchmark for methods that average, so it is a later
+   variant.
 3. **One model per delivery hour.** Error spans 7.79 €/MWh between the quietest night hours
    and the 19:00 peak; 3 a.m. and 7 p.m. are different problems sharing one set of
    coefficients.
@@ -139,9 +146,9 @@ six for stage 1, and four so far for stage 2, at about three and a half working 
 
 **Stage 2 runs about a week longer than first planned.** Three things went in front of
 recalibration that the first estimate did not hold: the 24-hour grid, MLflow, and the
-significance test. What is left is LEAR with the one-model-per-hour layout it brings (the largest
-piece), holidays, and the stage's one reading of the held-back years: about five or six working
-days. Stage 4 is the least certain estimate, because the optimiser does not exist yet.
+significance test. LEAR, the largest piece, was built and measured on 13 October. What is left is
+its window variant, holidays, and the stage's one reading of the held-back years: about four
+working days. Stage 4 is the least certain estimate, because the optimiser does not exist yet.
 
 | Stage | Estimate | Ends around |
 |---|---|---|
@@ -337,7 +344,7 @@ git clone <this repo> && cd battery-storage-backtest
 
 python3 -m venv .venv                              # a project-local environment
 .venv/bin/pip install -r requirements.txt          # once, not per terminal session
-.venv/bin/python -m pytest tests/ -q               # 124 tests, offline, no token
+.venv/bin/python -m pytest tests/ -q               # 190 tests, offline, no token
 ```
 
 That's the whole setup. `pip install` writes into `.venv/` on disk, so it persists — you
