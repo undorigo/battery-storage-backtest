@@ -2615,6 +2615,13 @@ explained, not written. README and plan page refreshed at close (day table built
 
 ---
 
+<a id="d20261013"></a>
+### 13 October 2026
+
+**Recap (all five):** 1 half right for the third time: spring right, but load *does* lose 00:00 on 27 Oct 2024 (only offshore and the price keep it), and the why (day blocks start at midnight winter time) not remembered. 2 wrong: the Nov–Dec change was checked to be the new 29 Oct hour, not volatility; verdict fragile, p 0.11 → 0.028. 3 half right: Monday's price, but set in Sunday's auction; the stretch's purpose (no Tuesday row to receive Monday) missed. 4 half right: Lasso cuts clues, not values; the charge is per unit of weight. 5 named, not explained; re-explained with 20 random columns, which **corrected my 12 October claim**: AIC kept 17–20 of 20 random columns at 03:00, 08:00 and 18:00 over five seeds, with weights ~0.004 against ~0.09 for real clues (BIC 0–13). AIC picks for forecast quality, not for true clues. Recipe unchanged; BIC a possible later variant.
+
+---
+
 ### Next — next session
 
 **Check that AIC landed, then walk through piece 3's code before writing it.** Nothing is uncommitted.
