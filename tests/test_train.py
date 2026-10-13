@@ -192,6 +192,59 @@ def test_the_kept_forecasts_are_the_ones_that_were_scored(frames):
         assert again == row["rmae"]
 
 
+# ── LEAR in the daily run ─────────────────────────────────────────────────────
+# A stand-in replaces LEAR: fifteen months are too few days for 247 clues, and 365
+# real fits would slow the suite.  It records what it was handed and forecasts each
+# day as its real prices plus one euro.  What is tested is the wiring around LEAR,
+# not LEAR.  The fixture's blank load hour on 20 June empties three day rows (as D,
+# D-1 and D-7), so LEAR skips days without anything being contrived.
+
+SKIPPED = pd.DatetimeIndex(["2023-06-20", "2023-06-21", "2023-06-27"])
+
+
+def stub_lear(monkeypatch) -> dict:
+    seen: dict = {}
+
+    def fake(table, days):
+        seen["table"], seen["days"] = table, days
+        answers = table.loc[days, F.day_answer_columns(table)]
+        answers.columns = [int(c[-2:]) for c in answers.columns]
+        return F.unfold(answers + 1.0).rename("predicted")
+
+    monkeypatch.setattr(T.M, "lear_walk_forward", fake)
+    return seen
+
+
+def test_lear_is_scored_on_the_same_hours_as_everyone(frames, monkeypatch):
+    """Skipped days leave every model's exam, not only LEAR's."""
+    seen = stub_lear(monkeypatch)
+    rows, forecasts = T.run(*frames, table=T.day_rows())
+    _, valid = frames
+
+    assert seen["days"].intersection(SKIPPED).empty         # the three days LEAR cannot do
+    assert {r["model"] for r in rows} == {"naive", "linear", "gbm", "lear"}
+    shared = valid.index[~valid.index.normalize().isin(SKIPPED)]
+    assert {r["n"] for r in rows} == {len(shared)}          # one exam, three days shorter
+    for row in rows:
+        again = E.rmae(forecasts[row["model"]], forecasts["naive"], forecasts["actual"])
+        assert again == row["rmae"]
+
+
+def test_adding_lear_changes_no_other_forecast(frames, monkeypatch):
+    """Monthly, so later refits learn from earlier 2023 hours, skipped days included."""
+    stub_lear(monkeypatch)
+    _, alone = T.run(*frames, refit="monthly")
+    _, joined = T.run(*frames, refit="monthly", table=T.day_rows())
+    for name in ("linear", "gbm"):
+        pd.testing.assert_series_equal(joined[name], alone.loc[joined.index, name])
+
+
+def test_lear_is_never_handed_a_test_year_day(frames, monkeypatch):
+    seen = stub_lear(monkeypatch)
+    T.run(*frames, table=T.day_rows())
+    assert seen["table"].index.max() <= pd.Timestamp(cfg.VALID_END)
+
+
 # ── The record ────────────────────────────────────────────────────────────────
 # `record` is written already, so these are plain tests rather than specifications.
 

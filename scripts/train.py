@@ -53,8 +53,20 @@ def data() -> tuple[pd.DataFrame, pd.DataFrame]:
     return train, valid
 
 
+# LEAR reads the day table, not the hourly frame, so the test years are dropped from
+# it the same way.  Its rows are not thinned to complete ones here: which days LEAR
+# can forecast, and which it can learn from, are two different questions, answered
+# in `lear_days` below and inside `models.lear_walk_forward`.
+
+def day_rows() -> pd.DataFrame:
+    """LEAR's day table, training and validation days only."""
+    train, valid, _ = cfg.split(F.day_table())           # the test years, dropped on purpose
+    return pd.concat([train, valid])
+
+
 # ── One row per forecast ──────────────────────────────────────────────────────
-# Three forecasts get scored, and the order they are built in is not cosmetic.
+# Three forecasts get scored, four in the daily run, and the order they are built
+# in is not cosmetic.
 #
 # The benchmark comes first because it is the denominator: every rMAE here is a
 # model's error divided by the benchmark's.  Build a model first and you have a
@@ -68,6 +80,12 @@ def data() -> tuple[pd.DataFrame, pd.DataFrame]:
 # All three sit the same exam — the same hours, prices and benchmark — so their
 # scores compare directly, and only the model's freshness differs.
 #
+# LEAR joins the daily run only, because refitting every day is its recipe.  It
+# forecasts whole days, so a day with one blank clue is a day it skips, and the
+# exam shrinks to the hours *every* forecast covers.  That trim happens after all
+# the fitting: removing hours before it would also remove them from what later
+# refits learn from, and the line and tree would quietly change.
+#
 # The benchmark is also scored against itself, which looks redundant and is not.  That
 # row has to read exactly 1.000, and it is a free check on everything underneath: if it
 # does not, the lining-up or the scoring is wrong, and every other row in the table is
@@ -75,24 +93,38 @@ def data() -> tuple[pd.DataFrame, pd.DataFrame]:
 #
 # The hourly forecasts are handed back beside the scores.  A score is one number per
 # model; the significance test compares two models hour by hour, so it needs the
-# 8,759 values each score was computed from, not a second set made afterwards.
+# hourly values each score was computed from, not a second set made afterwards.
 
 REFIT = {"once": "Y", "monthly": "M", "daily": "D"}   # schedule → the period refitted on
 
 
-def run(train: pd.DataFrame, valid: pd.DataFrame,
-        refit: str = "once") -> tuple[list[dict], pd.DataFrame]:
-    """Fit, forecast and score. Score rows, benchmark first, and the hourly forecasts."""
+def lear_days(table: pd.DataFrame, valid: pd.DataFrame) -> pd.DatetimeIndex:
+    """The validation days whose 247 clues are all present: the ones LEAR can forecast."""
+    days = table.loc[table.index.isin(valid.index.normalize())]   # grid labels: Berlin days
+    ready = days[F.day_feature_columns(table)].notna().all(axis=1)
+    return days.index[ready]
+
+
+def run(train: pd.DataFrame, valid: pd.DataFrame, refit: str = "once",
+        table: pd.DataFrame | None = None) -> tuple[list[dict], pd.DataFrame]:
+    """Fit, forecast and score. Score rows, benchmark first, and the hourly forecasts.
+
+    `table` is LEAR's day table; without it, LEAR is not run.
+    """
     benchmark = M.naive_forecast(valid)                  # a lookup, not a fit: no training needed
     actual = valid[F.TARGET]                             # the prices that actually happened
     forecasts = pd.DataFrame({"actual": actual, "naive": benchmark})   # one column per forecast
 
-    rows = [E.score("naive", "valid", benchmark, benchmark, actual)]   # must come out at 1.000
     history = pd.concat([train, valid])                  # what a refit may learn from, if it came first
     for name, make in (("linear", M.linear), ("gbm", M.gbm)):
         forecasts[name] = M.walk_forward(make, history, valid, REFIT[refit])   # one per hour of 2023
-        rows.append(E.score(name, "valid", forecasts[name], benchmark, actual))
+    if table is not None:
+        lear = M.lear_walk_forward(table, lear_days(table, valid))   # one fresh LEAR per day
+        forecasts["lear"] = lear.reindex(forecasts.index)            # blank where LEAR skipped
 
+    forecasts = forecasts.dropna()                       # the hours every forecast covers
+    rows = [E.score(name, "valid", forecasts[name], forecasts["naive"], forecasts["actual"])
+            for name in forecasts.columns.drop("actual")]   # naive first: must come out at 1.000
     return rows, forecasts
 
 
@@ -155,7 +187,8 @@ def main(argv: list[str] | None = None) -> int:
           f"({days.min():%Y-%m-%d} to {days.max():%Y-%m-%d})\n")
 
     started = time.perf_counter()
-    rows, forecasts = run(train, valid, refit)
+    table = day_rows() if refit == "daily" else None     # LEAR only joins the daily run
+    rows, forecasts = run(train, valid, refit, table)
     print(f"Refit {refit}: {time.perf_counter() - started:.0f} s\n")   # checks the timing estimate
     print(E.table(rows))
 
@@ -167,6 +200,8 @@ def main(argv: list[str] | None = None) -> int:
               "train_start": f"{train.index.min():%Y-%m-%d %H:%M}",
               "train_end": f"{train.index.max():%Y-%m-%d %H:%M}",
               "commit": git_commit()}
+    if table is not None:
+        params["lear_window"] = M.WINDOW_DAYS            # LEAR learns from its own window
     ids = TR.log(rows, forecasts, params)
     print(f"Logged {len(ids)} runs to MLflow: "
           + ", ".join(f"{model} {run[:8]}" for model, run in ids.items()))
