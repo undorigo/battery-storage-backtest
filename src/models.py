@@ -13,10 +13,11 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
+import numpy as np
 import pandas as pd
 from sklearn.base import BaseEstimator
 from sklearn.ensemble import HistGradientBoostingRegressor
-from sklearn.linear_model import LinearRegression
+from sklearn.linear_model import Lasso, LassoLarsIC, LinearRegression
 
 from src import features as F
 
@@ -114,3 +115,86 @@ def walk_forward(make: Callable[[], BaseEstimator], history: pd.DataFrame,
         known = history[history.index < period.index.min()]          # strictly before: the rule
         parts.append(forecast(fit(make(), known), period))           # a fresh model each time
     return pd.concat(parts)
+
+
+# ── LEAR: the field's benchmark, one Lasso per delivery hour ──────────────────
+# Lago et al. (2021) and epftoolbox's `_lear.py`, kept as published so the number
+# compares with theirs.  Lasso charges each clue for the size of its weight, so
+# every clue is first put on one ruler: its median and spread over the window,
+# then asinh to squash the spikes.  The ruler is measured on the window alone and
+# the day being forecast is read with it, never measured itself.  Weekday columns
+# stay 0/1: their spread is zero, and the ruler would divide by it.
+
+WINDOW_DAYS = 364 * 3                                       # epftoolbox's default: 1,092 days
+
+
+def robust_ruler(df: pd.DataFrame) -> tuple[pd.Series, pd.Series]:
+    """Median and spread of each column, which a single spike cannot move."""
+    median = df.median()
+    spread = (df - median).abs().median() / 0.6745          # MAD, sized like a std
+    return median, spread
+
+
+def _squash(df: pd.DataFrame, ruler: tuple[pd.Series, pd.Series]) -> pd.DataFrame:
+    median, spread = ruler
+    return np.arcsinh((df - median) / spread)               # aligned by column name
+
+
+def _unsquash(df: pd.DataFrame, ruler: tuple[pd.Series, pd.Series]) -> pd.DataFrame:
+    median, spread = ruler
+    return np.sinh(df) * spread + median                    # back to EUR/MWh
+
+
+# Twenty-four models, one per answer column, each free to keep a different set of
+# clues.  AIC picks how hard each one is charged (`LassoLarsIC`), then a plain
+# `Lasso` is refitted at that charge, as epftoolbox does; the paper gives no reason
+# for the refit and none is guessed here.
+
+class LEAR:
+    """Twenty-four Lasso models on the day table, all on one robust ruler."""
+
+    def fit(self, X: pd.DataFrame, Y: pd.DataFrame) -> LEAR:
+        self.scaled = [c for c in X.columns if not c.startswith("weekday_")]
+        self.x_ruler = robust_ruler(X[self.scaled])         # measured on the window only
+        self.y_ruler = robust_ruler(Y)                      # one ruler per delivery hour
+        Xs, Ys = self._clues(X), _squash(Y, self.y_ruler)
+        self.models = {}
+        for hour in Y.columns:
+            alpha = LassoLarsIC(criterion="aic", max_iter=2500).fit(Xs, Ys[hour]).alpha_
+            self.models[hour] = Lasso(alpha=alpha, max_iter=2500).fit(Xs, Ys[hour])
+        return self
+
+    def _clues(self, X: pd.DataFrame) -> pd.DataFrame:
+        out = X.copy()
+        out[self.scaled] = _squash(X[self.scaled], self.x_ruler)   # weekdays left as 0/1
+        return out
+
+    def predict(self, X: pd.DataFrame) -> pd.DataFrame:
+        Xs = self._clues(X)                                 # the window's ruler, not X's own
+        z = pd.DataFrame({h: m.predict(Xs) for h, m in self.models.items()}, index=X.index)
+        return _unsquash(z, self.y_ruler)
+
+
+# ── LEAR walking forward, one day at a time ───────────────────────────────────
+# The same rule as `walk_forward`, on day rows: each day is forecast from a fresh
+# LEAR that has seen only the 1,092 complete days before it.  Counted in complete
+# days, as epftoolbox counts rows, so every fit learns from the same amount; the
+# blank days of 2022 push the window's start back rather than shrinking it.
+#
+# The forecasts are unfolded to hour labels on the way out, so they line up with
+# the hourly models' in `evaluate.aligned`.  Nothing is computed in the unfolding.
+
+def lear_walk_forward(table: pd.DataFrame, days: pd.DatetimeIndex,
+                      window: int = WINDOW_DAYS,
+                      make: Callable[[], LEAR] = LEAR) -> pd.Series:
+    """Forecast each of `days` from the `window` complete days before it. Hourly out."""
+    clues, answers = F.day_feature_columns(table), F.day_answer_columns(table)
+    complete = table.dropna()                               # a fit needs every cell
+    parts = []
+    for day in days:
+        known = complete[complete.index < day].iloc[-window:]      # strictly before: the rule
+        model = make().fit(known[clues], known[answers])
+        parts.append(model.predict(table.loc[[day], clues]))       # the clues only, never D's prices
+    out = pd.concat(parts)
+    out.columns = [int(c[-2:]) for c in out.columns]        # "price_d0_h18" -> 18, as unfold reads
+    return F.unfold(out).rename("predicted")

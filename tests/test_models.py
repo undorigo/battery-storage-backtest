@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import numpy as np
 import pandas as pd
+import pytest
 
 from src import features as F
 from src import models as M
@@ -212,3 +213,90 @@ def test_walk_forward_once_a_year_is_the_single_fit():
     single = M.forecast(M.fit(M.linear(), history.loc[:"2022-12-31"]), scored)
     walked = M.walk_forward(M.linear, history, scored, "Y")
     pd.testing.assert_series_equal(walked, single)
+
+
+# ── LEAR ──────────────────────────────────────────────────────────────────────
+# A small day table named like the real one: the 24 prices of D, yesterday's 24,
+# 24 load forecasts for D and the weekday columns.  Each hour has its own level
+# (3 EUR per hour of the day), so a forecast landing on the wrong hour, or read
+# back with the wrong hour's ruler, is visibly off.  Small enough for a short
+# window: LassoLarsIC needs more days than clues to estimate its noise.
+
+def day_frame(n: int = 160) -> pd.DataFrame:
+    days = pd.date_range("2023-01-01", periods=n, freq="D")        # naive: Berlin days
+    rng = np.random.default_rng(2)
+    table = pd.DataFrame(index=days)
+    for h in range(24):
+        load = rng.normal(40_000, 5_000, n)
+        table[f"load_d0_h{h:02d}"] = load
+        table[f"price_d0_h{h:02d}"] = 20 + 3 * h + 0.002 * load + rng.normal(0, 2, n)
+    for h in range(24):
+        table[f"price_d1_h{h:02d}"] = table[f"price_d0_h{h:02d}"].shift(1)
+    for i in range(7):
+        table[f"weekday_{i}"] = (days.dayofweek == i).astype(float)
+    return table.iloc[1:]                                   # the first day has no yesterday
+
+
+class DaySpy:
+    """Stands in for LEAR and records which days each fit was shown."""
+
+    def __init__(self, log: list):
+        self.log = log
+
+    def fit(self, X, Y):
+        self.log.append(X.index)
+        self.answers = Y.columns
+        return self
+
+    def predict(self, X):
+        return pd.DataFrame(0.0, index=X.index, columns=self.answers)
+
+
+def test_lear_learns_only_from_the_window_before_each_day():
+    """Every fit: exactly `window` days, the last of them the day before."""
+    table, log = day_frame(), []
+    days = table.index[-5:]
+    M.lear_walk_forward(table, days, window=80, make=lambda: DaySpy(log))
+    assert len(log) == 5                                    # a fresh model every day
+    for day, seen in zip(days, log):
+        assert len(seen) == 80
+        assert seen.max() == day - pd.Timedelta(days=1)
+
+
+@pytest.mark.parametrize("day", ["2023-05-20", "2023-06-08"])
+def test_deleting_the_future_changes_nothing_for_lear(day):
+    """The day-table leak test, one level down: a world cut off at gate closure
+    on D-1 (D's prices blank, later days gone) gives the same forecast for D."""
+    table, d = day_frame(), pd.Timestamp(day)
+    full = M.lear_walk_forward(table, pd.DatetimeIndex([d]), window=80)
+    cut = table[table.index <= d].copy()
+    cut.loc[d, F.day_answer_columns(cut)] = np.nan          # D has not cleared yet
+    partial = M.lear_walk_forward(cut, pd.DatetimeIndex([d]), window=80)
+    pd.testing.assert_series_equal(partial, full)
+
+
+def test_lear_beats_yesterday_and_lands_on_the_right_hours():
+    """Wiring, not the market: the answer is built from clues in the table, so a
+    connected LEAR beats "same as yesterday" by far, hour by hour."""
+    from src import evaluate as E
+
+    table = day_frame()
+    days = table.index[-20:]
+    forecast = M.lear_walk_forward(table, days, window=80)
+    actual = F.unfold(_by_hour(table.loc[days, F.day_answer_columns(table)]))
+    yesterday = F.unfold(_by_hour(table.loc[days, [f"price_d1_h{h:02d}" for h in range(24)]]))
+    assert forecast.index.equals(actual.index)              # one value per hour, labelled
+    assert E.rmae(forecast, yesterday, actual) < 0.5
+
+
+def _by_hour(block: pd.DataFrame) -> pd.DataFrame:
+    return block.set_axis([int(c[-2:]) for c in block.columns], axis=1)
+
+
+def test_the_ruler_ignores_how_far_a_spike_goes():
+    """Median and spread, not mean and std: a crisis day must not set everyone's ruler."""
+    prices = pd.DataFrame({"p": [50.0, 60, 70, 80, 90, 100, 900]})
+    spiked = prices.copy()
+    spiked.iloc[-1] = 9_000.0                               # the same spike, ten times higher
+    for a, b in zip(M.robust_ruler(prices), M.robust_ruler(spiked)):
+        pd.testing.assert_series_equal(a, b)
