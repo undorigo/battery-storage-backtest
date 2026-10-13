@@ -2677,9 +2677,12 @@ the line, p 4.5e-08.
 cache cut at gate closure: forecasts identical to the bit, every window 1,092 days ending D−1. (2) Not
 suspiciously good: closer than the tree on 49.6 % of hours. (3) Uneven, as a leak would not be: LEAR wins at
 night (00:00 8.2 against 11.6 €/MWh), loses through the solar hours (14:00 19.5 against 17.1); worst misses
-2 July 13–15:00 and 11 September 19–20:00, the days hindsight would fix. (4) Under the field's naive rule
-(yesterday Tue–Fri, last week otherwise) LEAR is 0.505, *worse* than arXiv 2311.02610's ~0.40 on DE
-2022–May 2023; different period, so only the direction counts.
+2 July 13–15:00 and 11 September 19–20:00, the days hindsight would fix. (4) Slightly worse than published, not
+better. Like for like: arXiv 2311.02610 uses *our* benchmark (the price 7 days earlier) and gets LEAR 0.40
+(728 days) and 0.43 (all data) on DE 2022–May 2023; ours is 0.429 on 2023. Lago et al. 2021 use the field's
+naive (yesterday Tue–Fri, last week Sat–Mon, checked in epftoolbox's `_rmae.py`) and get LEAR-1092 0.431 on
+DE 2016–17; ours under that rule is 0.505. *Corrected the same day:* first written as 0.505 against 0.40,
+which mixed the two benchmark rules.
 
 **3,186 of 8,760 refits stop before converging** at epftoolbox's `max_iter=2500` (gap up to 122× the
 tolerance). Eight days rerun at 100,000 steps: forecasts move 0.09 €/MWh on average, 1.69 at most; MAE on
