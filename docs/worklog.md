@@ -53,7 +53,7 @@ One row per working day. Follow the date link for the detail.
 | [7 Oct 2026](#d20261007) | Recap: the refitting lesson right, which model won wrong for the fourth time. **MLflow finished** and moved to `reports/mlflow/`; the full path inside it cannot be hidden, only kept out of git. **Diebold-Mariano built**, with the field's daily test plus a correction for the 0.25 day-to-day echo. **Recalibration built and measured:** daily wins for the line, while the tree's monthly → daily gain cannot be told from noise. Daily made the stage 2 schedule. LEAR introduced, not built. |
 | [8 Oct 2026](#d20261008) | Recap: two half right, one forgotten; the refitting numbers swapped for the fifth time. **One LEAR fit timed:** a daily run over 2023 is 20–37 min. **Open item 12:** the wind/solar forecast's legal deadline is after gate closure, stated as a limit. **Open item 10 answered:** the autumn hour is missing from the publication itself. LEAR's day table walked through; the price rule written in whole days. Nothing built. |
 | [10 Oct 2026](#d20261010) | Recap: two right, two half right, one not known (the autumn hour); the refitting question finally right. **LEAR's table decided, decisions 2–4:** built in `features.py` and scored on shared hours; the field's two forecast series; the autumn midnight hour filled for every model. The fill walked through as code, not written. Nothing built. |
-| [13 Oct 2026](#d20261013) | Recap: AIC re-explained with 20 random columns, which it keeps at tiny weights, correcting 12 October. **LEAR built and measured** (pieces 3 and 4): **0.429, a tie with the daily tree** (DM p 0.50), better at night, worse through solar hours. Checked for hindsight on real data. A third of the Lasso refits do not converge in 2,500 steps; 40× longer moves forecasts 0.09 €/MWh. |
+| [13 Oct 2026](#d20261013) | Recap: AIC re-explained with 20 random columns, which it keeps at tiny weights, correcting 12 October. **LEAR built and measured** (pieces 3 and 4): **0.429, a tie with the daily tree** (DM p 0.50), better at night, worse through solar hours. Checked for hindsight on real data. **Cross-checked against epftoolbox's own LEAR:** one rounded constant was the only difference; fixed, now equal to 1e-10. Convergence warnings silenced, as epftoolbox does. |
 
 [Commits](#commits) · [Open items](#open-items) · [Next](#next)
 
@@ -2697,6 +2697,74 @@ README and plan page refreshed (LEAR done, 190 tests, about four working days le
 
 ---
 
+#### Questions after the result: the literature, capture rate, and which model orders hours
+
+**Published scores, like for like** (corrects the hindsight note above): arXiv 2311.02610 divides by the 7-day
+price, as we do: LEAR 0.40–0.43, DNN 0.36, adaptive scaling 0.34–0.36 (DE 2022–May 2023). Lago et al. 2021
+divide by the field's mixed rule: LEAR-1092 0.431, LEAR ensemble 0.395, DNN ensemble 0.374 (DE 2016–17).
+**No public capture-rate benchmark** exists in epftoolbox's sense; German BESS studies each pick their own
+battery and years (search summaries only, papers not read). XGBoost not tried: the tree is the same family.
+
+**Which orders the hours better** (a rough stand-in, not a backtest: no efficiency, no state of charge):
+
+| 2023 | rank agreement within a day | spread kept, 2 cheapest vs 2 dearest by forecast |
+|---|---|---|
+| naive | 0.752 | 78.5 % |
+| line | 0.896 | 92.4 % |
+| tree | 0.911 | 92.8 % |
+| LEAR | 0.891 | 92.5 % |
+| tree + LEAR averaged | 0.918 | 94.6 % |
+
+Decided with the user: no tuning chase; move towards stages 3 and 4.
+
+#### LEAR against epftoolbox's own code (one-off, outside the repo)
+
+Decided: a one-off rather than a committed script, because `requirements.txt` cannot install epftoolbox
+without TensorFlow (~500 MB) and it is AGPL. Commands, so it can be repeated:
+
+```bash
+pip install --target <scratch>/epf --no-deps \
+  "git+https://github.com/jeslago/epftoolbox@47d6e0629f65ebd19d3c12cb5689dbad0c2ea078" statsmodels patsy
+```
+
+```python
+# load _lear.py by file path, skipping models/__init__ (which imports TensorFlow)
+spec = importlib.util.spec_from_file_location("epf_lear", f"{EPF}/epftoolbox/models/_lear.py")
+table = T.day_rows(); clues, answers = F.day_feature_columns(table), F.day_answer_columns(table)
+for day in pd.date_range("2023-01-09", "2023-12-31", freq="38D"):       # all seven weekdays
+    known = table.dropna()[lambda t: t.index < day].iloc[-1092:]
+    ours = M.LEAR().fit(known[clues], known[answers]).predict(table.loc[[day], clues])
+    epf_model.recalibrate(known[clues].to_numpy().copy(), known[answers].to_numpy().copy())
+    # their predict, line for line, except models[h].predict(X)[0]: NumPy 2.4 refuses array-into-scalar
+```
+
+Same inputs to both, so this tests the machinery (ruler, AIC, refit, 24 models, back to €/MWh), not the
+inputs and not the information boundary. **First result: up to 0.0012 €/MWh apart**, different clues kept
+on 2 of 11 days. Cause found and checked: statsmodels' `mad` divides by `Gaussian.ppf(3/4)` =
+0.6744897501960817, ours by 0.6745. **With the exact constant: 1e-10 €/MWh apart**, same clues on all ten
+days (`4cfc6b4`). Not bit-identical because the two do their sums in a different order. A new test pins
+the constant; planting 0.6745 fails it. My first test days were all Mondays (35-day steps); changed to 38.
+
+Asked whether so close a match is suspicious: no. LEAR has no random step (LARS path, cyclic coordinate
+descent), and the check had already failed once on a 0.0015 % difference, so it can fail.
+
+**Re-run on the fixed code** (`039ab70`, rows stamped `4cfc6b4`): LEAR 0.42928 (was 0.42928), MAE 14.4447
+(14.4446); forecasts moved 0.0006 €/MWh on average, 1.28 at most. Line and tree identical.
+
+#### Convergence warnings silenced, as epftoolbox does (`4fc97fd`)
+
+epftoolbox wraps `recalibrate` in `@ignore_warnings(category=ConvergenceWarning)`. Decided: the same, with
+stdlib `warnings` scoped to `LEAR.fit` and that one category, and the reasoning in the code comment and
+the README for outside readers. Rejected: printing a count per run (guards an unseen failure) and raising
+`max_iter` (departs from the recipe just matched). No test: the synthetic data never triggers the warning,
+so a test could not fail. Checked on 28 Feb 2023: 12 warnings in 24 fits without the line, 0 with it, same
+forecast. Suite 191 green.
+
+**State at close.** `main` at `4fc97fd` before this entry, suite 191 green. README updated (cross-check,
+silencing); plan page unchanged since its 13 October refresh, the score being the same.
+
+---
+
 ### Next — next session
 
 **LEAR ties the tree. Decide what that means before measuring more.**
@@ -2710,13 +2778,12 @@ README and plan page refreshed (LEAR done, 190 tests, about four working days le
 3. The scoring in `train.py` moved after all the fitting. What would go wrong if the skipped days were
    removed from `valid` first?
 4. Name two of today's four hindsight checks and what a leak would have looked like in each.
-5. A third of LEAR's refits did not converge. How was it decided that this does not matter for the score?
+5. Our LEAR and epftoolbox's agree to 1e-10. Why is that expected, and what can this check not catch?
 
 #### Then, in order
 
-1. **The convergence warnings**: silence them in the run's output, or raise `max_iter`? Raising it departs
-   from epftoolbox and lengthens the run; silencing hides a fact. Ask.
-2. **Training window**: 1,092 days against every year, measured, with Diebold-Mariano.
-3. **A documented command for the p-values** (Third Law gap, 12 Oct). Today's LEAR p-values were also read by hand.
-4. **One model per delivery hour** for line and tree: LEAR already is one. Does the item still stand as written?
-5. **German public holidays**, not in the feature frame.
+1. **Training window**: 1,092 days against every year, measured, with Diebold-Mariano.
+2. **A documented command for the p-values** (Third Law gap, 12 Oct). Today's LEAR p-values were also read by hand.
+3. **One model per delivery hour** for line and tree: LEAR already is one. Does the item still stand as written?
+4. **German public holidays**, not in the feature frame.
+5. Then stage 2's one reading of the held-back years, and on to stages 3 and 4 (decided 13 Oct: no tuning chase).
