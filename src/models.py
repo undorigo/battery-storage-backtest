@@ -11,12 +11,14 @@ actual prices without knowing, or caring, which model produced it.
 
 from __future__ import annotations
 
+import warnings
 from collections.abc import Callable
 
 import numpy as np
 import pandas as pd
 from sklearn.base import BaseEstimator
 from sklearn.ensemble import HistGradientBoostingRegressor
+from sklearn.exceptions import ConvergenceWarning
 from sklearn.linear_model import Lasso, LassoLarsIC, LinearRegression
 
 from src import features as F
@@ -146,10 +148,11 @@ def _unsquash(df: pd.DataFrame, ruler: tuple[pd.Series, pd.Series]) -> pd.DataFr
     return np.sinh(df) * spread + median                    # back to EUR/MWh
 
 
-# Twenty-four models, one per answer column, each free to keep a different set of
-# clues.  AIC picks how hard each one is charged (`LassoLarsIC`), then a plain
-# `Lasso` is refitted at that charge, as epftoolbox does; the paper gives no reason
-# for the refit and none is guessed here.
+# Twenty-four models, one per delivery hour.  AIC picks each one's charge, then a
+# plain `Lasso` is refitted at it, as epftoolbox does.  A third of the refits stop
+# at 2,500 steps before settling, and scikit-learn warns each time; that warning
+# is silenced, as epftoolbox silences it, because on eight days of 2023 forty
+# times the steps moved the forecasts by 0.09 EUR/MWh on average.
 
 class LEAR:
     """Twenty-four Lasso models on the day table, all on one robust ruler."""
@@ -160,9 +163,11 @@ class LEAR:
         self.y_ruler = robust_ruler(Y)                      # one ruler per delivery hour
         Xs, Ys = self._clues(X), _squash(Y, self.y_ruler)
         self.models = {}
-        for hour in Y.columns:
-            alpha = LassoLarsIC(criterion="aic", max_iter=2500).fit(Xs, Ys[hour]).alpha_
-            self.models[hour] = Lasso(alpha=alpha, max_iter=2500).fit(Xs, Ys[hour])
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", ConvergenceWarning)    # measured harmless: see above
+            for hour in Y.columns:
+                alpha = LassoLarsIC(criterion="aic", max_iter=2500).fit(Xs, Ys[hour]).alpha_
+                self.models[hour] = Lasso(alpha=alpha, max_iter=2500).fit(Xs, Ys[hour])
         return self
 
     def _clues(self, X: pd.DataFrame) -> pd.DataFrame:
