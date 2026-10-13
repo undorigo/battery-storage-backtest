@@ -2760,8 +2760,8 @@ the README for outside readers. Rejected: printing a count per run (guards an un
 so a test could not fail. Checked on 28 Feb 2023: 12 warnings in 24 fits without the line, 0 with it, same
 forecast. Suite 191 green.
 
-**State at close.** `main` at `4fc97fd` before this entry, suite 191 green. README updated (cross-check,
-silencing); plan page unchanged since its 13 October refresh, the score being the same.
+**State at close.** `main` at `4fc97fd` before this entry, suite 191 green. README and plan page updated
+(cross-check, silencing, 191 tests); the score is the same.
 
 ---
 

@@ -347,7 +347,7 @@ git clone <this repo> && cd battery-storage-backtest
 
 python3 -m venv .venv                              # a project-local environment
 .venv/bin/pip install -r requirements.txt          # once, not per terminal session
-.venv/bin/python -m pytest tests/ -q               # 190 tests, offline, no token
+.venv/bin/python -m pytest tests/ -q               # 191 tests, offline, no token
 ```
 
 That's the whole setup. `pip install` writes into `.venv/` on disk, so it persists — you
