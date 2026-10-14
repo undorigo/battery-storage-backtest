@@ -24,11 +24,13 @@ from src import tracking as TR
 # printed beside it, because "cannot tell" has to be read in both directions.
 #
 # A claim about one change pins both sides to their commits, so a later rerun
-# cannot quietly stand in for the run the claim was made on.
+# cannot quietly stand in for the run the claim was made on.  Every side also names
+# its split: the held-back reading logs runs with the same models and schedules, and
+# without the split the newest run could silently be a 2024-25 one.
 
 LEAR = {"model": "lear", "refit": "daily", "lear_window": "1092"}
 
-COMPARISONS = [
+VALIDATION = [
     ("line, once → monthly", {"model": "linear", "refit": "once"},
      {"model": "linear", "refit": "monthly"}),
     ("line, monthly → daily", {"model": "linear", "refit": "monthly"},
@@ -50,9 +52,30 @@ COMPARISONS = [
      {**LEAR, "commit": "d1f6252"}),
 ]
 
+# Stage 2's one reading of 2024-25: does what 2023 showed hold on untouched years?
+HELD_BACK = [
+    ("held back: line frozen → daily", {"model": "linear 2018-2023", "refit": "once"},
+     {"model": "linear daily", "refit": "daily"}),
+    ("held back: tree frozen → daily", {"model": "gbm 2018-2023", "refit": "once"},
+     {"model": "gbm daily", "refit": "daily"}),
+    ("held back: line → tree, daily", {"model": "linear daily", "refit": "daily"},
+     {"model": "gbm daily", "refit": "daily"}),
+    ("held back: tree → LEAR, daily", {"model": "gbm daily", "refit": "daily"},
+     {"model": "lear daily", "refit": "daily"}),
+    ("held back: line → LEAR, daily", {"model": "linear daily", "refit": "daily"},
+     {"model": "lear daily", "refit": "daily"}),
+]
+
+COMPARISONS = ([(label, {**a, "split": "valid"}, {**b, "split": "valid"})
+                for label, a, b in VALIDATION]
+               + [(label, {**a, "split": "test"}, {**b, "split": "test"})
+                  for label, a, b in HELD_BACK])
+
 
 def command(side: dict) -> str:
     """The `just` call that produces a run like this one, from its commit if pinned."""
+    if side.get("split") == "test":
+        return "just final-score"                     # once per stage: think before running it
     call = f"just train {side['refit']}" + (" all" if side.get("lear_window") == "all" else "")
     return f"git checkout {side['commit']} && {call}" if "commit" in side else call
 

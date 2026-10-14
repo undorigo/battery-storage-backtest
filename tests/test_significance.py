@@ -68,6 +68,24 @@ def test_a_missing_run_names_the_command_that_makes_it(store):
         S.compare(ONCE, {"model": "lear_all", "refit": "daily", "lear_window": "all"}, **where)
 
 
+def test_a_held_back_run_is_never_read_for_a_validation_claim(tmp_path):
+    """A newer run on the same model and schedule, but scored on 2024-25."""
+    hours = pd.date_range("2023-03-13 00:00", periods=48, freq="h")
+    frame = pd.DataFrame({"actual": 50.0 + np.arange(48), "naive": 40.0, "linear": 55.0},
+                         index=hours)
+    runs = (("once", "valid", "c-once", 52.0), ("monthly", "valid", "c-valid", 55.0),
+            ("monthly", "test", "c-test", 55.0))                                 # test is newest
+    for refit, split, commit, level in runs:
+        frame["linear"] = level + np.sin(np.arange(48))
+        rows = [E.score("linear", split, frame["linear"], frame["naive"], frame["actual"])]
+        TR.log(rows, frame, {"refit": refit, "commit": commit},
+               db=tmp_path / "mlflow.db", store=tmp_path / "mlruns")
+    for _, first, second in S.COMPARISONS[:4]:              # the 2023 refit claims
+        assert first["split"] == second["split"] == "valid"
+    r = S.compare({**ONCE, "split": "valid"}, {**MONTHLY, "split": "valid"}, db=tmp_path / "mlflow.db")
+    assert r["commits"] == "c-once / c-valid"
+
+
 def test_a_pinned_run_is_read_from_its_commit_only(store):
     where, _ = store
     assert S.compare(ONCE, {**MONTHLY, "commit": "c-monthly"}, **where)["commits"] == "c-once / c-monthly"
