@@ -117,6 +117,10 @@ in MLflow so the test can be run on any two runs.
    silences it: letting eight days run 40 times longer moved their forecasts by 0.09 €/MWh on
    average, so the warning flags no real loss of accuracy here. Lago et al.'s average over four
    windows is their benchmark for methods that average, so it is a later variant.
+   **Every year instead of 1,092 days, measured 14 October** (`just train daily all`): **0.472,
+   worse** (Diebold-Mariano p < 0.001), in every hour and in ten of twelve months, most through the
+   solar hours. The tree did better learning from every year; LEAR does not, as one published
+   German study also found (arXiv 2311.02610). LEAR keeps its 1,092 days.
 3. **One model per delivery hour.** Error spans 7.79 €/MWh between the quietest night hours
    and the 19:00 peak; 3 a.m. and 7 p.m. are different problems sharing one set of
    coefficients.
@@ -149,9 +153,9 @@ six for stage 1, and four so far for stage 2, at about three and a half working 
 
 **Stage 2 runs about a week longer than first planned.** Three things went in front of
 recalibration that the first estimate did not hold: the 24-hour grid, MLflow, and the
-significance test. LEAR, the largest piece, was built and measured on 13 October. What is left is
-its window variant, holidays, and the stage's one reading of the held-back years: about four
-working days. Stage 4 is the least certain estimate, because the optimiser does not exist yet.
+significance test. LEAR, the largest piece, was built and measured on 13 October, and its
+training window on 14 October. What is left is a command that regenerates the p-values, holidays,
+and the stage's one reading of the held-back years: about three working days. Stage 4 is the least certain estimate, because the optimiser does not exist yet.
 
 | Stage | Estimate | Ends around |
 |---|---|---|

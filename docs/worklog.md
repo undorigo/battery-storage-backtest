@@ -2772,6 +2772,53 @@ forecast. Suite 191 green.
 
 ---
 
+#### LEAR's window: every year against 1,092 days (`e8792c6`)
+
+Walked through on real data first. "Every year" starts at 20 October 2018, the first complete day:
+on 1 January 2023 that is 1,462 days against 1,092 (the extra days are October 2018 to December
+2019), on 31 December 1,826 against 1,092. All the extra days are pre-crisis, and the ruler is
+measured over them too. The evidence pointed both ways beforehand: the tree did better expanding,
+arXiv 2311.02610's LEAR did worse on all data (0.43 against 0.40 at 728 days).
+
+**Decision taken: a flag and a separate run**, `just train daily all`, scored as `lear_all` so
+`scores.csv` never mixes the two windows; `--lear all` outside the daily run is refused rather than
+ignored. Rejected: both LEARs in every daily run (~55 min every time, even after one window loses).
+`window=None` in `lear_walk_forward` means no cut; the rule `index < day` is unchanged.
+
+**Tests** (4 new), each bug planted in turn:
+
+| Planted bug | Caught by |
+|---|---|
+| `<=` instead of `<` when `None` | spy (*every day before*), deleting the future (both days) |
+| `None` branch skips the date filter | same three |
+| `None` falls back to 1,092 | **nothing**: the fixture has 159 days, so a 1,092 cut keeps them all. On real data it would show as `lear_all` equal to `lear`; it did not |
+| window read but not passed to LEAR | *every-year LEAR gets no window and its own name* |
+| every-year row named `lear` | same |
+| `main` never passes the window to `run` | **nothing**: the row would print as `lear`. It printed `lear_all` |
+
+Suite 195 green. Leakage check: no feature changed; ruler and models still fitted only on days
+strictly before D; split and settlement untouched.
+
+| 2023, daily walk-forward (`e8792c6`) | hours | MAE | rMAE |
+|---|---|---|---|
+| line | 8,760 | 17.61 | 0.523 |
+| tree | 8,760 | 14.45 | 0.429 |
+| LEAR, 1,092 days (`4cfc6b4`) | 8,760 | 14.44 | 0.429 |
+| **LEAR, every year** | 8,760 | **15.89** | **0.472** |
+
+Run 1,534 s, under the 30–35 min estimated. Line and tree identical to `4cfc6b4` to the last digit.
+Diebold-Mariano (read from MLflow by hand, the last time before a command exists): 1,092 better than
+every year, p 7.5e-05; tree better than every year, p 0.010. Every year is closer on 44.7 % of hours.
+
+**Where:** worse in every hour, most through the solar hours (13:00 +3.3, 14:00 +3.2 €/MWh), least at
+19:00 (+0.2). Worse in ten of twelve months, most in January (+4.6); better in September (−0.4) and
+December (−3.0). **My walkthrough framing was wrong:** I said the extra days grow through the year,
+which suggests a growing gap; the gap is largest in January, when the fewest are added. Not
+explained. A possible reason for the whole result, *not checked*: one set of line weights must fit
+calm and crisis years together, where the tree can split them apart.
+
+**Decision: LEAR keeps 1,092 days.**
+
 ### Next — next session
 
 **LEAR ties the tree. Decide what that means before measuring more.**
