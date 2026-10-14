@@ -263,15 +263,27 @@ def test_lear_learns_only_from_the_window_before_each_day():
         assert seen.max() == day - pd.Timedelta(days=1)
 
 
+def test_without_a_window_lear_learns_from_every_day_before():
+    """window=None: every fit starts at the first day and still stops at D-1."""
+    table, log = day_frame(), []
+    days = table.index[-5:]
+    M.lear_walk_forward(table, days, window=None, make=lambda: DaySpy(log))
+    for day, seen in zip(days, log):
+        assert seen.min() == table.index.min()              # nothing cut from the front
+        assert seen.max() == day - pd.Timedelta(days=1)
+        assert len(seen) == (table.index < day).sum()
+
+
+@pytest.mark.parametrize("window", [80, None])
 @pytest.mark.parametrize("day", ["2023-05-20", "2023-06-08"])
-def test_deleting_the_future_changes_nothing_for_lear(day):
+def test_deleting_the_future_changes_nothing_for_lear(day, window):
     """The day-table leak test, one level down: a world cut off at gate closure
     on D-1 (D's prices blank, later days gone) gives the same forecast for D."""
     table, d = day_frame(), pd.Timestamp(day)
-    full = M.lear_walk_forward(table, pd.DatetimeIndex([d]), window=80)
+    full = M.lear_walk_forward(table, pd.DatetimeIndex([d]), window=window)
     cut = table[table.index <= d].copy()
     cut.loc[d, F.day_answer_columns(cut)] = np.nan          # D has not cleared yet
-    partial = M.lear_walk_forward(cut, pd.DatetimeIndex([d]), window=80)
+    partial = M.lear_walk_forward(cut, pd.DatetimeIndex([d]), window=window)
     pd.testing.assert_series_equal(partial, full)
 
 

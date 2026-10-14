@@ -186,19 +186,23 @@ class LEAR:
 # LEAR that has seen only the 1,092 complete days before it.  Counted in complete
 # days, as epftoolbox counts rows, so every fit learns from the same amount; the
 # blank days of 2022 push the window's start back rather than shrinking it.
+# `window=None` keeps every complete day before D instead: the expanding window
+# that suited the tree, measured here as LEAR's one variant.
 #
 # The forecasts are unfolded to hour labels on the way out, so they line up with
 # the hourly models' in `evaluate.aligned`.  Nothing is computed in the unfolding.
 
 def lear_walk_forward(table: pd.DataFrame, days: pd.DatetimeIndex,
-                      window: int = WINDOW_DAYS,
+                      window: int | None = WINDOW_DAYS,
                       make: Callable[[], LEAR] = LEAR) -> pd.Series:
-    """Forecast each of `days` from the `window` complete days before it. Hourly out."""
+    """Forecast each of `days` from the `window` complete days before it (None: all). Hourly out."""
     clues, answers = F.day_feature_columns(table), F.day_answer_columns(table)
     complete = table.dropna()                               # a fit needs every cell
     parts = []
     for day in days:
-        known = complete[complete.index < day].iloc[-window:]      # strictly before: the rule
+        known = complete[complete.index < day]              # strictly before: the rule
+        if window is not None:
+            known = known.iloc[-window:]                    # the last `window` of them
         model = make().fit(known[clues], known[answers])
         parts.append(model.predict(table.loc[[day], clues]))       # the clues only, never D's prices
     out = pd.concat(parts)

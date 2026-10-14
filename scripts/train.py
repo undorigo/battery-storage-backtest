@@ -81,10 +81,12 @@ def day_rows() -> pd.DataFrame:
 # scores compare directly, and only the model's freshness differs.
 #
 # LEAR joins the daily run only, because refitting every day is its recipe.  It
-# forecasts whole days, so a day with one blank clue is a day it skips, and the
-# exam shrinks to the hours *every* forecast covers.  That trim happens after all
-# the fitting: removing hours before it would also remove them from what later
-# refits learn from, and the line and tree would quietly change.
+# learns from the last 1,092 days, or with `all` from every day before; the second
+# is scored as `lear_all`, so the record never mixes the two.  It forecasts whole
+# days, so a day with one blank clue is a day it skips, and the exam shrinks to
+# the hours *every* forecast covers.  That trim happens after all the fitting:
+# removing hours before it would also remove them from what later refits learn
+# from, and the line and tree would quietly change.
 #
 # The benchmark is also scored against itself, which looks redundant and is not.  That
 # row has to read exactly 1.000, and it is a free check on everything underneath: if it
@@ -106,10 +108,12 @@ def lear_days(table: pd.DataFrame, valid: pd.DataFrame) -> pd.DatetimeIndex:
 
 
 def run(train: pd.DataFrame, valid: pd.DataFrame, refit: str = "once",
-        table: pd.DataFrame | None = None) -> tuple[list[dict], pd.DataFrame]:
+        table: pd.DataFrame | None = None,
+        lear_window: int | None = M.WINDOW_DAYS) -> tuple[list[dict], pd.DataFrame]:
     """Fit, forecast and score. Score rows, benchmark first, and the hourly forecasts.
 
-    `table` is LEAR's day table; without it, LEAR is not run.
+    `table` is LEAR's day table; without it, LEAR is not run.  `lear_window=None`
+    gives LEAR every day before, scored as `lear_all`.
     """
     benchmark = M.naive_forecast(valid)                  # a lookup, not a fit: no training needed
     actual = valid[F.TARGET]                             # the prices that actually happened
@@ -119,8 +123,9 @@ def run(train: pd.DataFrame, valid: pd.DataFrame, refit: str = "once",
     for name, make in (("linear", M.linear), ("gbm", M.gbm)):
         forecasts[name] = M.walk_forward(make, history, valid, REFIT[refit])   # one per hour of 2023
     if table is not None:
-        lear = M.lear_walk_forward(table, lear_days(table, valid))   # one fresh LEAR per day
-        forecasts["lear"] = lear.reindex(forecasts.index)            # blank where LEAR skipped
+        lear = M.lear_walk_forward(table, lear_days(table, valid), lear_window)   # one per day
+        column = "lear" if lear_window is not None else "lear_all"   # two windows, two names
+        forecasts[column] = lear.reindex(forecasts.index)              # blank where LEAR skipped
 
     forecasts = forecasts.dropna()                       # the hours every forecast covers
     rows = [E.score(name, "valid", forecasts[name], forecasts["naive"], forecasts["actual"])
@@ -173,7 +178,13 @@ def record(rows: list[dict], path: Path = SCORES) -> pd.DataFrame:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Score the models on the validation year.")
     parser.add_argument("--refit", choices=REFIT, default="once", help="how often to refit")
-    refit = parser.parse_args(argv).refit
+    parser.add_argument("--lear", choices=["1092", "all"], default="1092",
+                        help="LEAR's window, daily run only: 1,092 days or every day before")
+    args = parser.parse_args(argv)
+    refit = args.refit
+    if args.lear != "1092" and refit != "daily":
+        parser.error("--lear applies to the daily run only")    # never ignored silently
+    lear_window = None if args.lear == "all" else M.WINDOW_DAYS
 
     try:
         train, valid = data()
@@ -188,7 +199,7 @@ def main(argv: list[str] | None = None) -> int:
 
     started = time.perf_counter()
     table = day_rows() if refit == "daily" else None     # LEAR only joins the daily run
-    rows, forecasts = run(train, valid, refit, table)
+    rows, forecasts = run(train, valid, refit, table, lear_window)
     print(f"Refit {refit}: {time.perf_counter() - started:.0f} s\n")   # checks the timing estimate
     print(E.table(rows))
 
@@ -201,7 +212,7 @@ def main(argv: list[str] | None = None) -> int:
               "train_end": f"{train.index.max():%Y-%m-%d %H:%M}",
               "commit": git_commit()}
     if table is not None:
-        params["lear_window"] = M.WINDOW_DAYS            # LEAR learns from its own window
+        params["lear_window"] = lear_window or "all"     # LEAR learns from its own window
     ids = TR.log(rows, forecasts, params)
     print(f"Logged {len(ids)} runs to MLflow: "
           + ", ".join(f"{model} {run[:8]}" for model, run in ids.items()))

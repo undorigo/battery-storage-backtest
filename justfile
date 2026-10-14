@@ -58,8 +58,9 @@ explore:
 # Cannot reach the test years — Contract 2 evaluates those once, when the stage ends.
 # `just train` refits once (stage 1); `just train monthly` or `just train daily` walk forward.
 # `daily` also runs LEAR, refitted every day: about 25 minutes rather than 4.
-train refit="once":
-    {{py}} -m scripts.train --refit {{refit}}
+# `just train daily all` gives LEAR every day before instead of the last 1,092.
+train refit="once" lear="1092":
+    {{py}} -m scripts.train --refit {{refit}} --lear {{lear}}
 
 # The number a stage ends on, from the years held back. Offline.
 #

@@ -205,8 +205,8 @@ SKIPPED = pd.DatetimeIndex(["2023-06-20", "2023-06-21", "2023-06-27"])
 def stub_lear(monkeypatch) -> dict:
     seen: dict = {}
 
-    def fake(table, days):
-        seen["table"], seen["days"] = table, days
+    def fake(table, days, window=T.M.WINDOW_DAYS):
+        seen["table"], seen["days"], seen["window"] = table, days, window
         answers = table.loc[days, F.day_answer_columns(table)]
         answers.columns = [int(c[-2:]) for c in answers.columns]
         return F.unfold(answers + 1.0).rename("predicted")
@@ -237,6 +237,14 @@ def test_adding_lear_changes_no_other_forecast(frames, monkeypatch):
     _, joined = T.run(*frames, refit="monthly", table=T.day_rows())
     for name in ("linear", "gbm"):
         pd.testing.assert_series_equal(joined[name], alone.loc[joined.index, name])
+
+
+def test_every_year_lear_gets_no_window_and_its_own_name(frames, monkeypatch):
+    """`--lear all` must reach LEAR, and its row must not pass for the 1,092 one."""
+    seen = stub_lear(monkeypatch)
+    rows, _ = T.run(*frames, table=T.day_rows(), lear_window=None)
+    assert seen["window"] is None
+    assert {r["model"] for r in rows} == {"naive", "linear", "gbm", "lear_all"}
 
 
 def test_lear_is_never_handed_a_test_year_day(frames, monkeypatch):
