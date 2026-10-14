@@ -254,6 +254,24 @@ def test_weekend_flag_marks_saturday_and_sunday(built):
     assert built.is_weekend.to_numpy().tolist() == (built.index.dayofweek >= 5).tolist()
 
 
+def test_holiday_flag_marks_nationwide_holidays_all_day(built):
+    """Easter Monday 2024 in all 24 Berlin hours; Easter Sunday is not nationwide."""
+    day = built.index.normalize()
+    assert built.is_holiday[day == pd.Timestamp("2024-04-01")].all()
+    assert len(built[day == pd.Timestamp("2024-04-01")]) == 24
+    assert not built.is_holiday[day == pd.Timestamp("2024-03-31")].any()
+    flagged = sorted(set(day[built.is_holiday].date.astype(str)))
+    assert flagged == ["2024-01-01", "2024-03-29", "2024-04-01"]   # New Year, Good Friday, Easter Monday
+
+
+def test_the_day_table_carries_the_same_holidays(monkeypatch):
+    src = _sources()
+    monkeypatch.setattr(F, "data_load", lambda key: src[key])
+    table = F.day_table()
+    assert table.loc[pd.Timestamp("2024-04-01"), "holiday"] == 1.0
+    assert table.loc[pd.Timestamp("2024-03-31"), "holiday"] == 0.0
+
+
 def test_complete_rows_drops_exactly_the_rows_with_a_missing_value(built):
     complete = F.complete_rows(built)
     assert not complete.isna().to_numpy().any()
@@ -350,7 +368,7 @@ def test_deleting_the_future_changes_nothing_in_the_day_table(monkeypatch, day):
 
     d = pd.Timestamp(day)
     clues = F.day_feature_columns(full)
-    assert len(clues) == 247                                # 4 x 24 prices, 6 x 24 forecasts, 7 weekdays
+    assert len(clues) == 248                                # 4 x 24 prices, 6 x 24 forecasts, 7 weekdays, holiday
     assert partial.loc[d, clues].notna().all()              # the row a schedule is built from
     pd.testing.assert_series_equal(partial.loc[d, clues], full.loc[d, clues])
 

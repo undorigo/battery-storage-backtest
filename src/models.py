@@ -124,8 +124,8 @@ def walk_forward(make: Callable[[], BaseEstimator], history: pd.DataFrame,
 # compares with theirs.  Lasso charges each clue for the size of its weight, so
 # every clue is first put on one ruler: its median and spread over the window,
 # then asinh to squash the spikes.  The ruler is measured on the window alone and
-# the day being forecast is read with it, never measured itself.  Weekday columns
-# stay 0/1: their spread is zero, and the ruler would divide by it.
+# the day being forecast is read with it, never measured itself.  Weekday and
+# holiday columns stay 0/1: their spread is zero, and the ruler would divide by it.
 
 WINDOW_DAYS = 364 * 3                                       # epftoolbox's default: 1,092 days
 MAD_TO_STD = 0.6744897501960817                             # statsmodels' Gaussian.ppf(3/4), not 0.6745
@@ -158,7 +158,7 @@ class LEAR:
     """Twenty-four Lasso models on the day table, all on one robust ruler."""
 
     def fit(self, X: pd.DataFrame, Y: pd.DataFrame) -> LEAR:
-        self.scaled = [c for c in X.columns if not c.startswith("weekday_")]
+        self.scaled = [c for c in X.columns if not c.startswith(("weekday_", "holiday"))]
         self.x_ruler = robust_ruler(X[self.scaled])         # measured on the window only
         self.y_ruler = robust_ruler(Y)                      # one ruler per delivery hour
         Xs, Ys = self._clues(X), _squash(Y, self.y_ruler)

@@ -309,7 +309,7 @@ job is a standard way for a backtest to measure something the live system never 
 | Price memory | `price_lag_24h · 48h · 72h · 168h` | **yes** | far enough back to be public |
 | Yesterday | `price_d1_min · max · mean · last · spread` | **yes**, by a day | a day that had fully cleared |
 | Forecasts | `load_forecast · wind_onshore · wind_offshore · solar · residual_load` | no | published the previous morning |
-| Calendar | `hour · dayofweek · is_weekend` | no | read off the index itself |
+| Calendar | `hour · dayofweek · is_weekend · is_holiday` | no | read off the index; holidays fixed by law years ahead |
 
 The forecast columns need no lag, and they are not a second-best substitute for measured
 output. **Bids were placed against the published forecast, so that is what set the price.**

@@ -101,7 +101,7 @@ REFIT = {"once": "Y", "monthly": "M", "daily": "D"}   # schedule → the period 
 
 
 def lear_days(table: pd.DataFrame, valid: pd.DataFrame) -> pd.DatetimeIndex:
-    """The validation days whose 247 clues are all present: the ones LEAR can forecast."""
+    """The validation days whose 248 clues are all present: the ones LEAR can forecast."""
     days = table.loc[table.index.isin(valid.index.normalize())]   # grid labels: Berlin days
     ready = days[F.day_feature_columns(table)].notna().all(axis=1)
     return days.index[ready]

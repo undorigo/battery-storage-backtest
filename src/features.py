@@ -13,6 +13,8 @@ frame with the future deleted and asserts not one value moved.
 
 from __future__ import annotations
 
+import holidays
+import numpy as np
 import pandas as pd
 
 from src import config as cfg
@@ -179,17 +181,27 @@ def forecast_features() -> pd.DataFrame:
 # the year and would smear the morning peak across two values.  The grid's labels
 # already are the market clock, so they are read directly.
 #
-# German public holidays are deliberately absent: they matter, but the moveable
-# feasts need a dependency, and the naive benchmark already carries weekly shape.
-# Revisit at stage 2 with a measured rMAE rather than an assumption.
+# Public holidays: the nine nationwide ones only, from the `holidays` package,
+# which also works out the Easter-linked dates.  Each is fixed by law years ahead,
+# so known at gate closure.  The load forecast already falls to Sunday's level on
+# them; the flag tells the models why, where a weekday column says "Monday".
+# Regional holidays (Corpus Christi, Reformation Day) are left out by decision.
+
+def is_holiday(index: pd.DatetimeIndex) -> np.ndarray:
+    """True on Germany's nationwide public holidays, read on the market clock."""
+    days = index.normalize()                                # grid labels: Berlin days
+    known = holidays.Germany(years=range(days.year.min(), days.year.max() + 1))   # no state: nationwide
+    return days.isin(pd.to_datetime(list(known)))
+
 
 def calendar_features(index: pd.DatetimeIndex) -> pd.DataFrame:
-    """Hour and weekday on the delivery day, in market time."""
+    """Hour, weekday and holiday on the delivery day, in market time."""
     return pd.DataFrame(
         {
             "hour": index.hour,
             "dayofweek": index.dayofweek,
             "is_weekend": index.dayofweek >= 5,             # demand drops; the price shape changes
+            "is_holiday": is_holiday(index),
         },
         index=index,
     )
@@ -278,7 +290,7 @@ def unfold(table: pd.DataFrame) -> pd.Series:
 
 
 def day_table() -> pd.DataFrame:
-    """One row per delivery day: 24 answers, 240 day-shaped clues, 7 weekday columns."""
+    """One row per delivery day: 24 answers, 240 day-shaped clues, 7 weekdays and a holiday."""
     price = fold(data.to_slots(data_load("day_ahead_price")).iloc[:, 0])
     fc = forecast_features()                                # filled, and on the grid
     load = fold(fc.load_forecast)
@@ -305,6 +317,7 @@ def day_table() -> pd.DataFrame:
     table.columns = [f"{name}_h{hour:02d}" for name, hour in table.columns]   # "price_d1_h18"
     for i in range(7):                                      # one yes/no column per weekday
         table[f"weekday_{i}"] = (table.index.dayofweek == i).astype(float)
+    table["holiday"] = is_holiday(table.index).astype(float)    # yes/no, like the weekdays
     return table
 
 

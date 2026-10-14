@@ -193,7 +193,7 @@ def test_the_kept_forecasts_are_the_ones_that_were_scored(frames):
 
 
 # ── LEAR in the daily run ─────────────────────────────────────────────────────
-# A stand-in replaces LEAR: fifteen months are too few days for 247 clues, and 365
+# A stand-in replaces LEAR: fifteen months are too few days for 248 clues, and 365
 # real fits would slow the suite.  It records what it was handed and forecasts each
 # day as its real prices plus one euro.  What is tested is the wiring around LEAR,
 # not LEAR.  The fixture's blank load hour on 20 June empties three day rows (as D,
