@@ -2819,6 +2819,21 @@ calm and crisis years together, where the tree can split them apart.
 
 **Decision: LEAR keeps 1,092 days.**
 
+#### One model per delivery hour: dropped, a limit stated instead
+
+Asked rather than assumed, because LEAR already is one. The user's question first: can models this
+different be compared at all? Answered as two questions. **Ranking** is fair already: every model
+sits the same exam (same hours, prices, benchmark, information boundary), whatever its method.
+**Attribution** is not: LEAR differs from the line in three ways at once (24 models, Lasso on the
+ruler, the day table's inputs), so which earns its gain is unknown.
+
+**Decision: dropped.** LEAR is the per-hour line; the tree splits on the hour already, and a tree per
+hour is tuning, which 13 October ruled out. The attribution gap goes into the README as a stated
+limit. Rejected: one in-between model (24 plain lines on LEAR's inputs) to attribute the gain, and
+parking the item until stage 4. CLAUDE.md's stage table follows the README.
+
+---
+
 ### Next — next session
 
 **LEAR ties the tree. Decide what that means before measuring more.**

@@ -121,9 +121,11 @@ in MLflow so the test can be run on any two runs.
    worse** (Diebold-Mariano p < 0.001), in every hour and in ten of twelve months, most through the
    solar hours. The tree did better learning from every year; LEAR does not, as one published
    German study also found (arXiv 2311.02610). LEAR keeps its 1,092 days.
-3. **One model per delivery hour.** Error spans 7.79 €/MWh between the quietest night hours
-   and the 19:00 peak; 3 a.m. and 7 p.m. are different problems sharing one set of
-   coefficients.
+3. **One model per delivery hour — dropped 14 October.** LEAR already is one, a line per hour.
+   The tree already splits on the hour, so a tree per hour would be tuning, which 13 October ruled
+   out. **A stated limit instead:** LEAR's gain over the line is measured, but LEAR differs from it
+   in three ways at once (24 models, Lasso on a robust ruler, the day table's inputs), and which of
+   them earns the gain is not known.
 4. **German public holidays**, which are not in the feature frame at all.
 
 Every step is judged with the significance test, because stage 1 demonstrated that a gap of
