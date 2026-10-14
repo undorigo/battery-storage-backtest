@@ -2908,28 +2908,68 @@ closest the monthly tree, p 0.097 for worse). **Kept.** Knock-ons: tree monthly 
 feature set. Suite 203 green. README and plan page refreshed (holidays measured, 203 tests, about one
 working day left in stage 2).
 
-**State at close.** `main` after this entry's commit, suite 203 green. README and plan page refreshed.
+#### Stage 2's one reading of the held-back years (`f5d5f5b`, `69e1998`)
+
+Explained first: `final_score.py` still scored stage 1's two recipes (line and tree fitted once, on
+2018–2022 and on 2018–2023, then frozen for two years), with no LEAR and no daily refitting, so it
+would have tested stage 1's recipe again. **Decided with the user:** walk line, tree and LEAR forward
+day by day through 2024–25 as through 2023, with line and tree fitted once on 2018–2023 beside them
+for contrast; p-values through MLflow. Rejected: daily only (no same-reading contrast), and adding
+the every-year LEAR (~+50 min for a verdict already clear).
+
+**The old safety test had to go:** "no fit ever sees a held-back row" is false by design once the
+daily refits learn from earlier held-back days. Replaced by spying every fit and the forecast after
+it: each fit ends before the first hour it forecasts; the frozen fits start at the first training
+hour and end at 23:00 on 31 Dec 2023; the last daily refits end the hour before the last held-back
+day. Six plants, all caught: refits never adding held-back days, daily rows fitted once on
+everything, frozen fit on 2018–2022 only, frozen fit including the held-back years, scoring before
+the shared-hours trim (the stand-in LEAR now skips a day so this can fail), LEAR handed validation
+days. **`just significance`** now pins every 2023 claim to `split=valid` (planted: unpinned, caught)
+and adds five held-back comparisons. Suite 204 green. Leakage check: no feature changed; every fit
+ends before its hours; settlement untouched.
+
+**The reading** (`just final-score` at `69e1998`, 2,356 s, 17,544 hours: two more than stage 1's,
+the autumn midnights):
+
+| rMAE | 2023 | 2024–25 | 2024 | 2025 |
+|---|---|---|---|---|
+| line daily | 0.523 | 0.541 | 0.557 | 0.525 |
+| tree daily | 0.428 | 0.457 | 0.458 | 0.457 |
+| **LEAR daily** | 0.429 | **0.405** | 0.433 | 0.377 |
+| tree fitted once 2018–2023 | | 0.530 | 0.519 | 0.542 |
+| line fitted once 2018–2023 | | 0.563 | | |
+
+p (`just significance`): tree → LEAR 7.5e-06; line → tree 1.9e-12; line → LEAR 8.5e-28; frozen →
+daily 4.5e-20 (tree), 1.3e-14 (line). **The ranking held**, unlike stage 1, and the 2023 tie broke
+for LEAR: better in every hour (most at night, 00:00 6.3 against 10.0, and in the evening peak),
+closer on 55.1 % of hours; the tree better on the 1,033 negative-price hours (17.3 against 19.5).
+Why LEAR's lead grows into 2025 is not known; guess, not checked: its 1,092 days leave the crisis
+behind while the tree learns from every year. Not suspiciously good: inside arXiv 2311.02610's
+0.40–0.43 with the same benchmark. Not done: rebuilding held-back days cut at gate closure.
+The frozen tree reads 0.530 against stage 1's 0.532 (grid, autumn hours, holidays since).
+
+**Stage 2 closed.** README (status, stage table, *Where stage 2 landed*, dates moved a week earlier),
+CLAUDE.md's stage table and the plan page refreshed (stage 2 closed, held-back 0.405, stage 3 next).
+
+**State at close.** `main` after this entry's commit, suite 204 green. README and plan page refreshed.
 
 ---
 
 ### Next — next session
 
-**Stage 2 has one piece left: its one reading of the held-back years.**
+**Stage 2 is closed: LEAR, refitted daily, 0.405 on the held-back years. Stage 3 is next.**
 
 #### Recap questions
 
-1. Every-year LEAR lost to 1,092 days, while the tree did better on every year. What is one possible
-   reason, and why is it still only a guess?
-2. Line, tree and LEAR work in very different ways. Why is ranking them by rMAE still fair, and what
-   can that ranking not tell us about LEAR's gain over the line?
-3. `just significance` names runs by their params, and pins some to a commit. Why each?
-4. The holiday flag changed nothing measurable. What already told the models it was a holiday, and
-   what did the flag's weights show?
-5. Why was the keep rule for holidays fixed before the result was seen?
+1. Why could stage 1's final-score script not answer stage 2's question about the held-back years?
+2. The daily refits now learn from held-back days. Why is that not a leak, and what must still never
+   happen?
+3. On 2023 LEAR and the tree tied. What changed on 2024–25, and where does the tree still do better?
+4. Why do the 2023 claims in `just significance` now name their split?
+5. The holiday flag changed nothing measurable. What already told the models it was a holiday?
 
 #### Then, in order
 
-1. **Stage 2's one reading of the held-back years**: decide which models and recipes go into it
-   (`final_score.py` still scores stage 1's two recipes), walk through the change, then
-   `just final-score` once.
-2. Then stage 3 (decided 13 Oct: no tuning chase).
+1. **Stage 3, quantile forecasts**: walk through what a quantile forecast is and why a battery needs a
+   range rather than one number, before choosing a method. Read what the field does first.
+2. Open: why LEAR's held-back lead grows into 2025 (a note, not a task, unless stage 4 makes it matter).

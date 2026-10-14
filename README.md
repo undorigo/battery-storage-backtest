@@ -3,9 +3,10 @@
 Forecasting German day-ahead electricity prices, and measuring what the forecast is
 actually worth to a battery.
 
-**Status:** stage 1 of 6 complete, 30 September 2026. A gradient-boosted tree forecasts the
-held-back years at **rMAE 0.532** — roughly half the error of a week-old lookup. Stage 4,
-where that becomes a capture rate, is the one the rest exists for.
+**Status:** stage 2 of 6 complete, 14 October 2026. LEAR, the field's statistical benchmark,
+refitted every day, forecasts the held-back years at **rMAE 0.405**, against stage 1's 0.532 — about
+40 % of the error of a week-old lookup. Stage 4, where that becomes a capture rate, is the one the
+rest exists for.
 
 ---
 
@@ -49,7 +50,7 @@ so a claim can always be traced back to the run that produced it.
 |---|---|---|---|
 | 0 | Reproducible data pull, split locked | negative hours, daily spread | **done** 17 Sep 2026 |
 | 1 | First model against a naive benchmark | **rMAE 0.532** | **done** 30 Sep 2026 |
-| 2 | Recalibration, LEAR, one model per delivery hour | rMAE per variant, DM significance | under way |
+| 2 | Recalibration, LEAR, holidays | **rMAE 0.405** | **done** 14 Oct 2026 |
 | 3 | Quantile forecasts | pinball loss, coverage | |
 | 4 | MILP dispatch optimiser, revenue | **capture rate** | |
 | 5 | Drift monitoring, scheduled run | reproducibility | |
@@ -78,7 +79,38 @@ ranking reversed** — 0.627 against 0.575. The tree had been chosen partly beca
 2023, and only years nobody had looked at revealed it. That is the whole apparatus doing its
 job, and it is why stage 2 carries a significance test rather than a leaderboard.
 
-### What stage 2 does, in the order the evidence supports
+### Where stage 2 landed
+
+LEAR, refitted every day on its last 1,092 days, forecasts the 17,544 held-back hours of 2024–25
+with a mean absolute error of **13.28 €/MWh** against the naive rule's 32.81 — an rMAE of
+**0.405**. Reproduce it with `just final-score`, and its p-values with `just significance`.
+
+| rMAE | 2023, validation | 2024–25, held back |
+|---|---|---|
+| Straight line, refitted daily | 0.523 | 0.541 |
+| Tree, refitted daily | **0.428** | 0.457 |
+| LEAR, refitted daily | 0.429 | **0.405** |
+| Tree, fitted once on 2018–2023 | | 0.530 |
+| Straight line, fitted once on 2018–2023 | | 0.563 |
+
+**The ranking held this time.** Stage 1's validation winner lost on the held-back years; stage 2's
+did not, and every held-back gap is significant (LEAR better than the tree, p < 0.0001; the tree
+better than the line, p < 0.0001). **The 2023 tie broke in LEAR's favour:** closer in every hour of
+the day, most at night and in the evening peak, with the tree still better on the 1,033
+negative-price hours (17.3 against 19.5 €/MWh). LEAR's lead grows from 2024 (0.433 against 0.458)
+to 2025 (0.377 against 0.457). Why is not known; one guess, not checked, is that by 2025 LEAR's
+1,092 days have left most of the crisis behind while the tree still learns from every year.
+
+**Daily refitting is the lever on untouched years too:** the tree goes from 0.530 fitted once to
+0.457 refitted daily, the line from 0.563 to 0.541 (both p < 0.0001).
+
+Checked before believed: LEAR is closer than the tree on 55 % of hours, not on nearly all of them,
+and 0.405 sits inside the published range for LEAR on German prices against the same benchmark
+(0.40–0.43, arXiv 2311.02610). Not done: rebuilding held-back days from data cut at gate closure,
+as was done for four days of 2023. **All of this is error, not money.** Whether LEAR's lead turns
+into revenue is what stage 4 measures.
+
+### What stage 2 did, in the order the evidence supported
 
 Before any of it, **every delivery day becomes 24 hours long.** A clock-change day has 23 or 25,
 and one model per delivery hour needs the same 24 every day. The rule is the field's own (Lago et
@@ -164,21 +196,19 @@ not maintained — [docs/worklog.md](docs/worklog.md) records both links and whi
 ### Roughly when
 
 Re-estimated on 7 October from what the stages actually took — seven working days for stage 0,
-six for stage 1, and four so far for stage 2, at about three and a half working days a week.
+six for stage 1 — at about three and a half working days a week.
 
-**Stage 2 runs about a week longer than first planned.** Three things went in front of
-recalibration that the first estimate did not hold: the 24-hour grid, MLflow, and the
-significance test. LEAR, the largest piece, was built and measured on 13 October, and its
-training window and holidays on 14 October, with a command that regenerates every p-value. What
-is left is the stage's one reading of the held-back years: about one working day. Stage 4 is the
-least certain estimate, because the optimiser does not exist yet.
+**Stage 2 closed on 14 October**, about a week ahead of that estimate, after running longer than
+first planned: the 24-hour grid, MLflow and the significance test went in front of recalibration.
+The later stages keep their estimates and move forward with it. Stage 4 is the least certain,
+because the optimiser does not exist yet.
 
 | Stage | Estimate | Ends around |
 |---|---|---|
-| 2 | ~3 weeks in all, ~1½ left | week of 19 October 2026 |
-| 3 | ~1 week | week of 26 October 2026 |
-| 4 | ~2 weeks | week of 9 November 2026 |
-| 5 | ~1 week | week of 16 November 2026 |
+| 2 | done | 14 October 2026 |
+| 3 | ~1 week | week of 19 October 2026 |
+| 4 | ~2 weeks | week of 2 November 2026 |
+| 5 | ~1 week | week of 9 November 2026 |
 
 ## Setup
 
