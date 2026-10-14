@@ -90,3 +90,22 @@ def read(run: str, *, db: Path = cfg.MLFLOW_DB) -> tuple[dict, pd.DataFrame]:
     with tempfile.TemporaryDirectory() as tmp:
         forecasts = pd.read_parquet(client.download_artifacts(run, FORECASTS, tmp))
     return params, forecasts
+
+
+# ── Finding a run by what it states ───────────────────────────────────────────
+# Run ids differ from one clone to the next, so a command that regenerates the
+# README's p-values names runs by their params instead: the newest run whose
+# params match.  Every run so far is on the 24-slot grid, so no filter for it.  Newest, because a rerun at a later commit is meant to
+# replace the earlier reading; the caller prints the commit, so a replacement is
+# visible rather than silent.
+
+def latest(*, db: Path = cfg.MLFLOW_DB, **params: str) -> str | None:
+    """The newest run whose params all match, or None."""
+    client = _client(db)
+    found = client.get_experiment_by_name(EXPERIMENT)
+    if found is None:
+        return None                                      # nothing has ever been logged here
+    where = " and ".join(f"params.{k} = '{v}'" for k, v in params.items())
+    runs = client.search_runs([found.experiment_id], where, max_results=1,
+                              order_by=["attributes.start_time DESC"])
+    return runs[0].info.run_id if runs else None

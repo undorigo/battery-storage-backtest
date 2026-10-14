@@ -74,3 +74,27 @@ def test_the_stored_hours_are_the_scored_hours(stored):
     for model, (_, kept) in back.items():
         assert kept.index.equals(forecasts.index), f"{model} run's hours moved"
         assert list(kept.columns) == list(dict.fromkeys(["actual", "naive", model]))
+
+
+# ── Finding a run by its params ───────────────────────────────────────────────
+
+def _log_once(where, commit: str) -> dict[str, str]:
+    hours = pd.date_range("2023-03-14 00:00", periods=24, freq="h")
+    forecasts = pd.DataFrame({"actual": 50.0, "naive": 40.0, "gbm": 45.0}, index=hours)
+    rows = [E.score(m, "valid", forecasts[m], forecasts["naive"], forecasts["actual"])
+            for m in ("naive", "gbm")]
+    return TR.log(rows, forecasts, {**PARAMS, "commit": commit},
+                  db=where / "mlflow.db", store=where / "mlruns")
+
+
+def test_latest_finds_the_newest_matching_run(tmp_path):
+    first = _log_once(tmp_path, "aaa1111")
+    second = _log_once(tmp_path, "bbb2222")
+    db = tmp_path / "mlflow.db"
+    assert TR.latest(db=db, model="gbm", refit="once") == second["gbm"]
+    assert TR.latest(db=db, model="gbm", refit="once", commit="aaa1111") == first["gbm"]
+    assert TR.latest(db=db, model="gbm", refit="daily") is None     # no such run
+
+
+def test_latest_on_an_empty_store_is_none(tmp_path):
+    assert TR.latest(db=tmp_path / "mlflow.db", model="gbm") is None
