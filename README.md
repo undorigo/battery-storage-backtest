@@ -103,12 +103,14 @@ those runs. It needs the `just train` runs first, and names any that are missing
    0.483 → 0.440 → 0.429, the line 0.532 → 0.525 → 0.523. Every step is significant, but the
    tree's monthly → daily (p = 0.028) is fragile. One hour earlier it read 0.437 → 0.430 and
    p = 0.11: a single extra training row moved every November and December forecast of the
-   monthly tree. That verdict rests on the tree's wobble, not on a settled difference.
+   monthly tree. That verdict rests on the tree's wobble, not on a settled difference. With
+   holidays in the frame (14 Oct) it reads 0.443 → 0.428 and p = 0.0015: monthly got worse again,
+   daily did not get better.
 2. **LEAR**, the field's statistical benchmark. **Built and measured 13 October** (`just train
    daily`): 24 Lasso models on a day table (one row per delivery day, whole earlier days as inputs),
    one 1,092-day window refitted every day, as epftoolbox does. **0.429, a tie with the daily
-   tree** (MAE 14.44 against 14.45; Diebold-Mariano p = 0.50 either way) and clearly ahead of the
-   line (p < 0.001). The tie hides a split: LEAR is better at night (00:00: 8.2 against 11.6 €/MWh)
+   tree** (MAE 14.44 against 14.45; Diebold-Mariano p = 0.50 either way; with holidays from 14
+   October, 0.429 against 0.428, p = 0.53 / 0.47) and clearly ahead of the line (p < 0.001). The tie hides a split: LEAR is better at night (00:00: 8.2 against 11.6 €/MWh)
    and worse through the solar hours (14:00: 19.5 against 17.1). Checked for hindsight before
    being believed: four days rebuilt from data cut off at gate closure give identical forecasts.
    It matches the field's reference code: epftoolbox's own LEAR, given the same windows, gives the
@@ -127,7 +129,17 @@ those runs. It needs the `just train` runs first, and names any that are missing
    out. **A stated limit instead:** LEAR's gain over the line is measured, but LEAR differs from it
    in three ways at once (24 models, Lasso on a robust ruler, the day table's inputs), and which of
    them earns the gain is not known.
-4. **German public holidays**, which are not in the feature frame at all.
+4. **German public holidays — built and measured 14 October.** The nine nationwide ones, as a
+   yes/no column for every model, from the `holidays` package; regional ones left out. Each is
+   fixed by law years ahead, so known at gate closure. **No model moved significantly**, in any
+   schedule, either way (2023, daily: line 0.523 → 0.523, tree 0.429 → 0.428, LEAR 0.429 → 0.429;
+   closest call the monthly tree, 0.440 → 0.443, p = 0.097 for *worse*). Kept by a rule fixed before
+   the result: the effect is real and known in advance, so the flag stays unless it hurts. **Why
+   so little:** the published load forecast already drops to Sunday's level on holidays, and the
+   models had learned that; the flag got almost no weight. LEAR and the line still miss most on
+   holidays (21.5 and 29.6 €/MWh against about 14 and 17 on other days), so whatever they get
+   wrong there, it is not *knowing* it is a holiday. Every 2023 number above from this date on
+   includes the flag; the earlier rows stay in `reports/scores.csv` as a different feature set.
 
 Every step is judged with the significance test, because stage 1 demonstrated that a gap of
 0.044 on one year is not evidence of anything.
@@ -157,8 +169,8 @@ six for stage 1, and four so far for stage 2, at about three and a half working 
 **Stage 2 runs about a week longer than first planned.** Three things went in front of
 recalibration that the first estimate did not hold: the 24-hour grid, MLflow, and the
 significance test. LEAR, the largest piece, was built and measured on 13 October, and its
-training window on 14 October, with a command that regenerates every p-value. What is left is
-holidays and the stage's one reading of the held-back years: about two working days. Stage 4 is the
+training window and holidays on 14 October, with a command that regenerates every p-value. What
+is left is the stage's one reading of the held-back years: about one working day. Stage 4 is the
 least certain estimate, because the optimiser does not exist yet.
 
 | Stage | Estimate | Ends around |
@@ -355,7 +367,7 @@ git clone <this repo> && cd battery-storage-backtest
 
 python3 -m venv .venv                              # a project-local environment
 .venv/bin/pip install -r requirements.txt          # once, not per terminal session
-.venv/bin/python -m pytest tests/ -q               # 200 tests, offline, no token
+.venv/bin/python -m pytest tests/ -q               # 203 tests, offline, no token
 ```
 
 That's the whole setup. `pip install` writes into `.venv/` on disk, so it persists — you

@@ -2865,13 +2865,56 @@ Plan page refreshed (p-value command built, 200 tests, about two working days le
 
 ---
 
-**State at close.** `main` after this entry's commit, suite 200 green. README and plan page refreshed.
+#### German public holidays (`d1f6252`, `e70e7c2`)
+
+**Decisions with the user:** nationwide holidays only (the nine; regional ones left out), from a
+package rather than a hand list (`holidays==0.106`, `holidays.Germany()` with no state = nationwide),
+as a separate yes/no column (`is_holiday` hourly, `holiday` in the day table) rather than reading a
+holiday as Sunday, which would have changed the meaning of existing columns. **Keep rule fixed before
+the result:** kept unless it makes a model significantly worse. Rejected: keep only if significant
+(about 216 affected hours; one year was unlikely to prove a real gain).
+
+**Walkthrough on 2023 first.** The tree already matched its weekday error on holidays (14.3 against
+14.5 €/MWh); LEAR (21.4 against 14.3) and the line (29.0 against 17.2) did not. Checked why: the load
+forecast on holidays averages 44.0 GW, Sunday 44.9, Mon–Fri 56.1, so the holiday is already in the
+data. **My explanation that the weekday column misleads LEAR and the line was wrong:** given the flag,
+both gave it almost no weight (line −0.5 €/MWh against +7.9 for the weekend; LEAR non-zero in 17–20 of
+24 hours, mean ±0.03 on the squashed scale), and their holiday misses did not shrink (LEAR 21.4 → 21.5,
+line 29.0 → 29.6; tree 14.3 → 13.6). What they get wrong on holidays is not known; a guess, not checked:
+the price clues from earlier days do not look like a holiday.
+
+**Leakage check:** (1) every holiday fixed by law years ahead; nine a year 2018–2025, no one-off
+additions in the window (the 2017 Reformation Day precedes the data). (2) Nothing fitted on it; LEAR
+leaves it unscaled. (3) Settlement untouched.
+
+**Tests** (2 new; the clue count 247 → 248), each planted: holiday read on UTC days, regional holidays
+(Brandenburg, which adds Easter Sunday), flag on the day before, and the day table forgetting the
+flag, all caught. **LEAR scaling the flag:** no test; on real data it crashes at the first fit with
+"Input X contains NaN" (median and spread both 0), loud, as the weekday case on 13 October.
+
+**Runs** (all four at `d1f6252`; my shell loop first passed "daily all" as one word, zsh does not split
+`$r`, and the grep pipe hid the failure; rerun on its own):
+
+| 2023, without → with holidays | once | monthly | daily |
+|---|---|---|---|
+| line | 0.532 → 0.532 | 0.525 → 0.525 | 0.523 → 0.523 |
+| tree | 0.483 → 0.484 | 0.440 → 0.443 | 0.429 → 0.428 |
+| LEAR | | | 0.429 → 0.429 |
+
+No change significant in either direction (`just significance`, both sides pinned to their commits;
+closest the monthly tree, p 0.097 for worse). **Kept.** Knock-ons: tree monthly → daily now p 0.0015
+(was 0.028; monthly got worse again), tree → LEAR p 0.53 / 0.47, every year → 1,092 days 0.471 against
+0.429, p 9.2e-05. Every 2023 number from here on includes the flag; earlier rows are a different
+feature set. Suite 203 green. README and plan page refreshed (holidays measured, 203 tests, about one
+working day left in stage 2).
+
+**State at close.** `main` after this entry's commit, suite 203 green. README and plan page refreshed.
 
 ---
 
 ### Next — next session
 
-**Stage 2 has two pieces left: holidays, then its one reading of the held-back years.**
+**Stage 2 has one piece left: its one reading of the held-back years.**
 
 #### Recap questions
 
@@ -2879,15 +2922,14 @@ Plan page refreshed (p-value command built, 200 tests, about two working days le
    reason, and why is it still only a guess?
 2. Line, tree and LEAR work in very different ways. Why is ranking them by rMAE still fair, and what
    can that ranking not tell us about LEAR's gain over the line?
-3. `just significance` names runs by their params, not by id. Why, and what does printing each run's
-   commit protect against?
-4. Two plants survived today. Name one, and say why no test was written for it.
-5. Why does `compare` score both rMAEs on the shared hours rather than on each run's own?
+3. `just significance` names runs by their params, and pins some to a commit. Why each?
+4. The holiday flag changed nothing measurable. What already told the models it was a holiday, and
+   what did the flag's weights show?
+5. Why was the keep rule for holidays fixed before the result was seen?
 
 #### Then, in order
 
-1. **German public holidays**, with the full leakage check: who publishes the calendar, and when was
-   each holiday known? Measured with `just train daily` and `just significance`.
-2. **Stage 2's one reading of the held-back years**: decide which models and recipes go into it, then
+1. **Stage 2's one reading of the held-back years**: decide which models and recipes go into it
+   (`final_score.py` still scores stage 1's two recipes), walk through the change, then
    `just final-score` once.
-3. Then stage 3 (decided 13 Oct: no tuning chase).
+2. Then stage 3 (decided 13 Oct: no tuning chase).
