@@ -157,8 +157,8 @@ six for stage 1, and four so far for stage 2, at about three and a half working 
 **Stage 2 runs about a week longer than first planned.** Three things went in front of
 recalibration that the first estimate did not hold: the 24-hour grid, MLflow, and the
 significance test. LEAR, the largest piece, was built and measured on 13 October, and its
-training window on 14 October. What is left is a command that regenerates the p-values, holidays,
-and the stage's one reading of the held-back years: about three working days. Stage 4 is the
+training window on 14 October, with a command that regenerates every p-value. What is left is
+holidays and the stage's one reading of the held-back years: about two working days. Stage 4 is the
 least certain estimate, because the optimiser does not exist yet.
 
 | Stage | Estimate | Ends around |

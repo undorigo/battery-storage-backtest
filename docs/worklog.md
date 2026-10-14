@@ -2836,25 +2836,58 @@ Plan page refreshed (window measured, per-hour dropped, 195 tests, about three w
 
 ---
 
+#### `just significance`: the README's p-values from one command (`9506116`, `335b542`)
+
+The Third Law gap of 12 October: every p-value in the README had been read from MLflow by hand.
+**Shape agreed before building:** a fixed list of the README's seven comparisons in
+`scripts/significance.py`, each side named by its params (model, refit, LEAR window) rather than a
+run id, which differs per clone; resolved to the newest matching run by `tracking.latest`; both rMAEs
+and p in both directions computed on the hours the two runs share; each run's commit printed, so a
+p-value that moved because its run moved is visible. Prints only; `scores.csv` stays the record. A
+missing run names the `just train` call that makes it. Rejected: `just dm <a> <b>` for any pair (the
+README's numbers would again depend on typing the right pairs), and a CSV record beside the print.
+**Clean-clone limit:** MLflow is not in git, so the command needs the four `just train` runs first.
+
+**Removed before committing:** a filter on the run's grid convention. All 33 runs in the store state
+the 24-slot grid, so it guarded a case never observed.
+
+**Tests** (5), each planted: newest replaced by oldest, and only the first param matched, both caught
+by *latest finds the newest matching run*; p directions swapped; the first side scored on its own
+hours (the fixture's second run is a day shorter, and that day is far off); the second side read from
+the first run; the trim skipped. All caught. Suite 200 green.
+
+**Output on today's store** reproduces every p in the README and work log: line once → monthly
+0.00013, monthly → daily 0.0012; tree once → monthly 3e-11, monthly → daily 0.028; tree → LEAR 0.50
+both ways; line → LEAR 4.5e-08; every year → 1,092 days 7.5e-05. Leakage check: evaluation only,
+reads stored forecasts, fits nothing, settlement untouched.
+
+Plan page refreshed (p-value command built, 200 tests, about two working days left).
+
+---
+
+**State at close.** `main` after this entry's commit, suite 200 green. README and plan page refreshed.
+
+---
+
 ### Next — next session
 
-**LEAR ties the tree. Decide what that means before measuring more.**
+**Stage 2 has two pieces left: holidays, then its one reading of the held-back years.**
 
 #### Recap questions
 
-1. Lasso with AIC kept 17–20 of 20 random columns. Why does that not ruin the forecast, and what question
-   is AIC answering instead of "is this clue real"?
-2. LEAR and the tree both score 0.429. What did the significance test add, and where in the day do the two
-   differ?
-3. The scoring in `train.py` moved after all the fitting. What would go wrong if the skipped days were
-   removed from `valid` first?
-4. Name two of today's four hindsight checks and what a leak would have looked like in each.
-5. Our LEAR and epftoolbox's agree to 1e-10. Why is that expected, and what can this check not catch?
+1. Every-year LEAR lost to 1,092 days, while the tree did better on every year. What is one possible
+   reason, and why is it still only a guess?
+2. Line, tree and LEAR work in very different ways. Why is ranking them by rMAE still fair, and what
+   can that ranking not tell us about LEAR's gain over the line?
+3. `just significance` names runs by their params, not by id. Why, and what does printing each run's
+   commit protect against?
+4. Two plants survived today. Name one, and say why no test was written for it.
+5. Why does `compare` score both rMAEs on the shared hours rather than on each run's own?
 
 #### Then, in order
 
-1. **Training window**: 1,092 days against every year, measured, with Diebold-Mariano.
-2. **A documented command for the p-values** (Third Law gap, 12 Oct). Today's LEAR p-values were also read by hand.
-3. **One model per delivery hour** for line and tree: LEAR already is one. Does the item still stand as written?
-4. **German public holidays**, not in the feature frame.
-5. Then stage 2's one reading of the held-back years, and on to stages 3 and 4 (decided 13 Oct: no tuning chase).
+1. **German public holidays**, with the full leakage check: who publishes the calendar, and when was
+   each holiday known? Measured with `just train daily` and `just significance`.
+2. **Stage 2's one reading of the held-back years**: decide which models and recipes go into it, then
+   `just final-score` once.
+3. Then stage 3 (decided 13 Oct: no tuning chase).
