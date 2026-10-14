@@ -62,6 +62,11 @@ explore:
 train refit="once" lear="1092":
     {{py}} -m scripts.train --refit {{refit}} --lear {{lear}}
 
+# Every p-value the README states, from the runs `just train` left in MLflow. Offline.
+# Needs `just train once`, `monthly`, `daily` and `daily all` first; names any missing.
+significance:
+    {{py}} -m scripts.significance
+
 # The number a stage ends on, from the years held back. Offline.
 #
 # Run this once per stage, and mean it. Reading the held-back years and then changing

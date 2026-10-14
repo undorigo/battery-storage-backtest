@@ -1,0 +1,92 @@
+"""Is the gap real? — every p-value the README states, regenerated in one command.
+
+Reads the hourly forecasts that `just train` left in MLflow and runs Diebold-Mariano
+on each comparison the README makes.  Writes nothing: `scores.csv` stays the record,
+and this only re-reads what the runs already kept.
+
+**Each side is named by what its run states, not by a run id.**  Ids differ from one
+clone to the next; "the newest daily tree" does not.  Newest means a rerun at a later
+commit replaces the earlier reading, so each row prints the commits it read, and a
+p-value that moved because its run moved is visible rather than silent.
+"""
+
+from __future__ import annotations
+
+import pandas as pd
+
+from src import evaluate as E
+from src import tracking as TR
+
+
+# ── The comparisons the README makes ──────────────────────────────────────────
+# One line per claim, in the README's order.  Each is (label, first, second), and
+# the test asks whether `second` is more accurate than `first`; the reverse is
+# printed beside it, because "cannot tell" has to be read in both directions.
+
+LEAR = {"model": "lear", "refit": "daily", "lear_window": "1092"}
+
+COMPARISONS = [
+    ("line, once → monthly", {"model": "linear", "refit": "once"},
+     {"model": "linear", "refit": "monthly"}),
+    ("line, monthly → daily", {"model": "linear", "refit": "monthly"},
+     {"model": "linear", "refit": "daily"}),
+    ("tree, once → monthly", {"model": "gbm", "refit": "once"},
+     {"model": "gbm", "refit": "monthly"}),
+    ("tree, monthly → daily", {"model": "gbm", "refit": "monthly"},
+     {"model": "gbm", "refit": "daily"}),
+    ("daily: tree → LEAR", {"model": "gbm", "refit": "daily"}, LEAR),
+    ("daily: line → LEAR", {"model": "linear", "refit": "daily"}, LEAR),
+    ("LEAR: every year → 1,092 days",
+     {"model": "lear_all", "refit": "daily", "lear_window": "all"}, LEAR),
+]
+
+
+def command(side: dict) -> str:
+    """The `just` call that produces a run like this one."""
+    return f"just train {side['refit']}" + (" all" if side.get("lear_window") == "all" else "")
+
+
+# ── One comparison ────────────────────────────────────────────────────────────
+# Two runs may cover different hours (an 8,759-hour run against an 8,760-hour one),
+# so both forecasts, the benchmark and the actual are trimmed together first.  Both
+# rMAEs are then computed on those shared hours, so the two sides sit one exam and
+# the p-value and the scores beside it describe the same thing.
+
+def compare(first: dict, second: dict, **where) -> dict:
+    """rMAE of each side, p both ways, and which runs were read. Raises if one is missing."""
+    found = []
+    for side in (first, second):
+        run = TR.latest(**where, **side)
+        if run is None:
+            raise LookupError(f"no {side['model']} run with refit={side['refit']}: "
+                              f"run `{command(side)}`")
+        params, forecasts = TR.read(run, **where)
+        found.append((params["commit"], forecasts[side["model"]], forecasts))
+    (c1, f1, frame), (c2, f2, _) = found
+    a, b, naive, actual = E.aligned(f1, f2, frame["naive"], frame["actual"])   # one exam
+    return {"first": E.rmae(a, naive, actual), "second": E.rmae(b, naive, actual),
+            "p_second_better": E.dm(a, b, actual), "p_first_better": E.dm(b, a, actual),
+            "hours": len(actual), "commits": f"{c1} / {c2}"}
+
+
+# ── Running it ────────────────────────────────────────────────────────────────
+
+def main() -> int:
+    print("| Comparison | rMAE first | rMAE second | p second better | p first better "
+          "| Hours | Commits |")
+    print("|---|---|---|---|---|---|---|")
+    missing = 0
+    for label, first, second in COMPARISONS:
+        try:
+            r = compare(first, second)
+        except LookupError as exc:
+            print(f"| {label} | — | — | — | — | — | {exc} |")
+            missing += 1
+            continue
+        print(f"| {label} | {r['first']:.3f} | {r['second']:.3f} | {r['p_second_better']:.2g} "
+              f"| {r['p_first_better']:.2g} | {r['hours']:,} | {r['commits']} |")
+    return 1 if missing else 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

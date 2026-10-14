@@ -72,6 +72,7 @@ Each file answers exactly one question. If you can't say which, it is doing too 
 | | `scripts/explore.py` | What does the record actually contain? | built |
 | | `scripts/train.py` | How is it doing on the year we may keep looking at? | built |
 | | `scripts/final_score.py` | How did it do on the years nobody has touched? | built |
+| | `scripts/significance.py` | Is each gap the README claims bigger than luck? | built |
 
 Ten of eleven exist. `backtest.py` is a name and an intention, nothing more.
 

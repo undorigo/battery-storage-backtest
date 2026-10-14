@@ -92,7 +92,8 @@ of its training rows changed and it landed differently, in every hour. Refitting
 daily may differ by less than that, so rMAE alone cannot read the first comparison stage 2 makes.
 Built 7 October: the field's daily version (epftoolbox), plus a correction for good and bad days
 running in streaks, which in 2023 turns a plain p of 0.02 into 0.058. Every hour's forecast is kept
-in MLflow so the test can be run on any two runs.
+in MLflow, and `just significance` (built 14 October) regenerates every p-value on this page from
+those runs. It needs the `just train` runs first, and names any that are missing.
 
 1. **Refit as the year runs.** Measured on validation, refitting monthly instead of once moved
    the tree from 0.488 to 0.440 — a larger gain than any model choice produced. An expanding
@@ -354,7 +355,7 @@ git clone <this repo> && cd battery-storage-backtest
 
 python3 -m venv .venv                              # a project-local environment
 .venv/bin/pip install -r requirements.txt          # once, not per terminal session
-.venv/bin/python -m pytest tests/ -q               # 191 tests, offline, no token
+.venv/bin/python -m pytest tests/ -q               # 200 tests, offline, no token
 ```
 
 That's the whole setup. `pip install` writes into `.venv/` on disk, so it persists — you
@@ -435,6 +436,7 @@ BUILT
   scripts/explore.py         just explore     — headline numbers and the README figures
   scripts/train.py           just train       — score the validation year, as often as you like
   scripts/final_score.py     just final-score — read the held-back years, once per stage
+  scripts/significance.py    just significance — every p-value the README states, from MLflow
   reports/scores.csv         every scored run, appended, stamped with its commit
 
 PLANNED
