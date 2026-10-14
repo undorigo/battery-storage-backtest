@@ -2765,6 +2765,13 @@ forecast. Suite 191 green.
 
 ---
 
+<a id="d20261014"></a>
+### 14 October 2026
+
+**Recap (all five):** 1 half right: AIC's trade-off named, but the random columns bring no information and survive only because their weights are tiny. 2 half right: night against solar hours correct, but the test was described as grading a model rather than asking whether the gap between two is bigger than luck. 3 wrong: validation days become training days later, so trimming first would change the line's and tree's refits. 4 one half right (window ending D−1, no leak signature given), one a unit test rather than a hindsight check. 5 half right: no random step named; what the check cannot catch (shared inputs, the information boundary) missed. LEAR re-summarised in six steps.
+
+---
+
 ### Next — next session
 
 **LEAR ties the tree. Decide what that means before measuring more.**
