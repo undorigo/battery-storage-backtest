@@ -1,12 +1,12 @@
 """Contract 2 from the other side.
 
 `test_train.py` checks that the everyday script can never reach the held-back years. This
-file checks the one script that may — that it reaches them *and nothing else*, and that it
-learns from everything published beforehand rather than from a convenient subset.
+file checks the one script that may — that it scores them *and nothing else*, and that every
+fit learns from everything published before the hours it forecasts, never from those hours.
 
-The test that carries the weight is `test_the_fit_includes_the_validation_year`. Getting it
-wrong in the cautious direction wastes a year of data; getting it wrong in the other
-direction would fit on the very rows being scored, and no other check here would notice.
+The test that carries the weight is `test_every_fit_ends_before_the_hours_it_forecasts`.
+The daily refits now learn from earlier held-back days on purpose, so "no fit sees a
+held-back row" no longer holds; what must hold is that no fit sees its own day.
 """
 
 from __future__ import annotations
@@ -23,12 +23,13 @@ from src import models as M
 
 # ── The fixture ───────────────────────────────────────────────────────────────
 # Long enough to straddle both boundaries: training months in 2022, a full validation year
-# in 2023, and half of 2024 to be held back. Same shape as the one in test_train.py —
+# in 2023, and three weeks of 2024 to be held back — short, because every held-back day is
+# a refit of both estimators. Same shape as the one in test_train.py —
 # cycles that never line up with a week, and no trend, so the benchmark can be beaten and
 # the tree is never asked to predict past what it has seen.
 
 START = pd.Timestamp("2022-10-01 00:00", tz="UTC")
-END = pd.Timestamp("2024-06-30 23:00", tz="UTC")
+END = pd.Timestamp("2024-01-21 23:00", tz="UTC")
 
 
 def _sources() -> dict[str, pd.DataFrame]:
@@ -52,20 +53,56 @@ def _sources() -> dict[str, pd.DataFrame]:
     }
 
 
-@pytest.fixture
-def frames(monkeypatch):
-    """`FS.data()` run against the fixture instead of the cache."""
-    src = _sources()
-    monkeypatch.setattr(F, "data_load", lambda key: src[key])
-    return FS.data()
+class Calls:
+    """Every fit and the forecast that follows it, in order, plus what LEAR was handed."""
+
+    def __init__(self):
+        self.pairs: list[tuple[pd.DataFrame, pd.DataFrame]] = []
+        self.lear: dict = {}
 
 
-# ── What each recipe learns from ──────────────────────────────────────────────
-# Two fits, and the difference between them is the whole point of scoring both. Getting
-# either boundary wrong is silent: too cautious wastes a year, too loose fits on the very
-# rows being judged.  The boundary hours are written out rather than read from
-# `split()`, so these tests cannot agree with a mistake there.  Grid labels, so
-# every year ends at 23:00 on the Berlin clock.
+@pytest.fixture(scope="module")
+def scored():
+    """One `FS.run` on the fixture, with fit, forecast and LEAR watched.
+
+    A stand-in replaces LEAR, as in test_train.py: the wiring is what is tested here, and
+    LEAR's own rule about its window is tested in test_models.py.  It skips the first
+    held-back day, so the same-exam rule has something to remove.
+    """
+    src, calls = _sources(), Calls()
+    real_fit, real_forecast = M.fit, M.forecast
+    pending: list[pd.DataFrame] = []
+
+    def fit(estimator, frame):
+        pending.append(frame)                        # what was learned from
+        return real_fit(estimator, frame)
+
+    def forecast(model, frame):
+        calls.pairs.append((pending.pop(), frame))   # ...and the hours it then forecast
+        return real_forecast(model, frame)
+
+    def lear(table, days):
+        calls.lear["table"], calls.lear["days"] = table, days
+        days = days[1:]                              # skips a day, as a blank clue would make it
+        answers = table.loc[days, F.day_answer_columns(table)]
+        answers.columns = [int(c[-2:]) for c in answers.columns]
+        return F.unfold(answers + 1.0).rename("predicted")
+
+    with pytest.MonkeyPatch.context() as mp:
+        mp.setattr(F, "data_load", lambda key: src[key])
+        frames = FS.data()
+        table = FS.day_rows()
+        mp.setattr(M, "fit", fit)
+        mp.setattr(M, "forecast", forecast)
+        mp.setattr(M, "lear_walk_forward", lear)
+        rows, forecasts = FS.run(*frames, table)
+    return frames, rows, forecasts, calls
+
+
+# ── What each fit learns from ─────────────────────────────────────────────────
+# The boundary hours are written out rather than read from `split()`, so these tests
+# cannot agree with a mistake there.  Grid labels, so every year ends at 23:00 on the
+# Berlin clock.
 
 LAST_TRAIN_HOUR = pd.Timestamp("2022-12-31 23:00")
 LAST_VALID_HOUR = pd.Timestamp("2023-12-31 23:00")
@@ -73,125 +110,102 @@ FIRST_TEST_HOUR = pd.Timestamp("2024-01-01 00:00")
 LAST_TEST_HOUR = pd.Timestamp("2025-12-31 23:00")
 
 
-def test_two_recipes_are_scored(frames):
-    """One reading, two histories. Five rows, not three."""
-    rows = FS.run(*frames)
-    assert len(rows) == 5
+def test_every_fit_ends_before_the_hours_it_forecasts(scored):
+    """The failure that would matter: learning from the hours being judged."""
+    (_, _, holdout), _, _, calls = scored
+    days = holdout.index.normalize().nunique()
+    assert len(calls.pairs) == 2 * days + 2          # two estimators daily, two frozen
+    for learned, forecast in calls.pairs:
+        assert learned.index.max() < forecast.index.min()
 
 
-def test_one_recipe_stops_at_the_training_years(frames):
-    """The row that has to stay comparable to the validation score.
-
-    Same recipe as `train.py` — fitted to the end of 2022 — so the only thing differing
-    between it and the 0.488 is which years are being forecast.
-    """
-    train, _, _ = frames
-    assert train.index.max() <= LAST_TRAIN_HOUR
-    assert FS.label("gbm", train).endswith("2022")
+def test_the_frozen_fits_use_every_year_before_2024_and_stop_there(scored):
+    (train, _, holdout), _, _, calls = scored
+    frozen = [learned for learned, forecast in calls.pairs if len(forecast) == len(holdout)]
+    assert len(frozen) == 2
+    for learned in frozen:
+        assert learned.index.min() == train.index.min()
+        assert learned.index.max() == LAST_VALID_HOUR
 
 
-def test_the_other_recipe_uses_the_validation_year_too(frames):
-    """The headline row: every year available before the first delivery hour.
-
-    Holding 2023 out was only needed while 2023 was being scored. Here the thing being
-    scored is 2024 onwards, so 2023 is history like any other year.
-    """
-    train, valid, _ = frames
-    history = pd.concat([train, valid])
-    years = set(history.index.year)                  # grid labels are Berlin already
-    assert {2022, 2023} <= years
-    assert FS.label("gbm", history).endswith("2023")
+def test_the_daily_refits_learn_from_earlier_held_back_days(scored):
+    """The cautious mistake: walking forward but never adding the held-back days."""
+    (_, _, holdout), _, _, calls = scored
+    last_day = holdout.index.normalize().max()
+    final = [learned for learned, forecast in calls.pairs
+             if forecast.index.min().normalize() == last_day]
+    assert len(final) == 2
+    for learned in final:
+        assert learned.index.max() == last_day - pd.Timedelta(hours=1)   # 23:00 the day before
 
 
-def test_no_fit_ever_sees_a_held_back_row(frames, monkeypatch):
-    """The failure that would matter: learning from the rows being judged.
-
-    This watches what `run` actually hands to `M.fit`. The version it replaces built its
-    own concatenation and checked that instead — so it could not notice if `run` fitted on
-    something else entirely, and when the held-back years were let into the fit on purpose
-    it stayed green. The leak was caught only incidentally, by the label test.
-    """
-    _, _, holdout = frames
-    seen: list[pd.DataFrame] = []
-    real_fit = M.fit
-
-    def spy(estimator, frame):
-        seen.append(frame)                           # record what was learned from
-        return real_fit(estimator, frame)
-
-    monkeypatch.setattr(M, "fit", spy)
-    FS.run(*frames)
-
-    assert len(seen) == 4, "expected two estimators over two histories"
-    for frame in seen:
-        assert frame.index.max() <= LAST_VALID_HOUR
-        assert frame.index.intersection(holdout.index).empty
+def test_lear_forecasts_held_back_days_only(scored):
+    (_, _, holdout), _, _, calls = scored
+    assert calls.lear["days"].isin(holdout.index.normalize()).all()
+    assert calls.lear["table"].index.max() <= pd.Timestamp(cfg.TEST_END)
 
 
-def test_the_label_is_derived_rather_than_written(frames):
+def test_the_label_is_derived_rather_than_written(scored):
     """A hardcoded span would be a second copy of the split dates, free to drift."""
-    train, valid, _ = frames
+    (train, valid, _), _, _, _ = scored
     assert FS.label("linear", train) != FS.label("linear", pd.concat([train, valid]))
 
 
 # ── What is scored ────────────────────────────────────────────────────────────
 
-def test_only_held_back_rows_are_scored(frames):
-    _, _, holdout = frames
+def test_only_held_back_rows_are_scored(scored):
+    (_, _, holdout), _, forecasts, _ = scored
     assert holdout.index.min() >= FIRST_TEST_HOUR
     assert holdout.index.max() <= LAST_TEST_HOUR
+    assert forecasts.index.isin(holdout.index).all()
 
 
-def test_no_blank_survives_into_any_frame(frames):
+def test_no_blank_survives_into_any_frame(scored):
+    frames, _, _, _ = scored
     for part in frames:
         assert not part.isna().to_numpy().any()
 
 
 # ── The scored table ──────────────────────────────────────────────────────────
 
-def test_every_row_is_labelled_as_held_back(frames):
+def test_every_row_is_labelled_as_held_back(scored):
     """A row from here must never be mistaken for a validation score in the record."""
-    assert all(row["split"] == "test" for row in FS.run(*frames))
+    _, rows, _, _ = scored
+    assert all(row["split"] == "test" for row in rows)
 
 
-def test_the_benchmark_appears_once_and_scores_exactly_one(frames):
-    rows = [r for r in FS.run(*frames) if r["model"] == "naive"]
-    assert len(rows) == 1
+def test_the_benchmark_comes_first_and_scores_exactly_one(scored):
+    _, rows, _, _ = scored
+    assert rows[0]["model"] == "naive"
     assert rows[0]["rmae"] == pytest.approx(1.0)
 
 
-def test_both_estimators_appear_under_both_histories(frames):
-    names = {r["model"] for r in FS.run(*frames)}
-    assert names == {"naive", "linear 2022-2022", "gbm 2022-2022",
-                     "linear 2022-2023", "gbm 2022-2023"}
+def test_both_recipes_are_scored(scored):
+    _, rows, _, _ = scored
+    assert [r["model"] for r in rows] == ["naive", "linear daily", "gbm daily", "lear daily",
+                                          "linear 2022-2023", "gbm 2022-2023"]
 
 
-def test_every_forecast_is_scored_on_the_same_hours(frames):
-    """The same-exam rule. Five rows, one hour count."""
-    assert len({row["n"] for row in FS.run(*frames)}) == 1
+def test_every_forecast_is_scored_on_the_same_hours(scored):
+    """The same-exam rule: the day LEAR skipped leaves every model's exam."""
+    (_, _, holdout), rows, forecasts, _ = scored
+    skipped = holdout.index.normalize().min()
+    assert not (forecasts.index.normalize() == skipped).any()
+    assert {row["n"] for row in rows} == {len(forecasts)}
 
 
-def test_no_model_is_its_own_benchmark(frames):
-    """Same hole that survived a mutation in test_train.py, closed here too.
-
-    Passing each model's own forecast as its denominator makes every rMAE exactly 1.000
-    and every other check in this file still passes.
-    """
-    for row in FS.run(*frames):
-        if row["model"] == "naive":
-            continue
+def test_no_model_is_its_own_benchmark(scored):
+    """Passing each model's own forecast as its denominator makes every rMAE exactly 1.000."""
+    _, rows, _, _ = scored
+    for row in rows[1:]:
         assert row["rmae"] < 1.0, f"{row['model']} scored as though it were its own benchmark"
 
 
-def test_the_two_recipes_do_not_score_identically(frames):
-    """The second history really is longer, rather than the first one passed in twice.
-
-    Named for what it checks. An earlier version claimed to verify that a fresh estimator
-    is built per fit — sharing them was tried and every test still passed, because each row
-    is scored before the next fit replaces the estimator.
-    """
-    rows = {r["model"]: r["mae"] for r in FS.run(*frames)}
-    assert rows["gbm 2022-2022"] != rows["gbm 2022-2023"]
+def test_daily_and_frozen_do_not_score_identically(scored):
+    """The daily rows really refit, rather than one model passed in twice."""
+    _, rows, _, _ = scored
+    mae = {r["model"]: r["mae"] for r in rows}
+    assert mae["gbm daily"] != mae["gbm 2022-2023"]
 
 
 # ── The sentence a person actually reads ──────────────────────────────────────
