@@ -22,6 +22,9 @@ from src import tracking as TR
 # One line per claim, in the README's order.  Each is (label, first, second), and
 # the test asks whether `second` is more accurate than `first`; the reverse is
 # printed beside it, because "cannot tell" has to be read in both directions.
+#
+# A claim about one change pins both sides to their commits, so a later rerun
+# cannot quietly stand in for the run the claim was made on.
 
 LEAR = {"model": "lear", "refit": "daily", "lear_window": "1092"}
 
@@ -38,12 +41,20 @@ COMPARISONS = [
     ("daily: line → LEAR", {"model": "linear", "refit": "daily"}, LEAR),
     ("LEAR: every year → 1,092 days",
      {"model": "lear_all", "refit": "daily", "lear_window": "all"}, LEAR),
+    *[(f"holidays, {name} {refit}: without → with",
+       {"model": model, "refit": refit, "commit": before},
+       {"model": model, "refit": refit, "commit": "d1f6252"})
+      for name, model in (("line", "linear"), ("tree", "gbm"))
+      for refit, before in (("once", "9bb03ff"), ("monthly", "9bb03ff"), ("daily", "e8792c6"))],
+    ("holidays, LEAR: without → with", {**LEAR, "commit": "4cfc6b4"},
+     {**LEAR, "commit": "d1f6252"}),
 ]
 
 
 def command(side: dict) -> str:
-    """The `just` call that produces a run like this one."""
-    return f"just train {side['refit']}" + (" all" if side.get("lear_window") == "all" else "")
+    """The `just` call that produces a run like this one, from its commit if pinned."""
+    call = f"just train {side['refit']}" + (" all" if side.get("lear_window") == "all" else "")
+    return f"git checkout {side['commit']} && {call}" if "commit" in side else call
 
 
 # ── One comparison ────────────────────────────────────────────────────────────

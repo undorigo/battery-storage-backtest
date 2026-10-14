@@ -66,3 +66,10 @@ def test_a_missing_run_names_the_command_that_makes_it(store):
     where, _ = store
     with pytest.raises(LookupError, match="just train daily all"):
         S.compare(ONCE, {"model": "lear_all", "refit": "daily", "lear_window": "all"}, **where)
+
+
+def test_a_pinned_run_is_read_from_its_commit_only(store):
+    where, _ = store
+    assert S.compare(ONCE, {**MONTHLY, "commit": "c-monthly"}, **where)["commits"] == "c-once / c-monthly"
+    with pytest.raises(LookupError, match="git checkout c-later"):
+        S.compare(ONCE, {**MONTHLY, "commit": "c-later"}, **where)
