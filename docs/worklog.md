@@ -2832,6 +2832,8 @@ hour is tuning, which 13 October ruled out. The attribution gap goes into the RE
 limit. Rejected: one in-between model (24 plain lines on LEAR's inputs) to attribute the gain, and
 parking the item until stage 4. CLAUDE.md's stage table follows the README.
 
+Plan page refreshed (window measured, per-hour dropped, 195 tests, about three working days left).
+
 ---
 
 ### Next — next session
