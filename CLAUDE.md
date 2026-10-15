@@ -57,10 +57,18 @@ by an overlapping horizon: optimise 48 hours, implement the first 24, carry forw
 | Stage | What it delivers | Headline number | Status |
 |-------|-----------------|-----------------|--------|
 | 0 | Reproducible data pull, split locked | negative-price hours, daily spread | done 17 Sep 2026 |
-| 1 | First model against naive benchmark | **rMAE 0.532** | done 30 Sep 2026 |
-| 2 | Recalibration, LEAR, holidays | **rMAE 0.405** | done 14 Oct 2026 |
-| 3 | Quantile forecasts | pinball loss, coverage | |
-| 4 | MILP optimiser, revenue | capture rate | |
+| 1 | First model against naive benchmark | rMAE 0.532 *(last week)* | done 30 Sep 2026 |
+| 2 | Recalibration, LEAR, holidays | **rMAE 0.485** *(0.405 last week)* | done 14 Oct 2026 |
+| 3 | Quantile forecasts: QRA on LEAR, conformal beside it | pinball loss, coverage | next |
+| 4 | Price-dependent bids and MILP schedule, revenue | capture rate | |
+
+**Every rMAE divides by the field's benchmark from the close of stage 2 (15 Oct)** — yesterday's
+price Tue–Fri, last week's Sat–Mon — with last week's beside it in `scores.csv` (`rmae`, while
+`rmae_field` is the headline). Numbers dated earlier divided by last week's price and stay as they were.
+
+**Stage 4 bids with limit prices** (decided 15 Oct), so stage 3's range changes a decision: a fixed
+schedule that ignores risk would need only the average forecast. The fixed schedule stays beside the
+bids; the rule for an unfilled order is open until stage 4 starts.
 | 5 | Drift monitoring, scheduled run | reproducibility | |
 
 Stage 2 led with "model craft" until 30 September. It now leads with **recalibration**, because
