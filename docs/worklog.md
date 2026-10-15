@@ -3015,26 +3015,114 @@ is quoted until a documented command regenerates it.
 
 ---
 
+#### The field's benchmark built, every README run repeated (`93d3290`, `9b2ed8d`, `c7b4739`)
+
+**Design agreed before building.** The field's rule is `models.field_naive`, beside `naive_forecast`:
+`price_lag_24h` Tue–Fri, `price_lag_168h` Sat–Mon, weekday read off the grid's Berlin labels (checked
+against epftoolbox's `naive_forecast` today: Mon, Sat, Sun weekly; Tue–Fri daily). One departure:
+epftoolbox builds its naive from inside the test series, so its denominator skips the first week; ours
+reaches back before the split, so both sides score identical hours. **`scores.csv`: `rmae` keeps its
+meaning (last week's), `rmae_field` added as the headline** — the header line rewritten once, old rows
+blank there, no recorded value touched. Rejected: renaming to `rmae_week` with a new `rmae` (the word
+would mean different things in old and new clones). **Re-run rather than re-score:** no new script,
+and the weekly ratio reproducing to the last digit proves nothing else moved. Rejected: a re-score
+script over MLflow (a new file, and rows stamped with the scoring commit, not the forecasting one).
+**Correction to 15 Oct's "re-scored, not refitted":** the held-back years were refitted a third time;
+the models are deterministic, the forecasts identical, and no choice was made from them.
+
+**First, a guard** (`93d3290`): pandas appends without reading the header, so a row with a new
+column was written into the record and only the read-back failed (shown on a copy of the real
+file). `record` now refuses before writing. Plants: no guard, check after the write; both caught.
+
+**Then the benchmark** (`9b2ed8d`). `score` takes the field's benchmark as a required keyword and
+trims all four series together; the table leads with it; MLflow keeps `naive_field` and logs
+`rmae_field`; both benchmarks are scored rows, each reading 1.000 on its own ratio. `just
+significance` divides by the field's when the first run stored it, else last week's, and prints
+which: the holiday claims are pinned to runs from before the revision. Leakage check: no feature
+changed; lag 24 already meets the minimum; benchmark only, nothing fitted; settlement untouched.
+
+| Planted bug | Caught by |
+|---|---|
+| Monday from yesterday; Saturday from yesterday; rule swapped | *field benchmark takes yesterday Tue–Fri…* |
+| field's benchmark outside the shared trim | *an hour missing from the field benchmark…* |
+| field ratio divided by last week's | three tests (score, trim, MLflow reproduces) |
+| table prints last week's first | *table renders one line per row* |
+| MLflow drops the field column | two tracking tests |
+| `train.run` / `final_score.run` fill the column with last week's | **nothing at first**: it still reads 1.000 on itself and the models still beat it. Two tests added that read the value off the prices by date; both caught |
+| significance always last week's; never falls back; mislabels | three significance tests |
+| `final_score.main` logs the field run with the frozen batch | **nothing**: `main` is untested. Checked on the real run: `refit=daily` |
+
+My first plant loop passed four test files as one word under zsh (the 14 Oct trap again) and ran
+nothing; rerun with the words split. Suite 210 green.
+
+**The runs** (`c7b4739`, all at `9b2ed8d`; validation 1 s, 13 s, 1,569 s, 1,608 s; held back 2,233 s).
+Every last-week ratio identical to `d1f6252` / `69e1998` to the last digit, 13 rows. The field's
+benchmark misses by 28.62 €/MWh in 2023 (last week's 33.65) and 27.38 in 2024–25 (32.81).
+
+| rMAE, field's (last week's) | 2023 | 2024–25 |
+|---|---|---|
+| line once / monthly / daily | 0.625 / 0.618 / 0.615 | |
+| tree once / monthly / daily | 0.569 / 0.521 / 0.503 | |
+| LEAR 1,092 days / every year | 0.504 / 0.554 | |
+| line daily | 0.615 (0.523) | 0.648 (0.541) |
+| tree daily | 0.503 (0.428) | 0.548 (0.457) |
+| **LEAR daily** | 0.504 (0.429) | **0.485** (0.405) |
+| tree / line fitted once on 2018–2023 | | 0.636 (0.530) / 0.675 (0.563) |
+
+`just significance` reproduces every p-value logged before. README (revision note under the stage
+table, both ratios, stage 1 marked as last week's), CLAUDE.md's stage table and the plan page
+(version 14) refreshed. README's stale "108 passed, 16 xfailed" replaced by 210 (`387c0f3`).
+
+---
+
+#### Stage 3 agreed: QRA on LEAR, because stage 4 now bids with limit prices
+
+**Walked through on 11 September 2023** (a validation day, so nothing is chosen from the test years):
+a rough 80 % band from LEAR's own misses over the 91 days before held 77.9 % of hours April–December;
+at 19:00 it ran 157–210 and 524 came in, yet the schedule was right (cheapest 13:00, dearest 19:00,
+both forecast). **The point raised:** a risk-neutral fixed schedule depends only on the average
+forecast, so a range changes nothing it does. **The user's pushback, correct:** an operator wants to
+understand risk. So my claim was too broad — a range matters when risk is reported or acted on (CVaR),
+and when bids are price-dependent.
+
+**Read first.** Lipiecki, Uniejewski & Weron 2024 (arXiv 2404.02270): QRA, conformal prediction and
+IDR postprocessing LEAR on DE and ES, windows 28–182 days, 99 percentiles, CRPS; QRA alone
+competitive with a distributional DNN, the average of all three best. Nitka & Weron 2023 (arXiv
+2308.15443): DE 2019–20, battery 2 MWh at 90 % each way (ours), median picks the hours, limit prices
+at quantiles; the CRPS-best combination earned *less*. Hirsch & Ziel 2026 (arXiv 2604.19580): DE
+2019–23; quantile trading rules can be gamed by biased forecasts and ignore links between hours; a
+better score does not guarantee a better decision. **Not verified:** how an unfilled order is closed
+(a search summary says the next day at market; not found in the paper text read).
+
+**Decisions with the user.** Stage 3: QRA on LEAR's daily forecasts, conformal beside it, pinball
+loss and coverage on 2023. Rejected: quantiles fitted directly from the features. Stage 4: price-
+dependent bids from the quantiles, fixed schedule kept beside them (one shared ceiling; shows in euros
+whether the range paid). Rejected: a stochastic program over price paths (scope), a fixed schedule
+only (the user wants the auction as it works). Recorded as direction now, details later; the unfilled-
+order rule and its settlement (Contracts 3 and 4) open until stage 4 starts. README and plan page say so.
+
+---
+
 ### Next — next session
 
-**Stage 2 is closed: LEAR, refitted daily, 0.405 on the held-back years. Stage 3 is next.**
+**Stage 3 starts: QRA on LEAR, conformal beside it, scored on 2023. Every rMAE is now the field's.**
 
 #### Recap questions
 
-1. Why could stage 1's final-score script not answer stage 2's question about the held-back years?
-2. The daily refits now learn from held-back days. Why is that not a leak, and what must still never
-   happen?
-3. On 2023 LEAR and the tree tied. What changed on 2024–25, and where does the tree still do better?
-4. Why do the 2023 claims in `just significance` now name their split?
-5. The holiday flag changed nothing measurable. What already told the models it was a holiday?
+1. Why does a fixed schedule that ignores risk need only the average forecast, and when does a range
+   change what a battery does?
+2. Why were all five commands re-run rather than the stored forecasts re-scored, and what did the
+   re-run prove?
+3. A planted bug filled the field's column with last week's price and no test failed. Why could
+   none of them see it, and what kind of test did?
+4. Why does `just significance` still divide some rows by last week's price?
+5. Nitka & Weron's most accurate ranges earned less. Which of our early warning signs is that?
 
 #### Then, in order
 
-1. **Build the denominator revision** (decided 15 Oct, see above): the field's rule as headline,
-   last week's beside it, a dated revision note in the README. Walk through the design first: where
-   the new benchmark is computed, how `scores.csv` records two ratios without breaking its header,
-   and whether the stored forecasts can be re-scored or every run has to be repeated. Plant before
-   claiming. Then refresh README, plan page and CLAUDE.md's stage table.
-2. **Stage 3, quantile forecasts**: walk through what a quantile forecast is and why a battery needs a
-   range rather than one number, before choosing a method. Read what the field does first.
-3. Open: why LEAR's held-back lead grows into 2025 (a note, not a task, unless stage 4 makes it matter).
+1. **Stage 3, QRA on LEAR.** Walk through the design first: which quantiles (the field scores 99;
+   bids need a few), the calibration window (the field uses 28–182 days), how a quantile's fit sees
+   only earlier days, and how the lines are kept from crossing. Plant before claiming.
+2. **Conformal beside it**, then pinball loss and coverage on 2023; a significance test for pinball.
+3. Open: how the field closes an unfilled order (stage 4; read Nitka & Weron and Uniejewski & Weron
+   in full first). Why LEAR's held-back lead grows into 2025 (a note, not a task).
