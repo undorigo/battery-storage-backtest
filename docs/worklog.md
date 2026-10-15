@@ -3011,6 +3011,10 @@ is quoted until a documented command regenerates it.
 
 ---
 
+**Recap (all five, second session):** 1 wrong: the script was allowed to read the held-back years (once per stage); it measured stage 1's frozen recipe, not daily refitting. 2 half right: a refit sees only days before the one it forecasts, but the second rule (nothing chosen after seeing the test years) was missed. 3 half right: tree better on negative-price hours correct, but daily refitting cannot explain the change, since both were refitted daily in both years. 4 not understood: explained (newest matching run would silently become the 2024–25 run). 5 right: the load forecast already drops to Sunday's level on holidays.
+
+---
+
 ### Next — next session
 
 **Stage 2 is closed: LEAR, refitted daily, 0.405 on the held-back years. Stage 3 is next.**
