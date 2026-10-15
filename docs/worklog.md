@@ -3119,6 +3119,34 @@ auction, which decides whether quantile limits map onto it. Decision stays at st
 
 ---
 
+#### Stage 3's design agreed, nothing built
+
+Measured first: one quantile fit on 182 days takes 2.3 ms (scikit-learn 1.9.1 `QuantileRegressor`,
+HiGHS, no new dependency), so 99 percentiles × 24 hours × 365 days is about 33 min; LEAR's stored
+forecasts start on 1 January 2023. Explained on one hour (19:00): QRA fits lines through the cloud
+of (LEAR's forecast, real price) over the window, with 90 % of the dots below the p90 line; the lines
+need not be parallel, so the band can widen on expensive days, which conformal's fixed width cannot.
+
+**Decisions with the user:**
+- **History:** walk LEAR day by day through the last 182 days of 2022 first, so QRA learns only from
+  forecasts LEAR really made and all 365 days of 2023 are scored. Rejected: score July–December only.
+- **Inputs: LEAR alone.** The user asked whether the percentiles would also serve the tree and line,
+  and whether hourly and daily models can be combined. Answered: QRA makes one range per hour, built
+  from whichever forecasts are its inputs, and all three sit on the same 24-slot grid. Rejected for
+  now: LEAR, tree and line combined (little disagreement to combine; attribution).
+- **Window: 182 days**, shorter ones compared on 2023 only if the first result suggests it matters.
+  Rejected: the field's average of four windows from the start (~4× the fits).
+- **Code:** a new `scripts/quantiles.py` behind `just quantiles`, running LEAR itself; QRA in
+  `src/models.py`, pinball loss in `src/evaluate.py`. Rejected: reading LEAR from MLflow (a clean
+  clone would need `just train daily` first; inputs from another commit).
+
+**Defaults stated, not objected to:** one fit per delivery hour; each fit on days strictly before
+the one it forecasts; 99 percentiles; crossing lines sorted back into order and counted; conformal
+over the same window; scored on 2023 by average pinball loss and coverage of the 50, 80 and 90 %
+bands.
+
+---
+
 ### Next — next session
 
 **Stage 3 starts: QRA on LEAR, conformal beside it, scored on 2023. Every rMAE is now the field's.**
@@ -3136,9 +3164,9 @@ auction, which decides whether quantile limits map onto it. Decision stays at st
 
 #### Then, in order
 
-1. **Stage 3, QRA on LEAR.** Walk through the design first: which quantiles (the field scores 99;
-   bids need a few), the calibration window (the field uses 28–182 days), how a quantile's fit sees
-   only earlier days, and how the lines are kept from crossing. Plant before claiming.
+1. **Build stage 3 as agreed on 15 Oct** (see *Stage 3's design agreed*): LEAR through late 2022,
+   QRA on LEAR alone over 182 days, 99 percentiles, `just quantiles`. Build in pieces that can be
+   followed; plant before claiming; no commit while the run is going (~50 min).
 2. **Conformal beside it**, then pinball loss and coverage on 2023; a significance test for pinball.
 3. Open: which unfilled-order convention stage 4 uses (three read on 15 Oct; first check how a loop
    block's price limit is evaluated). Why LEAR's held-back lead grows into 2025 (a note, not a task).
