@@ -3002,7 +3002,10 @@ Not done: rebuilding held-back days from data cut at gate closure.
 
 1. **Report the field's benchmark beside ours** (found 15 Oct): the held-back LEAR is 0.405 against the
    weekly naive but 0.485 against the field's yesterday/last-week rule. Decide how the README states
-   both, with a documented command for the second.
+   both, with a documented command for the second. **The weekly rule's own reason is wrong:** the
+   comment above `naive_forecast` says a one-day rule "would set a bar that is too low", but the
+   field's rule already uses last week for Sat–Mon, and it misses less (27.4 against 32.8 €/MWh), so
+   the weekly rule is the *lower* bar. Rankings and p-values do not depend on the denominator.
 2. **Stage 3, quantile forecasts**: walk through what a quantile forecast is and why a battery needs a
    range rather than one number, before choosing a method. Read what the field does first.
 3. Open: why LEAR's held-back lead grows into 2025 (a note, not a task, unless stage 4 makes it matter).
