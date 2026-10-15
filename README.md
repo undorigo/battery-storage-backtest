@@ -3,9 +3,10 @@
 Forecasting German day-ahead electricity prices, and measuring what the forecast is
 actually worth to a battery.
 
-**Status:** stage 2 of 6 complete, 14 October 2026. LEAR, the field's statistical benchmark,
-refitted every day, forecasts the held-back years at **rMAE 0.405**, against stage 1's 0.532 — about
-40 % of the error of a week-old lookup. Stage 4, where that becomes a capture rate, is the one the
+**Status:** stage 2 of 6 complete, 14 October 2026; stage 3 next. LEAR, the field's statistical
+benchmark, refitted every day, forecasts the held-back years at **rMAE 0.485** against the field's
+benchmark, 0.405 against a week-old lookup. **The yardstick changed at the close of stage 2** — see
+the note under the stage table. Stage 4, where the forecast becomes a capture rate, is the one the
 rest exists for.
 
 ---
@@ -49,14 +50,40 @@ so a claim can always be traced back to the run that produced it.
 | Stage | Delivers | Headline number | Status |
 |---|---|---|---|
 | 0 | Reproducible data pull, split locked | negative hours, daily spread | **done** 17 Sep 2026 |
-| 1 | First model against a naive benchmark | **rMAE 0.532** | **done** 30 Sep 2026 |
-| 2 | Recalibration, LEAR, holidays | **rMAE 0.405** | **done** 14 Oct 2026 |
-| 3 | Quantile forecasts | pinball loss, coverage | |
-| 4 | MILP dispatch optimiser, revenue | **capture rate** | |
+| 1 | First model against a naive benchmark | rMAE 0.532 *(last week)* | **done** 30 Sep 2026 |
+| 2 | Recalibration, LEAR, holidays | **rMAE 0.485** *(0.405 last week)* | **done** 14 Oct 2026 |
+| 3 | Quantile forecasts: QRA on LEAR, conformal beside it | pinball loss, coverage | next |
+| 4 | Price-dependent bids and a MILP schedule, revenue | **capture rate** | |
 | 5 | Drift monitoring, scheduled run | reproducibility | |
+
+**Read this before any number on this page: the yardstick changed on 15 October 2026, at the
+close of stage 2.** An rMAE is our error divided by a simple rule's error. Until then the rule was
+"same hour last week". The field's rule is "same hour yesterday" from Tuesday to Friday and last
+week from Saturday to Monday (Lago et al. 2021, epftoolbox). Yesterday is usually the closer guess,
+so the field's rule is harder to beat, and every ratio against it is higher. **From the close of
+stage 2 on, every rMAE is divided by the field's rule**, with last week's beside it. **Every number
+dated before 15 October — stage 1's 0.532 and every figure in the stage 2 steps below — was divided
+by last week's price** and is left as it was. Rankings and p-values do not change: every model shares
+the denominator, and the significance test does not use it. The 2023 and held-back runs were
+repeated to get both ratios (`9b2ed8d`); the last-week ratios came out identical to the last digit,
+and the held-back forecasts were refitted identically, not re-chosen.
 
 Stage 4 is the one the rest exists for. Everything before it makes the capture rate mean
 something; without stages 0–3 it would be a number with no provenance.
+
+**Decided 15 October: stage 3 forecasts a range, and stage 4 bids with it.** A battery that
+commits one fixed schedule and ignores risk needs only the average forecast, so a range alone would
+change nothing it does. The real auction also takes price-dependent bids ("charge at 03:00 only
+below 60 €/MWh"), and those need a range to set the limit. So stage 3 turns LEAR's daily forecasts
+into quantiles the way the field does (*Quantile Regression Averaging*, Nowotarski & Weron 2015;
+compared in Lipiecki, Uniejewski & Weron 2024), with *conformal prediction* — a band read off past
+misses — as the simple comparison, scored by pinball loss and coverage on 2023. Stage 4 bids with
+those quantiles, as in Nitka & Weron (2023), and keeps the fixed schedule beside the bids, so the
+capture rate shows in euros whether the range was worth having. **Open until stage 4 starts:** what
+happens to an unfilled order, which the settlement depends on. Two warnings from the literature are
+carried in: the most accurate ranges did not earn the most (Nitka & Weron 2023), and simple quantile
+bidding rules can be gamed and ignore that a battery's hours depend on each other (Hirsch & Ziel
+2026).
 
 **Why that way round.** A standalone price forecast is close to a commodity — several vendors
 sell them and the accuracy differences between them are thin. The margin sits in the two things
@@ -69,7 +96,8 @@ valuable part.
 ### Where stage 1 landed
 
 A gradient-boosted tree forecasts the 17,542 held-back hours of 2024–25 with a mean absolute
-error of **17.44 €/MWh** against the naive rule's 32.81 — an rMAE of **0.532**. Reproduce it
+error of **17.44 €/MWh** against the naive rule's 32.81 — an rMAE of **0.532**, divided by last
+week's price as every number was before 15 October. Reproduce it
 with `just final-score`; the run is stamped into `reports/scores.csv` with the commit that
 produced it.
 
@@ -82,16 +110,17 @@ job, and it is why stage 2 carries a significance test rather than a leaderboard
 ### Where stage 2 landed
 
 LEAR, refitted every day on its last 1,092 days, forecasts the 17,544 held-back hours of 2024–25
-with a mean absolute error of **13.28 €/MWh** against the naive rule's 32.81 — an rMAE of
-**0.405**. Reproduce it with `just final-score`, and its p-values with `just significance`.
+with a mean absolute error of **13.28 €/MWh**. The field's benchmark misses by 27.38, giving an rMAE
+of **0.485**; last week's price misses by 32.81, giving 0.405. Reproduce both with `just
+final-score`, and the p-values with `just significance`.
 
-| rMAE | 2023, validation | 2024–25, held back |
+| rMAE, field's benchmark *(last week's)* | 2023, validation | 2024–25, held back |
 |---|---|---|
-| Straight line, refitted daily | 0.523 | 0.541 |
-| Tree, refitted daily | **0.428** | 0.457 |
-| LEAR, refitted daily | 0.429 | **0.405** |
-| Tree, fitted once on 2018–2023 | | 0.530 |
-| Straight line, fitted once on 2018–2023 | | 0.563 |
+| Straight line, refitted daily | 0.615 *(0.523)* | 0.648 *(0.541)* |
+| Tree, refitted daily | **0.503** *(0.428)* | 0.548 *(0.457)* |
+| LEAR, refitted daily | 0.504 *(0.429)* | **0.485** *(0.405)* |
+| Tree, fitted once on 2018–2023 | | 0.636 *(0.530)* |
+| Straight line, fitted once on 2018–2023 | | 0.675 *(0.563)* |
 
 **The ranking held this time.** Stage 1's validation winner lost on the held-back years; stage 2's
 did not, and every held-back gap is significant (LEAR better than the tree, p < 0.0001; the tree
@@ -104,19 +133,15 @@ to 2025 (0.377 against 0.457). Why is not known; one guess, not checked, is that
 **Daily refitting is the lever on untouched years too:** the tree goes from 0.530 fitted once to
 0.457 refitted daily, the line from 0.563 to 0.541 (both p < 0.0001).
 
-Checked before believed: LEAR is closer than the tree on 55 % of hours, not on nearly all of them,
-and 0.405 sits inside the published range for LEAR on German prices against the same benchmark
-(0.40–0.43, arXiv 2311.02610). Not done: rebuilding held-back days from data cut at gate closure,
+Checked before believed: LEAR is closer than the tree on 55 % of hours, not on nearly all of them.
+**It is a LEAR-level result, not a top one.** Against the field's benchmark Lago et al. (2021) report
+LEAR at 0.431 and their best ensemble at 0.374 on German prices of 2016–17, other years and so only
+roughly comparable; against last week's, 0.405 sits inside arXiv 2311.02610's 0.40–0.43 for LEAR,
+whose best models reach 0.34–0.36. Not done: rebuilding held-back days from data cut at gate closure,
 as was done for four days of 2023. **All of this is error, not money.** Whether LEAR's lead turns
 into revenue is what stage 4 measures.
 
-**A revision is decided, not yet built (15 October).** Every rMAE in this README divides by the
-price at the same hour one week earlier. The field divides by yesterday's price on Tuesday to
-Friday and last week's on Saturday to Monday (Lago et al. 2021, epftoolbox), which misses less and
-so is harder to beat: against it, every ratio here rises. From the next build on, every rMAE is
-divided by the field's rule, with last week's kept beside it, and each number states which it uses.
-Rankings and p-values do not change: every model shares the denominator, and the significance test
-does not use it.
+**Every figure in the steps below is from before 15 October, so divided by last week's price.**
 
 ### What stage 2 did, in the order the evidence supported
 
@@ -209,7 +234,8 @@ six for stage 1 — at about three and a half working days a week.
 **Stage 2 closed on 14 October**, about a week ahead of that estimate, after running longer than
 first planned: the 24-hour grid, MLflow and the significance test went in front of recalibration.
 The later stages keep their estimates and move forward with it. Stage 4 is the least certain,
-because the optimiser does not exist yet.
+because the optimiser does not exist yet, and since 15 October it also bids with limit prices
+rather than only committing one schedule.
 
 | Stage | Estimate | Ends around |
 |---|---|---|
