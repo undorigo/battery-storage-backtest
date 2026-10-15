@@ -3103,6 +3103,22 @@ order rule and its settlement (Contracts 3 and 4) open until stage 4 starts. REA
 
 ---
 
+#### How the field handles an unfilled order: read, not yet decided
+
+Asked by the user ahead of stage 4. Read in the papers' own text today. **Three conventions:**
+(1) **half full, rebalanced next day** — Nitka & Weron 2023 (arXiv 2308.15443) start the 2 MWh
+battery at 1 MWh and trade 1 MWh a day, so either side can fail; "If B=0 at the beginning of a day,
+an unlimited bid to buy 1 MWh is placed", and likewise at B=2. Hirsch & Ziel's Table 1 lists the same
+"balance non-accepted by unlimited bids on d+1" for Uniejewski (2025) and others. (2) **balance in
+another market at day end** — Maciejowska et al. 2024, per Hirsch & Ziel. (3) **coupled execution**
+— Hirsch & Ziel 2026 assume both orders fill or neither, citing EPEX SPOT's *loop blocks* (two
+blocks executed or rejected together, offered for storage on EPEX day-ahead markets since 2019).
+Hirsch & Ziel: the first two "introduce additional risk and make the (predicted) distribution of
+battery returns intractable". **Not checked:** how a loop block's price limit is evaluated in the
+auction, which decides whether quantile limits map onto it. Decision stays at stage 4's start.
+
+---
+
 ### Next — next session
 
 **Stage 3 starts: QRA on LEAR, conformal beside it, scored on 2023. Every rMAE is now the field's.**
@@ -3124,5 +3140,5 @@ order rule and its settlement (Contracts 3 and 4) open until stage 4 starts. REA
    bids need a few), the calibration window (the field uses 28–182 days), how a quantile's fit sees
    only earlier days, and how the lines are kept from crossing. Plant before claiming.
 2. **Conformal beside it**, then pinball loss and coverage on 2023; a significance test for pinball.
-3. Open: how the field closes an unfilled order (stage 4; read Nitka & Weron and Uniejewski & Weron
-   in full first). Why LEAR's held-back lead grows into 2025 (a note, not a task).
+3. Open: which unfilled-order convention stage 4 uses (three read on 15 Oct; first check how a loop
+   block's price limit is evaluated). Why LEAR's held-back lead grows into 2025 (a note, not a task).
