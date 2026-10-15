@@ -110,6 +110,14 @@ and 0.405 sits inside the published range for LEAR on German prices against the 
 as was done for four days of 2023. **All of this is error, not money.** Whether LEAR's lead turns
 into revenue is what stage 4 measures.
 
+**A revision is decided, not yet built (15 October).** Every rMAE in this README divides by the
+price at the same hour one week earlier. The field divides by yesterday's price on Tuesday to
+Friday and last week's on Saturday to Monday (Lago et al. 2021, epftoolbox), which misses less and
+so is harder to beat: against it, every ratio here rises. From the next build on, every rMAE is
+divided by the field's rule, with last week's kept beside it, and each number states which it uses.
+Rankings and p-values do not change: every model shares the denominator, and the significance test
+does not use it.
+
 ### What stage 2 did, in the order the evidence supported
 
 Before any of it, **every delivery day becomes 24 hours long.** A clock-change day has 23 or 25,

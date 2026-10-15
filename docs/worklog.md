@@ -2985,6 +2985,32 @@ Not done: rebuilding held-back days from data cut at gate closure.
 
 ---
 
+#### Decided: the field's benchmark becomes the denominator, the weekly one stays beside it
+
+**Decision with the user (15 Oct):** from the build onwards, every rMAE divides by the field's rule
+(yesterday's price Tuesday to Friday, last week's Saturday to Monday, as epftoolbox's `_rmae.py`).
+The weekly rule is kept beside it for continuity. Rejected: keeping the weekly rule as headline
+with the field's as a second column (the headline would stay the easy bar), and switching
+completely (stages 0–2's record could no longer be read against the new numbers).
+
+**The user's condition:** the revision must be impossible to miss. The README says, where the
+numbers are, that the field's comparison was introduced at the close of stage 2, that every number
+before that date was divided by last week's price, and that from then on everything is compared
+against the field's rule.
+
+**Transparency, before building.** Affected: how every score is computed (`evaluate.py`,
+`models.naive_forecast` and its comment, `train.py`, `final_score.py`, `significance.py` labels,
+`scores.csv`). The README's headlines all change, stage 1's 0.532 included. Previously produced
+numbers stay valid as what they were, last-week ratios, and are not rewritten. Rankings and p-values
+do not move: every model shares the denominator, and Diebold-Mariano does not use it. Held-back
+forecasts get re-scored, not refitted, so no choice is made from them; that is said where they are
+reported.
+
+README (*Where stage 2 landed*) and plan page note the revision as decided, not built; no new number
+is quoted until a documented command regenerates it.
+
+---
+
 ### Next — next session
 
 **Stage 2 is closed: LEAR, refitted daily, 0.405 on the held-back years. Stage 3 is next.**
@@ -3000,12 +3026,11 @@ Not done: rebuilding held-back days from data cut at gate closure.
 
 #### Then, in order
 
-1. **Report the field's benchmark beside ours** (found 15 Oct): the held-back LEAR is 0.405 against the
-   weekly naive but 0.485 against the field's yesterday/last-week rule. Decide how the README states
-   both, with a documented command for the second. **The weekly rule's own reason is wrong:** the
-   comment above `naive_forecast` says a one-day rule "would set a bar that is too low", but the
-   field's rule already uses last week for Sat–Mon, and it misses less (27.4 against 32.8 €/MWh), so
-   the weekly rule is the *lower* bar. Rankings and p-values do not depend on the denominator.
+1. **Build the denominator revision** (decided 15 Oct, see above): the field's rule as headline,
+   last week's beside it, a dated revision note in the README. Walk through the design first: where
+   the new benchmark is computed, how `scores.csv` records two ratios without breaking its header,
+   and whether the stored forecasts can be re-scored or every run has to be repeated. Plant before
+   claiming. Then refresh README, plan page and CLAUDE.md's stage table.
 2. **Stage 3, quantile forecasts**: walk through what a quantile forecast is and why a battery needs a
    range rather than one number, before choosing a method. Read what the field does first.
 3. Open: why LEAR's held-back lead grows into 2025 (a note, not a task, unless stage 4 makes it matter).
