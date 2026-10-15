@@ -3147,6 +3147,14 @@ bands.
 
 ---
 
+**State at close (15 Oct, second session).** `main` after this entry's commit, suite 210 green.
+README, CLAUDE.md's stage table and the plan page (version 14) refreshed for the field's benchmark
+and the stage 3/4 decisions. Pinball loss walked through four times in plain words at the user's
+request (what it scores, the flipper-shaped penalty, its link to false positives and negatives, how
+minimising it places the line); all in `docs/learnings.md`.
+
+---
+
 ### Next — next session
 
 **Stage 3 starts: QRA on LEAR, conformal beside it, scored on 2023. Every rMAE is now the field's.**
@@ -3159,8 +3167,10 @@ bands.
    re-run prove?
 3. A planted bug filled the field's column with last week's price and no test failed. Why could
    none of them see it, and what kind of test did?
-4. Why does `just significance` still divide some rows by last week's price?
-5. Nitka & Weron's most accurate ranges earned less. Which of our early warning signs is that?
+4. A battery's buy bid is not filled but its sell bid is. Name the field's three ways of handling
+   that, and which one the exchange itself supports.
+5. Move a p90 line up by 1 €. What happens to the penalty, and why does that leave the line where
+   9 prices in 10 fall below it?
 
 #### Then, in order
 
