@@ -431,17 +431,14 @@ git clone <this repo> && cd battery-storage-backtest
 
 python3 -m venv .venv                              # a project-local environment
 .venv/bin/pip install -r requirements.txt          # once, not per terminal session
-.venv/bin/python -m pytest tests/ -q               # 203 tests, offline, no token
+.venv/bin/python -m pytest tests/ -q               # 210 tests, offline, no token
 ```
 
 That's the whole setup. `pip install` writes into `.venv/` on disk, so it persists — you
 never repeat it unless `requirements.txt` changes, and you never need to "activate"
 anything, because every command below names the interpreter explicitly.
 
-Expect `108 passed, 16 xfailed`. The sixteen describe functions stage 1 has specified but
-not yet written — the test comes first here, so the specification exists before the code
-does. They are marked to expect a missing function and *only* a missing function, so a wrong
-implementation still fails loudly. Nothing is broken.
+Expect `210 passed`, in a little over a minute.
 
 ### See it work, without a token
 
