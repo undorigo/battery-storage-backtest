@@ -2955,6 +2955,36 @@ CLAUDE.md's stage table and the plan page refreshed (stage 2 closed, held-back 0
 
 ---
 
+<a id="d20261015"></a>
+### 15 October 2026
+
+#### Is retraining on the held-back years sound, and is 0.405 too good? Checked
+
+Asked by the user, sceptical of both. **Retraining during the test period is the field's own
+protocol**, not a shortcut: epftoolbox's `evaluate_lear_in_test_dataset` ("evaluates a LEAR model in
+a test dataset using daily recalibration") loops over every test day, joins the training data with
+the test data up to that day, blanks that day's prices, and recalibrates (read in `_lear.py` today).
+It is sound on two conditions, both held here: a refit sees only days before the one it forecasts
+(tested, planted), and no choice is made after seeing the test years (every stage 2 choice was made on
+2023). **Weaker than a first look:** this was the second reading of 2024–25, and stage 1's reading
+(tree reversed by the line) was known while stage 2 was planned.
+
+**0.405 is not near the best in the field. Our benchmark is the easier one.** We divide by the price
+one week earlier; the field divides by yesterday's price Tue–Fri and last week's Sat–Mon. On the
+same held-back forecasts, the field's naive misses less (MAE 27.38 against 32.81), so every rMAE
+rises: LEAR 0.405 → **0.485**, tree 0.457 → 0.548, line 0.541 → 0.648. For comparison, under the
+field's rule, Lago et al. 2021 report LEAR 0.431 and the best ensemble 0.374 on DE 2016–17 (other
+years, so only roughly comparable). So our LEAR is a LEAR-level result, slightly behind the published
+one, not a top one. Like for like with our rule, arXiv 2311.02610 has LEAR 0.40–0.43 and its best
+models 0.34–0.36 on DE 2022–May 2023. **The README states rMAE against the weekly naive only; it should
+say this.**
+
+**Still open, already recorded:** item 12 (8 Oct), the wind/solar forecast's legal deadline is 18:00
+on D−1, after gate closure; the level of every score rests on it being at hand by noon in practice.
+Not done: rebuilding held-back days from data cut at gate closure.
+
+---
+
 ### Next — next session
 
 **Stage 2 is closed: LEAR, refitted daily, 0.405 on the held-back years. Stage 3 is next.**
@@ -2970,6 +3000,9 @@ CLAUDE.md's stage table and the plan page refreshed (stage 2 closed, held-back 0
 
 #### Then, in order
 
-1. **Stage 3, quantile forecasts**: walk through what a quantile forecast is and why a battery needs a
+1. **Report the field's benchmark beside ours** (found 15 Oct): the held-back LEAR is 0.405 against the
+   weekly naive but 0.485 against the field's yesterday/last-week rule. Decide how the README states
+   both, with a documented command for the second.
+2. **Stage 3, quantile forecasts**: walk through what a quantile forecast is and why a battery needs a
    range rather than one number, before choosing a method. Read what the field does first.
-2. Open: why LEAR's held-back lead grows into 2025 (a note, not a task, unless stage 4 makes it matter).
+3. Open: why LEAR's held-back lead grows into 2025 (a note, not a task, unless stage 4 makes it matter).
