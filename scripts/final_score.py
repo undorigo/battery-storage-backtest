@@ -66,8 +66,8 @@ def label(name: str, history: pd.DataFrame) -> str:
 
 
 # ── The scored rows ───────────────────────────────────────────────────────────
-# The benchmark comes first because it is the denominator every other row divides by, and
-# it is built from the held-back years alone — a week-old lookup needs no training at all.
+# The benchmarks come first because they are the denominators every other row divides by,
+# and they are lookups of earlier prices — a benchmark needs no training at all.
 #
 # The daily rows walk forward over the whole history, held-back years included, because
 # `walk_forward` only ever hands a refit the hours before the day it forecasts.  The frozen
@@ -77,8 +77,9 @@ def label(name: str, history: pd.DataFrame) -> str:
 def run(train: pd.DataFrame, valid: pd.DataFrame, holdout: pd.DataFrame,
         table: pd.DataFrame | None = None) -> tuple[list[dict], pd.DataFrame]:
     """Score rows, benchmark first, and the hourly forecasts. Without `table`, no LEAR."""
-    benchmark = M.naive_forecast(holdout)            # a lookup, not a fit
-    forecasts = pd.DataFrame({"actual": holdout[F.TARGET], "naive": benchmark})
+    forecasts = pd.DataFrame({"actual": holdout[F.TARGET],
+                              "naive": M.naive_forecast(holdout),      # lookups, not fits
+                              "naive_field": M.field_naive(holdout)})
 
     history = pd.concat([train, valid, holdout])     # a refit takes only the days before its own
     for name, make in (("linear", M.linear), ("gbm", M.gbm)):
@@ -92,8 +93,9 @@ def run(train: pd.DataFrame, valid: pd.DataFrame, holdout: pd.DataFrame,
         forecasts[label(name, known)] = M.forecast(M.fit(make(), known), holdout)   # then frozen
 
     forecasts = forecasts.dropna()                   # the hours every forecast covers
-    rows = [E.score(name, SPLIT, forecasts[name], forecasts["naive"], forecasts["actual"])
-            for name in forecasts.columns.drop("actual")]   # naive first: must come out at 1.000
+    rows = [E.score(name, SPLIT, forecasts[name], forecasts["naive"], forecasts["actual"],
+                    field=forecasts["naive_field"])
+            for name in forecasts.columns.drop("actual")]   # each benchmark reads 1.000 on its own ratio
     return rows, forecasts
 
 
@@ -138,7 +140,7 @@ def main() -> int:
 
     # Two batches, so each run states its own schedule and `just significance` can find it.
     commit = git_commit()
-    daily = [r for r in rows if r["model"] == "naive" or r["model"].endswith(" daily")]
+    daily = [r for r in rows if r["model"].startswith("naive") or r["model"].endswith(" daily")]
     frozen = [r for r in rows if r not in daily]                  # "gbm 2018-2023"
     ids = {**TR.log(daily, forecasts, {"refit": "daily", "lear_window": M.WINDOW_DAYS,
                                        "commit": commit}),

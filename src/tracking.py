@@ -51,8 +51,8 @@ def _experiment(client: MlflowClient, store: Path) -> str:
 # One run per scored forecast, the benchmark included: its run must read exactly
 # 1.000, the same free check the score table carries.
 #
-# Each run's file holds the actual price, the benchmark and its own forecast — the
-# three columns its rMAE is computed from — so one run can prove its own score
+# Each run's file holds the actual price, both benchmarks and its own forecast — the
+# columns its two rMAEs are computed from — so one run can prove its own scores
 # without opening another.
 
 def log(rows: list[dict], forecasts: pd.DataFrame, params: dict,
@@ -67,9 +67,9 @@ def log(rows: list[dict], forecasts: pd.DataFrame, params: dict,
         stated = {**params, "model": model, "split": row["split"], "convention": CONVENTION}
         for key, value in stated.items():
             client.log_param(run, key, value)
-        for key in ("mae", "rmae", "n"):
+        for key in ("mae", "rmae", "rmae_field", "n"):
             client.log_metric(run, key, row[key])
-        kept = forecasts[list(dict.fromkeys(["actual", "naive", model]))]   # naive once, not twice
+        kept = forecasts[list(dict.fromkeys(["actual", "naive", "naive_field", model]))]   # each once
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / FORECASTS
             kept.to_parquet(path)

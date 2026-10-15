@@ -174,15 +174,29 @@ def test_every_row_is_labelled_as_held_back(scored):
     assert all(row["split"] == "test" for row in rows)
 
 
-def test_the_benchmark_comes_first_and_scores_exactly_one(scored):
+def test_the_benchmarks_come_first_and_each_scores_exactly_one(scored):
     _, rows, _, _ = scored
     assert rows[0]["model"] == "naive"
     assert rows[0]["rmae"] == pytest.approx(1.0)
+    assert rows[1]["model"] == "naive_field"
+    assert rows[1]["rmae_field"] == pytest.approx(1.0)
+
+
+def test_the_field_benchmark_is_read_off_the_actual_prices_by_date(scored):
+    """As in test_train.py: read from the prices by date, not through the lag columns.
+    10:00 on a Monday, a Tuesday and a Saturday in January 2024."""
+    frames, _, forecasts, _ = scored
+    price = pd.concat(frames)[F.TARGET]
+    day, week = pd.Timedelta(days=1), pd.Timedelta(days=7)
+    for hour, back in (("2024-01-08 10:00", week), ("2024-01-09 10:00", day),
+                       ("2024-01-13 10:00", week)):
+        hour = pd.Timestamp(hour)
+        assert forecasts.loc[hour, "naive_field"] == price[hour - back], hour.day_name()
 
 
 def test_both_recipes_are_scored(scored):
     _, rows, _, _ = scored
-    assert [r["model"] for r in rows] == ["naive", "linear daily", "gbm daily", "lear daily",
+    assert [r["model"] for r in rows] == ["naive", "naive_field", "linear daily", "gbm daily", "lear daily",
                                           "linear 2022-2023", "gbm 2022-2023"]
 
 
@@ -197,8 +211,9 @@ def test_every_forecast_is_scored_on_the_same_hours(scored):
 def test_no_model_is_its_own_benchmark(scored):
     """Passing each model's own forecast as its denominator makes every rMAE exactly 1.000."""
     _, rows, _, _ = scored
-    for row in rows[1:]:
+    for row in rows[2:]:
         assert row["rmae"] < 1.0, f"{row['model']} scored as though it were its own benchmark"
+        assert row["rmae_field"] < 1.0, f"{row['model']} scored as the field's benchmark"
 
 
 def test_daily_and_frozen_do_not_score_identically(scored):

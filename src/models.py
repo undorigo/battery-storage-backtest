@@ -24,22 +24,34 @@ from sklearn.linear_model import Lasso, LassoLarsIC, LinearRegression
 from src import features as F
 
 
-# ── The benchmark — WORKED EXAMPLE, already written ───────────────────────────
-# Whatever is built must beat doing nothing clever.  For day-ahead prices the
-# standard "nothing clever" is: tomorrow's 3 p.m. will be whatever last week's 3
-# p.m. was.
+# ── The benchmarks ────────────────────────────────────────────────────────────
+# Whatever is built must beat doing nothing clever.  Two versions of "nothing
+# clever" are kept, and since the close of stage 2 the field's is the headline.
 #
-# One week rather than one day, because a week lands on the same weekday.  A
-# Saturday predicted from a Friday is wrong in a way that has nothing to do with
-# forecasting skill — the whole daily shape differs — so a one-day rule would set a
-# bar that is too low to be honest.
+# The field's rule (epftoolbox, Lago et al. 2021): Tuesday to Friday, tomorrow's
+# 3 p.m. is today's 3 p.m.; Saturday to Monday, it is last week's, because a
+# weekend day or the Monday after one has a different shape from the day before.
+# Yesterday is usually the closer guess, so this is the harder bar to beat.
 #
-# Note there is no fitting here and nothing is learned.  That is the point: this is
-# the score to beat, and it costs nothing to produce.
+# Ours until then: always last week's 3 p.m.  It was chosen on the reasoning that a
+# one-day rule is too easy — wrong, since the field's rule already avoids the
+# weekday mismatch and misses less (27.4 against 32.8 EUR/MWh on 2024-25).  It
+# stays beside the field's so stages 0–2 can still be read against new numbers.
+#
+# Neither fits anything.  They are the scores to beat, and cost nothing to produce.
+
+YESTERDAY_DAYS = {1, 2, 3, 4}                           # Tue–Fri; Mon is 0 in pandas
+
 
 def naive_forecast(frame: pd.DataFrame) -> pd.Series:
     """Predict each hour with the price of the same hour one week earlier."""
     return frame["price_lag_168h"].rename("naive")      # already in the frame; no work to do
+
+
+def field_naive(frame: pd.DataFrame) -> pd.Series:
+    """The field's benchmark: same hour yesterday Tue–Fri, one week earlier Sat–Mon."""
+    yesterday = frame.index.dayofweek.isin(YESTERDAY_DAYS)   # grid labels: Berlin weekdays
+    return frame["price_lag_24h"].where(yesterday, frame["price_lag_168h"]).rename("naive_field")
 
 
 # ── Estimators ────────────────────────────────────────────────────────────────

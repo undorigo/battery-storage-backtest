@@ -34,7 +34,7 @@ import pandas as pd
 def aligned(*series: pd.Series) -> tuple[pd.Series, ...]:
     """Every series passed in, trimmed to the hours all of them cover.
 
-    Takes two or three.  Two for a plain error, three when a model and a benchmark
+    Takes two or more.  Two for a plain error, more when a model and its benchmarks
     are being compared — and in that case all three have to be trimmed *together*,
     or the two errors end up measured over different hours and the ratio between
     them describes nothing.
@@ -154,28 +154,34 @@ def dm(first: pd.Series, second: pd.Series, actual: pd.Series, lags: int = 7) ->
 # are not comparable, and the count is the only way to notice that has happened.
 #
 # The trim happens once, here, and the trimmed series are what get scored — so the
-# three numbers in a row all describe the same hours.  Without that, `n` would be
+# numbers in a row all describe the same hours.  Without that, `n` would be
 # auditing a different set than the `rmae` beside it, which is worse than having no
 # audit at all.
+#
+# Two ratios per row since the close of stage 2.  `rmae` keeps the meaning it has
+# had in `scores.csv` from the start, divided by last week's price; `rmae_field`
+# divides by the field's benchmark and is the headline.  The field's benchmark is
+# required, so no row can be written with the headline missing.
 
 def score(name: str, split: str, predicted: pd.Series, benchmark: pd.Series,
-          actual: pd.Series) -> dict:
-    """One row: what was forecast, on which split, and how it did."""
-    p, b, a = aligned(predicted, benchmark, actual)
+          actual: pd.Series, *, field: pd.Series) -> dict:
+    """One row: what was forecast, on which split, and how it did against each benchmark."""
+    p, b, a, f = aligned(predicted, benchmark, actual, field)   # one trim for all four
     return {
         "model": name,
         "split": split,
         "n": len(p),
         "mae": mae(p, a),
-        "rmae": rmae(p, b, a),                          # already trimmed; the second trim is a no-op
+        "rmae": rmae(p, b, a),                          # last week's price underneath
+        "rmae_field": rmae(p, f, a),                    # the field's benchmark underneath
     }
 
 
 def table(rows: list[dict]) -> str:
     """Render scored rows as markdown, ready to paste into the work log."""
-    head = ["Model", "Split", "Hours", "MAE", "rMAE"]
+    head = ["Model", "Split", "Hours", "MAE", "rMAE", "rMAE (last week)"]
     out = ["| " + " | ".join(head) + " |", "|" + "---|" * len(head)]
     for r in rows:
         out.append(f"| {r['model']} | {r['split']} | {r['n']:,} | "
-                   f"{r['mae']:.2f} | {r['rmae']:.3f} |")
+                   f"{r['mae']:.2f} | {r['rmae_field']:.3f} | {r['rmae']:.3f} |")
     return "\n".join(out)

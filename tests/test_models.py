@@ -53,6 +53,20 @@ def test_naive_learns_nothing_and_needs_no_fitting():
     pd.testing.assert_series_equal(M.naive_forecast(df), M.naive_forecast(df))
 
 
+def test_the_field_benchmark_takes_yesterday_tue_to_fri_and_last_week_sat_to_mon():
+    """epftoolbox's rule, every weekday checked by name.  The two lags hold different
+    constants, so the value says which one each hour was taken from.  Each day runs
+    00:00 to 23:00 on naive grid labels, so a day's first and last hours are covered."""
+    idx = pd.date_range("2023-03-13", periods=7 * 24, freq="h")    # Monday to Sunday, naive
+    df = pd.DataFrame({"price_lag_24h": 1.0, "price_lag_168h": 7.0}, index=idx)
+    out = M.field_naive(df)
+    by_day = out.groupby(out.index.day_name()).agg(["min", "max"])
+    expected = {"Monday": 7.0, "Tuesday": 1.0, "Wednesday": 1.0, "Thursday": 1.0,
+                "Friday": 1.0, "Saturday": 7.0, "Sunday": 7.0}
+    for day, value in expected.items():
+        assert by_day.loc[day].tolist() == [value, value], day
+
+
 # ── The estimators ────────────────────────────────────────────────────────────
 
 def test_linear_returns_something_that_can_be_fitted():

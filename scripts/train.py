@@ -68,8 +68,8 @@ def day_rows() -> pd.DataFrame:
 # Three forecasts get scored, four in the daily run, and the order they are built
 # in is not cosmetic.
 #
-# The benchmark comes first because it is the denominator: every rMAE here is a
-# model's error divided by the benchmark's.  Build a model first and you have a
+# The benchmarks come first because they are the denominators: every rMAE here is a
+# model's error divided by a benchmark's.  Build a model first and you have a
 # numerator with nothing underneath it — and a quiet pull towards choosing the
 # denominator that flatters it.
 #
@@ -88,10 +88,10 @@ def day_rows() -> pd.DataFrame:
 # removing hours before it would also remove them from what later refits learn
 # from, and the line and tree would quietly change.
 #
-# The benchmark is also scored against itself, which looks redundant and is not.  That
-# row has to read exactly 1.000, and it is a free check on everything underneath: if it
-# does not, the lining-up or the scoring is wrong, and every other row in the table is
-# wrong with it.
+# Each benchmark is also scored against itself, which looks redundant and is not.  Its
+# own ratio has to read exactly 1.000, and that is a free check on everything underneath:
+# if it does not, the lining-up or the scoring is wrong, and every other row in the table
+# is wrong with it.
 #
 # The hourly forecasts are handed back beside the scores.  A score is one number per
 # model; the significance test compares two models hour by hour, so it needs the
@@ -115,9 +115,10 @@ def run(train: pd.DataFrame, valid: pd.DataFrame, refit: str = "once",
     `table` is LEAR's day table; without it, LEAR is not run.  `lear_window=None`
     gives LEAR every day before, scored as `lear_all`.
     """
-    benchmark = M.naive_forecast(valid)                  # a lookup, not a fit: no training needed
     actual = valid[F.TARGET]                             # the prices that actually happened
-    forecasts = pd.DataFrame({"actual": actual, "naive": benchmark})   # one column per forecast
+    forecasts = pd.DataFrame({"actual": actual,          # one column per forecast
+                              "naive": M.naive_forecast(valid),        # lookups, not fits
+                              "naive_field": M.field_naive(valid)})
 
     history = pd.concat([train, valid])                  # what a refit may learn from, if it came first
     for name, make in (("linear", M.linear), ("gbm", M.gbm)):
@@ -128,8 +129,9 @@ def run(train: pd.DataFrame, valid: pd.DataFrame, refit: str = "once",
         forecasts[column] = lear.reindex(forecasts.index)              # blank where LEAR skipped
 
     forecasts = forecasts.dropna()                       # the hours every forecast covers
-    rows = [E.score(name, "valid", forecasts[name], forecasts["naive"], forecasts["actual"])
-            for name in forecasts.columns.drop("actual")]   # naive first: must come out at 1.000
+    rows = [E.score(name, "valid", forecasts[name], forecasts["naive"], forecasts["actual"],
+                    field=forecasts["naive_field"])
+            for name in forecasts.columns.drop("actual")]   # each benchmark reads 1.000 on its own ratio
     return rows, forecasts
 
 

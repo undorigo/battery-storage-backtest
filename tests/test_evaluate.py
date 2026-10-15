@@ -214,10 +214,12 @@ def test_score_carries_the_hour_count_so_two_rows_can_be_compared():
     actual = series([10, 20, 30])
     benchmark = series([12, 22, 32])
     model = series([11, 21, 31])
-    row = E.score("linear", "valid", model, benchmark, actual)
+    field = series([10.5, 20.5, 30.5])                  # misses by half: the harder bar
+    row = E.score("linear", "valid", model, benchmark, actual, field=field)
     assert row["model"] == "linear" and row["split"] == "valid"
     assert row["n"] == 3
     assert row["rmae"] == pytest.approx(0.5)
+    assert row["rmae_field"] == pytest.approx(2.0)
 
 
 def test_score_counts_the_hours_all_three_series_cover():
@@ -232,17 +234,36 @@ def test_score_counts_the_hours_all_three_series_cover():
     model = series([None, 110, 110, 110, 110])          # nothing for hour 0
     benchmark = series([120, 120, 120, 120, None])      # nothing for hour 4
 
-    row = E.score("linear", "valid", model, benchmark, actual)
+    row = E.score("linear", "valid", model, benchmark, actual, field=benchmark)
     assert row["n"] == 3                                # hours 1, 2 and 3 only
     assert row["mae"] == pytest.approx(10.0)            # not diluted by the hours dropped
     assert row["rmae"] == pytest.approx(0.5)
 
 
+def test_an_hour_missing_from_the_field_benchmark_leaves_every_number_in_the_row():
+    """Both ratios, the MAE and `n` must describe one set of hours.  The field's
+    benchmark misses hour 1, where the model is far off; if only its own ratio were
+    trimmed, `n`, the MAE and the weekly ratio would still count that hour."""
+    actual = series([100, 100, 100, 100])
+    model = series([110, 190, 110, 110])                # far off at hour 1 only
+    benchmark = series([120, 120, 120, 120])
+    field = series([105, None, 105, 105])               # nothing for hour 1
+
+    row = E.score("linear", "valid", model, benchmark, actual, field=field)
+    assert row["n"] == 3
+    assert row["mae"] == pytest.approx(10.0)
+    assert row["rmae"] == pytest.approx(0.5)
+    assert row["rmae_field"] == pytest.approx(2.0)
+
+
 def test_table_renders_one_line_per_row():
     rows = [
-        {"model": "naive", "split": "valid", "n": 8759, "mae": 21.4, "rmae": 1.0},
-        {"model": "linear", "split": "valid", "n": 8759, "mae": 17.9, "rmae": 0.836},
+        {"model": "naive", "split": "valid", "n": 8759, "mae": 21.4, "rmae": 1.0,
+         "rmae_field": 1.2},
+        {"model": "linear", "split": "valid", "n": 8759, "mae": 17.9, "rmae": 0.836,
+         "rmae_field": 0.9},
     ]
     out = E.table(rows)
     assert out.count("\n") == 3                          # header, rule, two rows
-    assert "8,759" in out and "0.836" in out
+    assert "8,759" in out
+    assert "| 0.900 | 0.836 |" in out                    # the field's first: it is the headline

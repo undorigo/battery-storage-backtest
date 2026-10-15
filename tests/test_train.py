@@ -144,17 +144,31 @@ def test_every_forecast_is_scored_on_the_same_hours(frames):
     assert len({row["n"] for row in rows}) == 1
 
 
-def test_the_benchmark_scores_exactly_one(frames):
-    """A free check on the wiring: the benchmark divided by itself is 1.000."""
+def test_each_benchmark_scores_exactly_one_on_its_own_ratio(frames):
+    """A free check on the wiring: a benchmark divided by itself is 1.000."""
     rows, _ = T.run(*frames)
-    naive = [r for r in rows if r["model"] == "naive"]
-    assert len(naive) == 1
-    assert naive[0]["rmae"] == pytest.approx(1.0)
+    rows = {r["model"]: r for r in rows}
+    assert rows["naive"]["rmae"] == pytest.approx(1.0)
+    assert rows["naive_field"]["rmae_field"] == pytest.approx(1.0)
+
+
+def test_the_field_benchmark_is_read_off_the_actual_prices_by_date(frames):
+    """Wired to the wrong rule, the field's column still scores 1.000 against itself and
+    the models still beat it, so this reads the expected value straight from the prices,
+    by date, without going through the lag columns.  10:00 on a Monday, a Tuesday and a
+    Saturday in March 2023."""
+    _, forecasts = T.run(*frames)
+    price = pd.concat(frames)[F.TARGET]                     # every hour, by grid label
+    day, week = pd.Timedelta(days=1), pd.Timedelta(days=7)
+    for hour, back in (("2023-03-13 10:00", week), ("2023-03-14 10:00", day),
+                       ("2023-03-18 10:00", week)):
+        hour = pd.Timestamp(hour)
+        assert forecasts.loc[hour, "naive_field"] == price[hour - back], hour.day_name()
 
 
 def test_all_three_forecasts_are_reported(frames):
     rows, _ = T.run(*frames)
-    assert {r["model"] for r in rows} == {"naive", "linear", "gbm"}
+    assert {r["model"] for r in rows} == {"naive", "naive_field", "linear", "gbm"}
 
 
 def test_every_row_is_labelled_as_validation(frames):
@@ -175,6 +189,7 @@ def test_a_model_is_not_its_own_benchmark(frames):
     rows = {row["model"]: row for row in scored}
     for name in ("linear", "gbm"):
         assert rows[name]["rmae"] < 1.0, f"{name} scored as though it were its own benchmark"
+        assert rows[name]["rmae_field"] < 1.0, f"{name} scored as the field's benchmark"
 
 
 def test_the_kept_forecasts_are_the_ones_that_were_scored(frames):
@@ -186,10 +201,12 @@ def test_the_kept_forecasts_are_the_ones_that_were_scored(frames):
     rows, forecasts = T.run(*frames)
     _, valid = frames
     assert forecasts.index.equals(valid.index)
-    assert set(forecasts.columns) == {"actual", "naive", "linear", "gbm"}
+    assert set(forecasts.columns) == {"actual", "naive", "naive_field", "linear", "gbm"}
     for row in rows:
         again = E.rmae(forecasts[row["model"]], forecasts["naive"], forecasts["actual"])
         assert again == row["rmae"]
+        field = E.rmae(forecasts[row["model"]], forecasts["naive_field"], forecasts["actual"])
+        assert field == row["rmae_field"]
 
 
 # ── LEAR in the daily run ─────────────────────────────────────────────────────
@@ -222,7 +239,7 @@ def test_lear_is_scored_on_the_same_hours_as_everyone(frames, monkeypatch):
     _, valid = frames
 
     assert seen["days"].intersection(SKIPPED).empty         # the three days LEAR cannot do
-    assert {r["model"] for r in rows} == {"naive", "linear", "gbm", "lear"}
+    assert {r["model"] for r in rows} == {"naive", "naive_field", "linear", "gbm", "lear"}
     shared = valid.index[~valid.index.normalize().isin(SKIPPED)]
     assert {r["n"] for r in rows} == {len(shared)}          # one exam, three days shorter
     for row in rows:
@@ -244,7 +261,7 @@ def test_every_year_lear_gets_no_window_and_its_own_name(frames, monkeypatch):
     seen = stub_lear(monkeypatch)
     rows, _ = T.run(*frames, table=T.day_rows(), lear_window=None)
     assert seen["window"] is None
-    assert {r["model"] for r in rows} == {"naive", "linear", "gbm", "lear_all"}
+    assert {r["model"] for r in rows} == {"naive", "naive_field", "linear", "gbm", "lear_all"}
 
 
 def test_lear_is_never_handed_a_test_year_day(frames, monkeypatch):

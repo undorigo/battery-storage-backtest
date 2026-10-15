@@ -85,6 +85,12 @@ def command(side: dict) -> str:
 # so both forecasts, the benchmark and the actual are trimmed together first.  Both
 # rMAEs are then computed on those shared hours, so the two sides sit one exam and
 # the p-value and the scores beside it describe the same thing.
+#
+# The rMAEs divide by the field's benchmark when the first run stored it, and by
+# last week's price otherwise: runs from before the close of stage 2 never kept the
+# field's, and a claim pinned to one of them cannot be rerun to add it.  Each row
+# says which, so an old ratio is never read as a new one.  The p-value uses no
+# benchmark at all, so it is the same either way.
 
 def compare(first: dict, second: dict, **where) -> dict:
     """rMAE of each side, p both ways, and which runs were read. Raises if one is missing."""
@@ -97,8 +103,11 @@ def compare(first: dict, second: dict, **where) -> dict:
         params, forecasts = TR.read(run, **where)
         found.append((params["commit"], forecasts[side["model"]], forecasts))
     (c1, f1, frame), (c2, f2, _) = found
-    a, b, naive, actual = E.aligned(f1, f2, frame["naive"], frame["actual"])   # one exam
+    field = "naive_field" in frame                              # did this run keep the field's?
+    a, b, naive, actual = E.aligned(f1, f2, frame["naive_field" if field else "naive"],
+                                    frame["actual"])            # one exam
     return {"first": E.rmae(a, naive, actual), "second": E.rmae(b, naive, actual),
+            "divided_by": "field" if field else "last week",
             "p_second_better": E.dm(a, b, actual), "p_first_better": E.dm(b, a, actual),
             "hours": len(actual), "commits": f"{c1} / {c2}"}
 
@@ -106,18 +115,19 @@ def compare(first: dict, second: dict, **where) -> dict:
 # ── Running it ────────────────────────────────────────────────────────────────
 
 def main() -> int:
-    print("| Comparison | rMAE first | rMAE second | p second better | p first better "
-          "| Hours | Commits |")
-    print("|---|---|---|---|---|---|---|")
+    print("| Comparison | rMAE first | rMAE second | Divided by | p second better "
+          "| p first better | Hours | Commits |")
+    print("|---|---|---|---|---|---|---|---|")
     missing = 0
     for label, first, second in COMPARISONS:
         try:
             r = compare(first, second)
         except LookupError as exc:
-            print(f"| {label} | — | — | — | — | — | {exc} |")
+            print(f"| {label} | — | — | — | — | — | — | {exc} |")
             missing += 1
             continue
-        print(f"| {label} | {r['first']:.3f} | {r['second']:.3f} | {r['p_second_better']:.2g} "
+        print(f"| {label} | {r['first']:.3f} | {r['second']:.3f} | {r['divided_by']} "
+              f"| {r['p_second_better']:.2g} "
               f"| {r['p_first_better']:.2g} | {r['hours']:,} | {r['commits']} |")
     return 1 if missing else 0
 

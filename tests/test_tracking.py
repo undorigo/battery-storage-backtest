@@ -31,9 +31,11 @@ def stored(tmp_path_factory):
     n = np.arange(48, dtype=float)
     actual = pd.Series(80 + 20 * np.sin(n / 4), index=hours)
     forecasts = pd.DataFrame({"actual": actual, "naive": actual.shift(1).bfill(),
+                              "naive_field": actual.shift(2).bfill(),
                               "linear": actual + 3 * np.cos(n), "gbm": actual - 2 * np.sin(n)})
-    rows = [E.score(name, "valid", forecasts[name], forecasts["naive"], actual)
-            for name in ("naive", "linear", "gbm")]
+    rows = [E.score(name, "valid", forecasts[name], forecasts["naive"], actual,
+                    field=forecasts["naive_field"])
+            for name in ("naive", "naive_field", "linear", "gbm")]
 
     where = tmp_path_factory.mktemp("mlflow")
     ids = TR.log(rows, forecasts, PARAMS, db=where / "mlflow.db", store=where / "mlruns")
@@ -60,12 +62,12 @@ def test_every_run_keeps_the_callers_params_and_its_model(stored):
 # ── What each run kept ────────────────────────────────────────────────────────
 
 def test_a_run_reproduces_its_own_score_from_what_was_stored(stored):
-    """The reason each run keeps three columns: its rMAE, recomputed from MLflow alone."""
+    """The reason each run keeps its columns: both rMAEs, recomputed from MLflow alone."""
     rows, _, back = stored
     for row in rows:
         _, kept = back[row["model"]]
-        again = E.rmae(kept[row["model"]], kept["naive"], kept["actual"])
-        assert again == row["rmae"]
+        assert E.rmae(kept[row["model"]], kept["naive"], kept["actual"]) == row["rmae"]
+        assert E.rmae(kept[row["model"]], kept["naive_field"], kept["actual"]) == row["rmae_field"]
 
 
 def test_the_stored_hours_are_the_scored_hours(stored):
@@ -73,15 +75,17 @@ def test_the_stored_hours_are_the_scored_hours(stored):
     _, forecasts, back = stored
     for model, (_, kept) in back.items():
         assert kept.index.equals(forecasts.index), f"{model} run's hours moved"
-        assert list(kept.columns) == list(dict.fromkeys(["actual", "naive", model]))
+        assert list(kept.columns) == list(dict.fromkeys(["actual", "naive", "naive_field", model]))
 
 
 # ── Finding a run by its params ───────────────────────────────────────────────
 
 def _log_once(where, commit: str) -> dict[str, str]:
     hours = pd.date_range("2023-03-14 00:00", periods=24, freq="h")
-    forecasts = pd.DataFrame({"actual": 50.0, "naive": 40.0, "gbm": 45.0}, index=hours)
-    rows = [E.score(m, "valid", forecasts[m], forecasts["naive"], forecasts["actual"])
+    forecasts = pd.DataFrame({"actual": 50.0, "naive": 40.0, "naive_field": 42.0, "gbm": 45.0},
+                             index=hours)
+    rows = [E.score(m, "valid", forecasts[m], forecasts["naive"], forecasts["actual"],
+                    field=forecasts["naive_field"])
             for m in ("naive", "gbm")]
     return TR.log(rows, forecasts, {**PARAMS, "commit": commit},
                   db=where / "mlflow.db", store=where / "mlruns")
