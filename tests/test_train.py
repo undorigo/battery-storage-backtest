@@ -290,6 +290,20 @@ def test_record_writes_one_header_not_two(tmp_path):
     assert path.read_text().count("model") == 1
 
 
+def test_record_refuses_rows_whose_columns_differ_from_the_header(tmp_path):
+    """Appending ignores the header, so a new column would land in the record first and
+    break the file afterwards.  The refusal must come before anything is written."""
+    path = tmp_path / "scores.csv"
+    T.record([{"model": "naive", "split": "valid", "n": 10, "mae": 20.0, "rmae": 1.0}], path)
+    before = path.read_text()
+
+    wider = [{"model": "naive", "split": "valid", "n": 10, "mae": 20.0, "rmae": 1.0,
+              "rmae_field": 0.9}]
+    with pytest.raises(ValueError, match="nothing written"):
+        T.record(wider, path)
+    assert path.read_text() == before
+
+
 def test_record_creates_the_directory_if_it_is_missing(tmp_path):
     """A clean clone may not have the output directory; the first run must not fail."""
     path = tmp_path / "results" / "scores.csv"

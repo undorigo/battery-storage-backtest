@@ -143,6 +143,11 @@ def run(train: pd.DataFrame, valid: pd.DataFrame, refit: str = "once",
 #
 # The file is appended to and never rewritten, for the same reason the data pulls
 # are: a record that can be overwritten is not a record.
+#
+# Appending never looks at the header, so rows with a column the header lacks are
+# written first and only fail when the file is read back — after the row is already
+# in the record.  So the columns are checked against the header before anything is
+# written, and a mismatch stops the run with the file untouched.
 
 SCORES = cfg.SCORES                                 # the one place paths are named
 
@@ -162,6 +167,11 @@ def record(rows: list[dict], path: Path = SCORES) -> pd.DataFrame:
     stamped = pd.DataFrame(rows)
     stamped.insert(0, "commit", git_commit())                # which code produced these
     stamped.insert(0, "run_at", datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"))
+    if path.exists():
+        header = path.open().readline().strip().split(",")   # the columns already recorded
+        if header != list(stamped.columns):
+            raise ValueError(f"{path.name} has columns {header}, these rows have "
+                             f"{list(stamped.columns)}: nothing written")
     path.parent.mkdir(parents=True, exist_ok=True)
     stamped.to_csv(path, mode="a", header=not path.exists(), index=False)   # append, never replace
     return pd.read_csv(path)
