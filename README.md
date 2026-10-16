@@ -52,7 +52,7 @@ so a claim can always be traced back to the run that produced it.
 | 0 | Reproducible data pull, split locked | negative hours, daily spread | **done** 17 Sep 2026 |
 | 1 | First model against a naive benchmark | rMAE 0.532 *(last week)* | **done** 30 Sep 2026 |
 | 2 | Recalibration, LEAR, holidays | **rMAE 0.485** *(0.405 last week)* | **done** 14 Oct 2026 |
-| 3 | Quantile forecasts: QRA on LEAR, conformal beside it | pinball loss, coverage | next |
+| 3 | Quantile forecasts: QRA on LEAR, conformal beside it | pinball 5.30 on 2023 *(QRA, 91 days)* | **built, measured on 2023** 16 Oct 2026 |
 | 4 | Price-dependent bids and a MILP schedule, revenue | **capture rate** | |
 | 5 | Drift monitoring, scheduled run | reproducibility | |
 
@@ -80,7 +80,10 @@ compared in Lipiecki, Uniejewski & Weron 2024), with *conformal prediction* — 
 misses — as the simple comparison, scored by pinball loss and coverage on 2023. Stage 4 bids with
 those quantiles, as in Nitka & Weron (2023), and keeps the fixed schedule beside the bids, so the
 capture rate shows in euros whether the range was worth having. **Open until stage 4 starts:** what
-happens to an unfilled order, which the settlement depends on. Two warnings from the literature are
+happens to an unfilled order, which the settlement depends on. Read 16 October: the exchange's
+*loop blocks*, which fill a buy and a sell together or not at all, are judged on the pair's combined
+gain, not on each limit, so they cannot carry two independent quantile limits (EPEX SPOT's FRA
+algorithm description, 2022; not yet confirmed for the German day-ahead auction). Two warnings from the literature are
 carried in: the most accurate ranges did not earn the most (Nitka & Weron 2023), and simple quantile
 bidding rules can be gamed and ignore that a battery's hours depend on each other (Hirsch & Ziel
 2026).
@@ -209,6 +212,42 @@ those runs. It needs the `just train` runs first, and names any that are missing
 Every step is judged with the significance test, because stage 1 demonstrated that a gap of
 0.044 on one year is not evidence of anything.
 
+### Where stage 3 stands
+
+**Built and measured on 2023, not yet read on the held-back years.** LEAR's one forecast per hour
+becomes 99 percentiles, two ways. *QRA* fits a line through last months' dots — LEAR's forecast
+against the real price — for each percentile, so the band can widen when LEAR expects a high price.
+*Conformal* takes how big LEAR's past misses were and puts a band of that width around today's
+forecast. Both learn only from forecasts LEAR really made: LEAR is walked forward from July 2022
+first, and its 2023 score comes back at 0.504, as in stage 2. Reproduce with `just quantiles` and
+`just quantiles 28 56 91` (`reports/quantile_scores.csv`), and the p-values with `just significance`.
+
+| 2023, by window | QRA pinball | Conformal pinball | 80 % band holds (QRA) |
+|---|---|---|---|
+| 182 days | 5.381 | 5.546 | 0.832 |
+| **91 days** | **5.300** | 5.397 | 0.814 |
+| 56 days | 5.304 | 5.388 | 0.800 |
+| 28 days | 5.394 | 5.395 | 0.757 |
+
+Pinball loss is the average distance from the price to each line, charged lopsidedly: for p90, a
+price above the line costs nine times what one below costs. Lower is better.
+
+**With 182 days, QRA wins clearly** (p = 0.0011). **But the long window was the problem.** It
+remembers the market half a year late: in January–June 2023 it was full of crisis days, so the bands
+were too wide (QRA's 80 % band held 83–92 %), and from July they were too narrow (70 % in October).
+**A 91-day window helps QRA a little** (5.381 → 5.300, p = 0.033) and conformal a lot (p < 0.0001).
+At 91 days the two methods can no longer be told apart (p = 0.078); 56 and 91 days tie (p = 0.47).
+Read so far, from one year: QRA's lead at 182 days was mostly its better handling of a stale window. Even at 91 days the
+bands still lag: the 80 % band held 68 % in August and 71 % in October.
+
+**Stated limits.** Four windows were tried on 2023 and the best is quoted, which flatters it
+slightly. Each hour's 99 lines are fitted separately and often cross (5,925 of 8,760 hours at 91
+days); they are sorted back into order. On the one day checked (1 December), the large crossings sat
+where LEAR's forecast lay beyond every forecast in the window, so QRA had to guess past its data;
+that happens in 2.9 % of hours July–December.
+**All of this is error, not money.** Which window, and whether the range earns anything, is
+stage 4's question as much as stage 3's.
+
 ### Parked on purpose
 
 Recorded so the reasoning survives, and so nobody re-opens them without new evidence.
@@ -231,7 +270,8 @@ not maintained — [docs/worklog.md](docs/worklog.md) records both links and whi
 Re-estimated on 7 October from what the stages actually took — seven working days for stage 0,
 six for stage 1 — at about three and a half working days a week.
 
-**Stage 2 closed on 14 October**, about a week ahead of that estimate, after running longer than
+**Stage 3 was built and measured on 2023 on 16 October**; what remains is choosing its window and
+the one reading of the held-back years. **Stage 2 closed on 14 October**, about a week ahead of that estimate, after running longer than
 first planned: the 24-hour grid, MLflow and the significance test went in front of recalibration.
 The later stages keep their estimates and move forward with it. Stage 4 is the least certain,
 because the optimiser does not exist yet, and since 15 October it also bids with limit prices
@@ -472,7 +512,7 @@ pip install rust-just              # any platform, ships the same binary
 # or: curl -sSf https://just.systems/install.sh | bash -s -- --to ~/.local/bin
 
 just                               # the menu
-just setup · test · pull · verify · explore · train · final-score · clean
+just setup · test · pull · verify · explore · train · quantiles · significance · final-score · clean
 ```
 
 **Nothing requires it.** The justfile is the single source of truth for what each command is,
@@ -503,14 +543,16 @@ BUILT
   src/sources/entsoe.py      the data-item catalog: what is fetched, and what may reach a model
   src/data.py                caching and normalisation; the loaders everything else calls
   src/features.py            the gate — where the availability rule is enforced, not declared
-  src/models.py              the benchmark, and the two estimators that must beat it
-  src/evaluate.py            MAE and rMAE, and the rule that both are scored on the same hours
+  src/models.py              the benchmarks, the line, the tree, LEAR, and QRA and conformal ranges
+  src/evaluate.py            rMAE, pinball and coverage, Diebold-Mariano, all on shared hours
   scripts/pull.py            just pull        — fetch every series in the catalog
   scripts/explore.py         just explore     — headline numbers and the README figures
   scripts/train.py           just train       — score the validation year, as often as you like
+  scripts/quantiles.py       just quantiles   — QRA and conformal ranges around LEAR, scored on 2023
   scripts/final_score.py     just final-score — read the held-back years, once per stage
   scripts/significance.py    just significance — every p-value the README states, from MLflow
   reports/scores.csv         every scored run, appended, stamped with its commit
+  reports/quantile_scores.csv the same for ranges: pinball, coverage, crossing, window
 
 PLANNED
   src/backtest.py            dispatch optimiser and settlement

@@ -71,10 +71,11 @@ Each file answers exactly one question. If you can't say which, it is doing too 
 | | `scripts/verify_forecast_series.py` | Are these series really forecasts? | built |
 | | `scripts/explore.py` | What does the record actually contain? | built |
 | | `scripts/train.py` | How is it doing on the year we may keep looking at? | built |
+| | `scripts/quantiles.py` | How far from LEAR's forecast might the price land? | built |
 | | `scripts/final_score.py` | How did it do on the years nobody has touched? | built |
 | | `scripts/significance.py` | Is each gap the README claims bigger than luck? | built |
 
-Ten of eleven exist. `backtest.py` is a name and an intention, nothing more.
+Eleven of twelve exist. `backtest.py` is a name and an intention, nothing more.
 
 **Why the last two are separate files rather than one with a flag.** Contract 2 allows the
 held-back years to be scored once per stage, and a promise in a docstring would not survive a
