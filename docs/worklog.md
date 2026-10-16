@@ -3155,6 +3155,13 @@ minimising it places the line); all in `docs/learnings.md`.
 
 ---
 
+<a id="d20261016"></a>
+### 16 October 2026
+
+**Recap (all five):** 1 mostly right: the average is enough, but the reason is that revenue is a straight sum, and price-limited bids (stage 4's reason) were missed beside risk aversion. 2 half right: the last-digit match was the proof, but not that a re-score needed a new script and stamped the wrong commit. 3 not remembered: only a test reading the price off the dates could see a column that agrees with itself. 4 two of three: the first is a half-full battery rebalanced next day by an unlimited bid, not oversizing. 5 answered with a question: the penalty does change, +0.1 per dot below, −0.9 per dot above, and stops falling at 1 in 10 above.
+
+---
+
 ### Next — next session
 
 **Stage 3 starts: QRA on LEAR, conformal beside it, scored on 2023. Every rMAE is now the field's.**
