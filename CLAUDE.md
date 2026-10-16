@@ -59,7 +59,7 @@ by an overlapping horizon: optimise 48 hours, implement the first 24, carry forw
 | 0 | Reproducible data pull, split locked | negative-price hours, daily spread | done 17 Sep 2026 |
 | 1 | First model against naive benchmark | rMAE 0.532 *(last week)* | done 30 Sep 2026 |
 | 2 | Recalibration, LEAR, holidays | **rMAE 0.485** *(0.405 last week)* | done 14 Oct 2026 |
-| 3 | Quantile forecasts: QRA on LEAR, conformal beside it | pinball loss, coverage | next |
+| 3 | Quantile forecasts: QRA on LEAR, conformal beside it | pinball 5.30 on 2023 *(QRA, 91 days)* | built, measured on 2023 16 Oct 2026 |
 | 4 | Price-dependent bids and MILP schedule, revenue | capture rate | |
 
 **Every rMAE divides by the field's benchmark from the close of stage 2 (15 Oct)** — yesterday's
