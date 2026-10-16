@@ -19,7 +19,7 @@ import pandas as pd
 from sklearn.base import BaseEstimator
 from sklearn.ensemble import HistGradientBoostingRegressor
 from sklearn.exceptions import ConvergenceWarning
-from sklearn.linear_model import Lasso, LassoLarsIC, LinearRegression
+from sklearn.linear_model import Lasso, LassoLarsIC, LinearRegression, QuantileRegressor
 
 from src import features as F
 
@@ -220,3 +220,54 @@ def lear_walk_forward(table: pd.DataFrame, days: pd.DatetimeIndex,
     out = pd.concat(parts)
     out.columns = [int(c[-2:]) for c in out.columns]        # "price_d0_h18" -> 18, as unfold reads
     return F.unfold(out).rename("predicted")
+
+
+# ── QRA: a range around LEAR, one line per percentile ─────────────────────────
+# Stage 3 turns LEAR's one number per hour into 99 (Lipiecki, Uniejewski & Weron
+# 2024).  For one delivery hour, take the window's days as dots — LEAR's forecast
+# across, the real price up — and fit a line per percentile by pinball loss, so
+# the p90 line has 9 dots in 10 below it.  Each line has its own slope, so the
+# band can widen on days LEAR expects to be expensive (*quantile regression
+# averaging*).  The paper feeds it the average of four LEARs; here it is one.
+#
+# The window ends at D−1, as `walk_forward`'s does: D−1's prices were public by
+# 13:00 on D−2.  The dots must be forecasts LEAR really made, never its fit on
+# its own training days, or the misses look small and the band comes out narrow.
+# `alpha=0` because QRA has no penalty; scikit-learn's default would flatten
+# every slope towards zero.
+
+QRA_WINDOW = 182                                            # days of dots per fit
+PERCENTILES = tuple(range(1, 100))                          # p1 to p99, whole numbers
+
+
+def qra(point: pd.Series, actual: pd.Series, days: pd.DatetimeIndex,
+        window: int = QRA_WINDOW, levels: tuple[int, ...] = PERCENTILES) -> pd.DataFrame:
+    """99 lines per delivery hour of `days`, each from the `window` days before. Hourly out."""
+    x, y = F.fold(point), F.fold(actual)                    # one row per day, one column per hour
+    rows = []
+    for day in days:
+        before = x.index < day                              # strictly before: the rule
+        lines = {}
+        for hour in x.columns:
+            dots = pd.DataFrame({"x": x.loc[before, hour], "y": y.loc[before, hour]})
+            dots = dots.dropna().iloc[-window:]             # the last `window` days with both
+            today = x.loc[[day], [hour]].to_numpy()         # LEAR's forecast for this hour of D
+            lines[hour] = [QuantileRegressor(quantile=p / 100, alpha=0, solver="highs")
+                           .fit(dots[["x"]].to_numpy(), dots["y"]).predict(today)[0]
+                           for p in levels]
+        block = pd.DataFrame(lines, index=list(levels)).T          # hours down, percentiles across
+        block.index = day + pd.to_timedelta(block.index, unit="h")  # back to grid hour labels
+        rows.append(block)
+    return pd.concat(rows)
+
+
+# Lines fitted one at a time can cross: p91 a little below p90 on some hour.  The
+# usual repair is to sort each hour's values back into order, which can only
+# lower pinball loss.  How many hours needed it is returned beside the result,
+# so the repair is counted rather than hidden.
+
+def untangle(lines: pd.DataFrame) -> tuple[pd.DataFrame, int]:
+    """Each hour's percentiles sorted into order, and how many hours had crossed."""
+    ordered = np.sort(lines.to_numpy(), axis=1)             # lowest percentile first
+    crossed = int((ordered != lines.to_numpy()).any(axis=1).sum())
+    return pd.DataFrame(ordered, index=lines.index, columns=lines.columns), crossed

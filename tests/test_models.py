@@ -333,3 +333,82 @@ def test_the_spread_is_statsmodels_mad_exactly():
     forecasts by up to 0.0012 EUR/MWh against it on 2023 (checked 13 Oct 2026)."""
     _, spread = M.robust_ruler(pd.DataFrame({"p": [-1.0, 0.0, 1.0]}))   # median 0, MAD 1
     assert spread["p"] == pytest.approx(1.482602218505602, rel=1e-12)
+
+
+# ── QRA ───────────────────────────────────────────────────────────────────────
+# Made-up LEAR forecasts and prices on the naive hourly grid.  The price scatters
+# around the forecast by a fifth of its size, so expensive hours are also the
+# uncertain ones: a working QRA must cover the right share *and* fan out, which
+# a band of fixed width cannot.  Three percentiles, not 99, keep the fits quick.
+
+def point_and_price(n_days: int = 160, seed: int = 3) -> tuple[pd.Series, pd.Series]:
+    idx = pd.date_range("2023-01-01", periods=n_days * 24, freq="h")    # naive: Berlin wall clock
+    rng = np.random.default_rng(seed)
+    point = pd.Series(rng.uniform(20, 200, len(idx)), index=idx)
+    price = point + rng.normal(0, 1, len(idx)) * 0.2 * point             # spread grows with the forecast
+    return point, price
+
+
+def test_qra_learns_only_from_the_window_before_each_day():
+    """Change a price on D or after, or one day older than the window: same lines.
+    Change D-1's price, the newest dot: different lines."""
+    point, price = point_and_price(60)
+    d, window = pd.Timestamp("2023-02-20"), 30
+    run = lambda p: M.qra(point, p, pd.DatetimeIndex([d]), window, levels=(10, 50, 90))
+    base = run(price)
+
+    later = price.copy()
+    later[later.index >= d] += 500                          # D's own prices, and everything after
+    pd.testing.assert_frame_equal(run(later), base)
+
+    older = price.copy()
+    older[older.index.normalize() == d - pd.Timedelta(days=window + 1)] += 500
+    pd.testing.assert_frame_equal(run(older), base)
+
+    newest = price.copy()
+    newest[newest.index.normalize() == d - pd.Timedelta(days=1)] += 500
+    assert not run(newest).equals(base)
+
+
+def test_qra_returns_every_hour_of_every_day_with_its_label():
+    point, price = point_and_price(40)
+    days = pd.DatetimeIndex(["2023-02-01", "2023-02-02"])
+    out = M.qra(point, price, days, window=30, levels=(10, 90))
+    assert list(out.columns) == [10, 90]
+    assert out.index.equals(pd.date_range("2023-02-01", periods=48, freq="h"))
+
+
+def test_qra_covers_its_share_and_fans_out_on_expensive_hours():
+    """p10 to p90 holds about 8 prices in 10, and is far wider where LEAR expects
+    200 than where it expects 20 — the thing conformal's fixed width cannot do."""
+    from src import evaluate as E
+
+    point, price = point_and_price(160)
+    days = pd.date_range("2023-05-10", periods=30, freq="D")
+    q = M.qra(point, price, days, window=120, levels=(10, 90))
+    assert E.coverage(q, price, 80) == pytest.approx(0.8, abs=0.05)
+    width, level = q[90] - q[10], point.reindex(q.index)
+    assert width[level > 150].mean() > 3 * width[level < 70].mean()
+
+
+def test_qra_puts_no_charge_on_the_slope():
+    """Dots lying exactly on price = 10 + 50 × forecast: with no penalty every
+    percentile line is that line.  scikit-learn's default (alpha=1) would charge
+    50 for the slope and flatten it; on real 19:00 data it moved p90 by 12 EUR."""
+    idx = pd.date_range("2023-01-01", periods=40 * 24, freq="h")
+    point = pd.Series(np.random.default_rng(4).uniform(0, 1, len(idx)), index=idx)
+    price = 10 + 50 * point
+    day = pd.DatetimeIndex(["2023-02-09"])
+    q = M.qra(point, price, day, window=30, levels=(10, 90))
+    expected = price.loc["2023-02-09"]
+    for p in (10, 90):
+        np.testing.assert_allclose(q[p], expected, atol=1e-6)
+
+
+def test_untangle_sorts_crossed_lines_and_counts_the_hours():
+    lines = pd.DataFrame([[10.0, 20.0, 30.0], [10.0, 31.0, 30.0], [5.0, 6.0, 7.0]],
+                         columns=[10, 50, 90])
+    ordered, crossed = M.untangle(lines)
+    assert crossed == 1                                     # only the middle hour had crossed
+    assert ordered.iloc[1].tolist() == [10.0, 30.0, 31.0]
+    assert ordered.columns.equals(lines.columns)
