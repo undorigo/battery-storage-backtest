@@ -3301,30 +3301,66 @@ cannot say "buy below p10 *and* sell above p90"; quantiles would set one spread 
 in DE-LU after the 15-minute switch (EPEX's own pages refused automated fetches); with 90 %
 efficiency the two volumes differ, so the condition is volume-weighted (my arithmetic, not quoted).
 
+#### The windows compared: a shorter memory mattered more than the method (`148893b`, `ef602df`)
+
+`just quantiles 28 56 91` at `f8566fb`: LEAR 1,662 s (the check read 0.504 again), ranges 1,284 /
+1,424 / 1,624 s.
+
+| 2023 | QRA pinball | conformal pinball | QRA 50 / 80 / 90 % | conformal 50 / 80 / 90 % | QRA hours crossed |
+|---|---|---|---|---|---|
+| 182 days | 5.381 | 5.546 | 0.557 / 0.832 / 0.912 | 0.584 / 0.851 / 0.927 | 5,477 |
+| **91 days** | **5.300** | 5.397 | 0.537 / 0.814 / 0.897 | 0.533 / 0.817 / 0.907 | 5,925 |
+| 56 days | 5.304 | 5.388 | 0.521 / 0.800 / 0.887 | 0.522 / 0.804 / 0.898 | 6,200 |
+| 28 days | 5.394 | 5.395 | 0.473 / 0.757 / 0.857 | 0.514 / 0.787 / 0.877 | 6,039 |
+
+`just significance` (comparisons added, `ef602df`): QRA 182 → 91 **p = 0.033**; 56 → 91 p = 0.47
+(tie); conformal 182 → 91 **p = 3.2e-05**; at 91 days conformal → QRA **p = 0.078**. Ad hoc, not in
+the command: QRA 182 → 56 p = 0.145, 28 → 91 p = 0.112; conformal → QRA at 56 days p = 0.18, at 28
+p = 0.50. **Read:** a shorter window helps QRA a little and conformal a lot, and QRA's clear lead at
+182 days was mostly its better handling of a stale window. One year, so a reading, not a finding.
+**The lag shrinks, not gone:** QRA's 80 % band at 91 days held 0.917 in February, 0.675 in August,
+0.707 in October. **Flattered slightly:** best of four windows on one year. 28 days under-covers
+everywhere (0.757 for 80 %). Nothing implausible: gains of 1.5 % in pinball, coverage near nominal.
+
+---
+
+**Plan refreshed:** README (*Where this is going*: stage 3 built and measured on 2023, *Where
+stage 3 stands*, loop-block note, *Roughly when*), CLAUDE.md's stage table, the plan page (version
+15), `docs/architecture.md`. Stage 3 stays open: window choice and the held-back reading remain.
+
+**State at close (16 Oct).** `main` after this entry's commit, suite 246 green. Learnings for today
+(the two conformal bands, crossing lines, a total hiding offsetting parts, a window remembering the
+market late, the loop block's pair test) in `docs/learnings.md`.
+
 ---
 
 ### Next — next session
 
-**Stage 3 starts: QRA on LEAR, conformal beside it, scored on 2023. Every rMAE is now the field's.**
+**Stage 3: choose the window, then the one held-back reading of the ranges.**
 
 #### Recap questions
 
-1. Why does a fixed schedule that ignores risk need only the average forecast, and when does a range
-   change what a battery does?
-2. Why were all five commands re-run rather than the stored forecasts re-scored, and what did the
-   re-run prove?
-3. A planted bug filled the field's column with last week's price and no test failed. Why could
-   none of them see it, and what kind of test did?
-4. A battery's buy bid is not filled but its sell bid is. Name the field's three ways of handling
-   that, and which one the exchange itself supports.
-5. Move a p90 line up by 1 €. What happens to the penalty, and why does that leave the line where
-   9 prices in 10 fall below it?
+1. At 182 days QRA beat conformal clearly (p 0.001); at 91 days it could not be told apart
+   (p 0.078). What does that say about what QRA was really good at?
+2. On 1 December QRA's lines crossed by 58 € at 14:00. Why there, and why does sorting them back
+   into order not fix the problem underneath?
+3. A planted swap of the conformal and QRA tables passed every test. Which test caught it, and why
+   could a row that reproduces from its own table not?
+4. A loop block's buy limit is 40 € and its sell limit 90 €. Which real prices fill the pair, and
+   why can it not hold "buy below p10 *and* sell above p90"?
+5. The bands were too wide in spring and too narrow in autumn. What about a 182-day window causes
+   that, and why does choosing the best of four windows on 2023 flatter the winner?
 
 #### Then, in order
 
-1. **Build stage 3 as agreed on 15 Oct** (see *Stage 3's design agreed*): LEAR through late 2022,
-   QRA on LEAR alone over 182 days, 99 percentiles, `just quantiles`. Build in pieces that can be
-   followed; plant before claiming; no commit while the run is going (~50 min).
-2. **Conformal beside it**, then pinball loss and coverage on 2023; a significance test for pinball.
-3. Open: which unfilled-order convention stage 4 uses (three read on 15 Oct; first check how a loop
-   block's price limit is evaluated). Why LEAR's held-back lead grows into 2025 (a note, not a task).
+1. **Choose the window** with the user: 56 and 91 days tie (p 0.47); 91 has the lower pinball and
+   coverage nearest nominal at 80 and 90 %. Field variant noted, not proposed: Lipiecki et al.'s
+   average over 28–182 days. Decide before reading the held-back years.
+2. **The held-back reading of the ranges, once:** QRA and conformal on 2024–25 from LEAR's daily
+   held-back forecasts, the window chosen in 1, scored by pinball and coverage. Not built: it needs
+   LEAR's walk through 2024–25 (as `final_score.py` does) and the ranges behind it. Design first.
+3. Cheap, from MLflow: pinball on the 2.9 % of hours where LEAR lies outside its window against the
+   rest, and whether *hours crossed* should give way to a size measure (raw lines are not stored).
+4. Open: the unfilled-order rule for stage 4 (loop blocks judged on the pair's combined gain, read
+   16 Oct; their availability in DE-LU after the 15-minute switch unconfirmed). Why LEAR's held-back
+   lead grows into 2025 (a note, not a task).
