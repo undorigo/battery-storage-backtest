@@ -267,3 +267,59 @@ def test_table_renders_one_line_per_row():
     assert out.count("\n") == 3                          # header, rule, two rows
     assert "8,759" in out
     assert "| 0.900 | 0.836 |" in out                    # the field's first: it is the headline
+
+
+# ── Scoring a range ───────────────────────────────────────────────────────────
+
+def band(lines: dict[int, list[float]], start: str = "2024-01-01") -> pd.DataFrame:
+    """A range table: one column per percentile, one row per hour."""
+    n = len(next(iter(lines.values())))
+    idx = pd.date_range(start, periods=n, freq="h", tz="UTC")
+    return pd.DataFrame(lines, index=idx, dtype=float)
+
+
+def test_pinball_worked_out_by_hand():
+    """Hour 0: the price lands above both lines, hour 1 below both.
+    p10 above by 10 costs 0.1 × 10 = 1;  p90 above by 5 costs 0.9 × 5 = 4.5;
+    p10 below by 10 costs 0.9 × 10 = 9;  p90 below by 20 costs 0.1 × 20 = 2."""
+    actual = series([100, 100])
+    q = band({10: [90, 110], 90: [95, 120]})
+    assert E.pinball(q, actual) == pytest.approx((1 + 4.5 + 9 + 2) / 4)
+
+
+def test_pinball_on_the_median_line_is_half_the_average_miss():
+    actual = series([100, 50, -20])
+    q = band({50: [110, 30, -20]})                         # misses of 10, 20, 0
+    assert E.pinball(q, actual) == pytest.approx(0.5 * 10)
+
+
+def test_the_line_with_the_lowest_pinball_has_nine_prices_in_ten_below_it():
+    """The penalty alone places the line: nobody counts dots.  Slide a flat p90
+    line across 1,000 prices and the cheapest position is the 90th percentile."""
+    rng = np.random.default_rng(0)
+    actual = series(list(rng.normal(80, 30, 1000)))
+    heights = np.linspace(40, 140, 1001)
+    cost = [E.pinball(band({90: [h] * 1000}), actual) for h in heights]
+    best = heights[int(np.argmin(cost))]
+    assert (actual < best).mean() == pytest.approx(0.9, abs=0.002)
+
+
+def test_coverage_reads_the_band_its_share_names():
+    """Hour 0 sits inside p25–p75, hour 1 inside p10–p90 only, hour 2 inside
+    p5–p95 only, hour 3 above everything."""
+    actual = series([100, 100, 100, 100])
+    q = band({5: [50, 50, 95, 50], 10: [60, 60, 101, 60], 25: [90, 101, 102, 70],
+              75: [110, 120, 130, 80], 90: [120, 130, 140, 85], 95: [130, 140, 150, 90]})
+    assert E.coverage(q, actual, 50) == pytest.approx(1 / 4)
+    assert E.coverage(q, actual, 80) == pytest.approx(2 / 4)
+    assert E.coverage(q, actual, 90) == pytest.approx(3 / 4)
+
+
+def test_a_range_is_scored_only_on_the_hours_the_prices_cover():
+    """The range is far off at hour 2, where no price exists; it must not count."""
+    actual = series([100, 100, None])
+    q = band({10: [90, 90, 500], 90: [110, 110, 900]})
+    assert E.pinball(q, actual) == pytest.approx(0.1 * 10)      # every line 10 away, on the cheap side
+    assert E.coverage(q, actual, 80) == 1.0
+    with pytest.raises(ValueError, match="share no hours"):
+        E.pinball(q, series([100, 100], start="2030-01-01"))

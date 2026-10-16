@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import math
 
+import numpy as np
 import pandas as pd
 
 
@@ -144,6 +145,42 @@ def dm(first: pd.Series, second: pd.Series, actual: pd.Series, lags: int = 7) ->
         var += 2 * (1 - k / (lags + 1)) * echo          # weight fades with distance
     stat = d.mean() / math.sqrt(var / n)
     return 0.5 * math.erfc(stat / math.sqrt(2))         # upper tail of the normal curve
+
+
+# ── Scoring a range: pinball loss and coverage ────────────────────────────────
+# A range arrives as one row per delivery hour and one column per percentile,
+# labelled 1 to 99 as whole numbers, so "the p90 column" is a lookup that cannot
+# miss by a rounding error.  The same rule as above applies: line the range up
+# with the prices by timestamp first, and refuse if nothing overlaps.
+#
+# Pinball loss scores each line by how far the price landed from it, lopsidedly:
+# for p90 a price above the line costs 0.9 per euro, a price below it 0.1.  The
+# line with the lowest total has 9 prices in 10 below it, so a low average means
+# lines both in the right place and close to the prices.  Averaged here over all
+# 99 percentiles, the set Lipiecki et al. (2024) forecast.  Coverage is the plain count
+# beside it: the share of prices inside the central band, e.g. p10 to p90 for 80 %.
+
+def _lined_up(quantiles: pd.DataFrame, actual: pd.Series) -> tuple[pd.DataFrame, pd.Series]:
+    frame = quantiles.join(actual.rename("_actual"), how="inner").dropna()
+    if frame.empty:
+        raise ValueError("range and actual share no hours — check the index and timezone")
+    return frame.drop(columns="_actual"), frame["_actual"]
+
+
+def pinball(quantiles: pd.DataFrame, actual: pd.Series) -> float:
+    """Average pinball loss over every hour and every percentile, in EUR/MWh. Lower is better."""
+    q, a = _lined_up(quantiles, actual)
+    level = q.columns.to_numpy(dtype=float) / 100       # 90 -> 0.9
+    miss = a.to_numpy()[:, None] - q.to_numpy()          # positive: price landed above the line
+    loss = np.maximum(level * miss, (level - 1) * miss)  # the lopsided V, per hour and line
+    return float(loss.mean())
+
+
+def coverage(quantiles: pd.DataFrame, actual: pd.Series, share: int) -> float:
+    """Share of hours whose price landed inside the central band, e.g. `share=80`: p10 to p90."""
+    q, a = _lined_up(quantiles, actual)
+    low, high = (100 - share) // 2, (100 + share) // 2   # 80 -> p10 and p90
+    return float(((a >= q[low]) & (a <= q[high])).mean())
 
 
 # ── Reporting ─────────────────────────────────────────────────────────────────
