@@ -3160,6 +3160,147 @@ minimising it places the line); all in `docs/learnings.md`.
 
 **Recap (all five):** 1 mostly right: the average is enough, but the reason is that revenue is a straight sum, and price-limited bids (stage 4's reason) were missed beside risk aversion. 2 half right: the last-digit match was the proof, but not that a re-score needed a new script and stamped the wrong commit. 3 not remembered: only a test reading the price off the dates could see a column that agrees with itself. 4 two of three: the first is a half-full battery rebalanced next day by an unlimited bid, not oversizing. 5 answered with a question: the penalty does change, +0.1 per dot below, −0.9 per dot above, and stops falling at 1 in 10 above.
 
+#### Stage 3 built: pinball, QRA, conformal, `just quantiles` (`5b5024f`, `d70cb35`, `abc7187`, `3f838b4`)
+
+**Decided with the user before building.** Conformal is the paper's symmetric form: the band's
+width comes from the *size* of LEAR's past misses, centred on LEAR (Lipiecki et al. 2024: "only
+possible under the assumption of symmetrically distributed errors"). Rejected: percentiles of the
+signed misses (can lean one way; not the field's conformal). Shown on 11 Sep 2023, 19:00 (window
+13 Mar–10 Sep): 80 % band 158.7–206.9 symmetric, 160.4–208.0 signed, LEAR too low 54 % of days;
+the price came in at 524, outside both. **Scores in both places**: MLflow keeps each method's run
+with all 99 percentiles per hour; `reports/quantile_scores.csv` (in git, a second named exception in
+`.gitignore`) keeps the headline numbers, stamped, through `train.record`. Rejected: MLflow only (a
+clean clone would see no history; `reports/mlflow/` is local, holding machine paths).
+
+**Checked in the paper first:** QRA has an intercept and one fit per hour; the paper feeds it the
+average of four LEARs (56, 84, 1,092, 1,456 days), here one (1,092), a stated departure. Crossing
+is not discussed in the paper, so sorting and counting is ours. Not checked: whether its conformal
+uses the (n + 1)/n rounding; ours is the plain percentile.
+
+**Built in four pieces, each planted before it was claimed.**
+
+| Piece | Planted bug | Caught by |
+|---|---|---|
+| pinball, coverage | V flipped; miss sign flipped; sum for mean; blanks kept; band's low edge ignored; p20–p80 for 80 % | hand-worked pinball (3 tests), median = half MAE, 1,000-price line search, coverage by band, trim test |
+| QRA | window includes D; never trimmed; one day too long | *a range learns only from the window before each day* |
+| | read at yesterday's forecast; hours backwards; percentile mirrored | fan-out and label tests |
+| | **scikit-learn's default `alpha=1`** | **nothing at first**: the test data's spread made the penalty negligible. Measured on real 2023 data: p90 at 19:00 moves 48.5 → 60.3. Test added (dots on an exact line); caught |
+| conformal | signed misses; p90 at the 90 % size; both edges above; centred on the price | hand-worked band, coverage test |
+| | shared walk: includes D, untrimmed, yesterday's forecast | the window test, now run on both methods |
+| script | walk a day late; reaches 2024; incomplete days walked; prices on wrong hour; QRA scored unsorted; kept table untrimmed; window not recorded; percentiles back as text; run without convention | `test_quantiles.py`, `test_tracking.py` |
+| | **conformal row scores QRA's lines** | **nothing at first**: each row reproduced from its own table, so a swapped pair agreed with itself (the 15 Oct lesson again). Test added from outside the row: conformal's band is symmetric around LEAR, QRA's is not; caught |
+
+**A bug no test could see, found on real data before the run.** A one-day check with LEAR's
+stored 2023 forecasts crashed: prices span 1,918 days, LEAR's forecasts 547, and the walk applied
+one table's "days before D" to the other. Every test had handed in two series of equal length. Dots
+now come only from days LEAR forecast; a test with a longer price span, planted back, caught it.
+The same check: the day table's prices equal the hourly 2023 prices exactly (8,760 hours), the
+walk covers 547 days (3 Jul 2022–31 Dec 2023, none incomplete), one day of 99 percentiles for both
+methods takes 6.0 s, and QRA's lines crossed on 23 of that day's 24 hours.
+
+Leakage check, answered for each piece: no feature changed; QRA and conformal read LEAR's forecast
+for D and prices of days before D only (planted: window including D, caught for both); LEAR's
+late-2022 forecasts learn from days before each, training days all; the test years are dropped at
+`day_rows()`; settlement untouched. Suite 234 green.
+
+---
+
+#### Stage 3's first result: QRA beats conformal, both bands lag the market (`53ed091`, `88673bd`)
+
+`just quantiles` at `3f838b4`: LEAR 1,645 s, ranges 2,303 s. **The check held:** LEAR's 2023 rMAE
+read 0.504 (last week's 0.429) on 8,760 hours, as `scores.csv` holds for `just train daily`, so QRA
+learned from the LEAR the README reports.
+
+| 2023, window 182 | Pinball | 50 % band | 80 % band | 90 % band | Hours crossed |
+|---|---|---|---|---|---|
+| **QRA** | **5.381** | 0.557 | 0.832 | 0.912 | 5,477 of 8,760 |
+| conformal | 5.546 | 0.584 | 0.851 | 0.927 | 0 |
+
+`just significance`: conformal → QRA, **p = 0.0011** (reverse 1), so QRA's 3 % lower pinball is
+not luck. Both bands hold *more* than their share across the year, which is not what a leak looks
+like (a leak gives narrow bands that still hold).
+
+**The year's coverage is two opposite errors.** By month, the 80 % band held 83–92 % (QRA) and
+93–97 % (conformal) January–June, but 70–83 % and 70–80 % July–December; October 0.695 / 0.700.
+Conformal's band was 124 EUR wide in January and 42 in October, while LEAR's own miss went from
+21 EUR in January to 11 in June and back to 16 in September–October. The 182-day window remembers
+the market half a year late: crisis-era late 2022 widens early 2023, the calm spring narrows the
+autumn. QRA shrinks better in the first half; in the second both are too narrow alike.
+
+**Decided with the user: compare 28, 56 and 91 days on 2023**, the validation year, so choosing
+from it is legitimate. Built: `just quantiles 28 56 91` shares one LEAR walk; windows over 182 are
+refused, because the walk starts 182 days before 2023 and a longer one would be quietly short in
+early 2023 (planted: guard removed, off by one, default lost, first window only; all caught;
+`main`'s loop untested, as `train.main` is). Rejected: three runs as they stand (~3¼ h, the window
+edited between runs). One real day: 3.6–4.3 s per day per window. **Caution stated before the run:**
+one year's two halves; a short window helps if swings come every few months, and may chase noise.
+
+---
+
+#### What "QRA's lines crossed" means, measured during the run
+
+Asked by the user. On 1 Dec 2023, **747 of 2,352 neighbouring pairs** of QRA's lines were out of
+order; half by under 0.38 EUR (lines 1 percentile apart swap on noise), but up to **58 EUR at 14:00**,
+38 at 15:00, 24 at 13:00. There LEAR forecast 215–224 while every dot in the June–November window
+lay below 170–187: the lines were read beyond their data, where different slopes drift apart. So
+*hours that crossed* (the recorded column) cannot tell harmless swaps from extrapolation, and the
+raw crossings are not stored (MLflow keeps the sorted lines).
+
+**How often is LEAR's forecast outside its window?** Measured on July–December 2023, where the window
+lies inside 2023 (stored LEAR forecasts, 4,392 hours, nothing fitted): **2.9 % of hours** (above
+1.1 %, below 1.7 %), by 11 EUR median, 59 at most. Spread evenly over the hours (1–5 %), rising at
+the season's turn: October 4.0 %, December 6.2 %. Six of 183 days had six or more such hours; most
+was 24 December (14). January–June not measured: their windows reach late 2022, not stored. Read:
+not enough alone to say 182 days is too long; worth scoring pinball separately on these hours.
+
+---
+
+#### Diebold-Mariano on pinball, for `just significance` (built during the run, committed after)
+
+**Decided with the user.** The daily loss is pinball over all 99 lines, the headline score, so the
+test judges the reported number. Rejected for now: parts of the range tested separately (several
+p-values, and which lines matter is stage 4's question). Shown on 1 Dec 2023 why it was asked:
+QRA 6.90 against conformal 6.97 overall, but conformal better at the edges (p10 alone 4.09 against
+6.23, p90 3.96 against 5.52) and QRA in the middle (8.21 against 9.71): a total can hide offsetting
+parts. **Runs from `just significance`**, reading the stored percentiles; no refit. Rejected: inside
+`just quantiles` (another run for one p-value). Not checked: whether Lipiecki et al. test this way.
+
+`E.dm`'s daily step moved into `_dm_days`, shared; the existing DM tests, including epftoolbox's,
+passed unchanged. Anchor for the new one: on a single p50 line pinball is half the miss, so
+`dm_pinball` must equal `dm`; it does at lags 0 and 7.
+
+| Planted bug | Caught by |
+|---|---|
+| gap signed the wrong way | p50 = `dm` (both lags), *says which range is better* |
+| hours one range lacks kept | *drops an hour one range lacks from both* |
+| pinball summed over lines | hand-worked pinball, trim test |
+| hours, not days, as evidence | epftoolbox reference, echo by hand |
+| echo correction dropped | p50 = `dm` at lags 7 |
+| significance: each run on its own hours; p swapped; second side reads the first run | range comparison tests |
+| significance: prices read from LEAR's column | **nothing at first**: the fixture set LEAR equal to the price. Given its own miss; caught |
+
+Suite 241 green.
+
+---
+
+#### How a loop block's price limit is evaluated: read
+
+**The exchange checks the pair, not each order.** EPEX's FRA algorithm description (Release 1.0,
+Feb 2022, hosted by NESO): loop blocks are "a 2-block linked family where the two block orders are
+parent of each other"; "If accepted, the surplus of the loop family must be non-negative" and "the
+two block orders have the same acceptance ratio". Euphemia's public description (18 Dec 2025, §5.4.1)
+does not name loop blocks; its linked-family rule is the same ("the surplus of a family is
+non-negative"; an out-of-the-money parent "can be accepted in case its accepted child blocks provide
+sufficient surplus"). Hirsch & Ziel 2026, footnote 1: loop bids "are conditional on the total
+cashflow of the linked bids", "contrary to individual directional limit prices".
+
+**What it means for stage 4.** With equal volumes, the pair fills when the realised sell-minus-buy
+spread is at least the spread between the two limits; only the limits' difference matters. So a loop
+cannot say "buy below p10 *and* sell above p90"; quantiles would set one spread threshold per pair.
+**Not verified:** the FRA document is EPEX's UK frequency auction, not SDAC; loop blocks' availability
+in DE-LU after the 15-minute switch (EPEX's own pages refused automated fetches); with 90 %
+efficiency the two volumes differ, so the condition is volume-weighted (my arithmetic, not quoted).
+
 ---
 
 ### Next — next session
