@@ -118,9 +118,17 @@ def compare(first: dict, second: dict, **where) -> dict:
 # percentiles per hour, so the test needs no refit.  Both sides are trimmed to the
 # hours both cover and scored there, as `compare` does for point forecasts.
 
+def _range(model: str, window: int) -> dict:
+    return {"model": model, "window": str(window), "split": "valid"}
+
+
 RANGE_COMPARISONS = [
-    ("ranges: conformal → QRA", {"model": "conformal", "window": "182", "split": "valid"},
-     {"model": "qra", "window": "182", "split": "valid"}),
+    ("ranges: conformal → QRA", _range("conformal", 182), _range("qra", 182)),
+    # The windows, 16 Oct: does forgetting faster keep the bands in step with the market?
+    ("QRA: 182 → 91 days", _range("qra", 182), _range("qra", 91)),
+    ("QRA: 56 → 91 days", _range("qra", 56), _range("qra", 91)),
+    ("conformal: 182 → 91 days", _range("conformal", 182), _range("conformal", 91)),
+    ("91 days: conformal → QRA", _range("conformal", 91), _range("qra", 91)),
 ]
 
 
