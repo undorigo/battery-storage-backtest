@@ -135,7 +135,11 @@ def rmae(predicted: pd.Series, benchmark: pd.Series, actual: pd.Series) -> float
 def dm(first: pd.Series, second: pd.Series, actual: pd.Series, lags: int = 7) -> float:
     """One-sided p-value that `second` is more accurate than `first`, from daily gaps."""
     f, s, a = aligned(first, second, actual)            # one set of hours for both
-    hourly = (f - a).abs() - (s - a).abs()              # positive where second missed less
+    return _dm_days((f - a).abs() - (s - a).abs(), lags)   # positive where second missed less
+
+
+def _dm_days(hourly: pd.Series, lags: int) -> float:
+    """One-sided p-value that the hourly gaps, averaged per day, lie above zero."""
     d = hourly.groupby(hourly.index.normalize()).mean().to_numpy()   # one number per day
     n = len(d)
     c = d - d.mean()
@@ -167,13 +171,16 @@ def _lined_up(quantiles: pd.DataFrame, actual: pd.Series) -> tuple[pd.DataFrame,
     return frame.drop(columns="_actual"), frame["_actual"]
 
 
-def pinball(quantiles: pd.DataFrame, actual: pd.Series) -> float:
-    """Average pinball loss over every hour and every percentile, in EUR/MWh. Lower is better."""
-    q, a = _lined_up(quantiles, actual)
+def _pinball_hours(q: pd.DataFrame, a: pd.Series) -> pd.Series:
     level = q.columns.to_numpy(dtype=float) / 100       # 90 -> 0.9
     miss = a.to_numpy()[:, None] - q.to_numpy()          # positive: price landed above the line
     loss = np.maximum(level * miss, (level - 1) * miss)  # the lopsided V, per hour and line
-    return float(loss.mean())
+    return pd.Series(loss.mean(axis=1), index=q.index)   # one score per hour, over its lines
+
+
+def pinball(quantiles: pd.DataFrame, actual: pd.Series) -> float:
+    """Average pinball loss over every hour and every percentile, in EUR/MWh. Lower is better."""
+    return float(_pinball_hours(*_lined_up(quantiles, actual)).mean())
 
 
 def coverage(quantiles: pd.DataFrame, actual: pd.Series, share: int) -> float:
@@ -222,3 +229,21 @@ def table(rows: list[dict]) -> str:
         out.append(f"| {r['model']} | {r['split']} | {r['n']:,} | "
                    f"{r['mae']:.2f} | {r['rmae_field']:.3f} | {r['rmae']:.3f} |")
     return "\n".join(out)
+
+
+# ── Is one range's lead real? — Diebold-Mariano on pinball ────────────────────
+# The test above, with pinball in place of the absolute miss: each hour scored
+# over all its lines, as the headline is, then one number per day, so the test
+# judges the reported score itself.  Both ranges and the prices are trimmed to
+# the hours all three cover first, for the same reason as there.  Testing parts
+# of the range one by one waits for stage 4 to say which lines a bid uses; on
+# 1 December 2023 the two methods tied overall while each led on a different part.
+
+def dm_pinball(first: pd.DataFrame, second: pd.DataFrame, actual: pd.Series,
+               lags: int = 7) -> float:
+    """One-sided p-value that range `second` scores a lower pinball loss than `first`."""
+    f, a = _lined_up(first, actual)                     # each range against the prices
+    s, _ = _lined_up(second, actual)
+    hours = f.index.intersection(s.index)               # then the hours all three cover
+    gap = _pinball_hours(f.loc[hours], a.loc[hours]) - _pinball_hours(s.loc[hours], a.loc[hours])
+    return _dm_days(gap, lags)                          # positive where second scored lower

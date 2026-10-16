@@ -69,7 +69,7 @@ quantiles:
     {{py}} -m scripts.quantiles
 
 # Every p-value the README states, from the runs `just train` left in MLflow. Offline.
-# Needs `just train once`, `monthly`, `daily` and `daily all` first; names any missing.
+# Needs `just train once`, `monthly`, `daily`, `daily all` and `just quantiles` first; names any missing.
 significance:
     {{py}} -m scripts.significance
 

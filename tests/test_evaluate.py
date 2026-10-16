@@ -323,3 +323,41 @@ def test_a_range_is_scored_only_on_the_hours_the_prices_cover():
     assert E.coverage(q, actual, 80) == 1.0
     with pytest.raises(ValueError, match="share no hours"):
         E.pinball(q, series([100, 100], start="2030-01-01"))
+
+
+# ── Diebold-Mariano on pinball ────────────────────────────────────────────────
+
+def _ranges(n_days: int, seed: int) -> tuple[pd.DataFrame, pd.DataFrame, pd.Series]:
+    """Two ranges on the grid, p10 and p90 around a noisy centre; the second's is closer."""
+    first, second, actual = _days(n_days, seed)
+    one = pd.DataFrame({10: first - 15, 90: first + 15})
+    two = pd.DataFrame({10: second - 15, 90: second + 15})
+    return one, two, actual
+
+
+@pytest.mark.parametrize("lags", [0, 7])
+def test_dm_pinball_on_median_lines_is_dm_on_point_forecasts(lags):
+    """A p50 line's pinball is half its miss, and halving every gap leaves the test
+    unchanged.  So with one p50 line each, the answer is `dm`'s, which matches
+    epftoolbox with lags=0."""
+    first, second, actual = _days(60, seed=1)
+    p = E.dm_pinball(first.to_frame(50), second.to_frame(50), actual, lags=lags)
+    assert p == pytest.approx(E.dm(first, second, actual, lags=lags), rel=1e-9)
+
+
+def test_dm_pinball_says_which_range_is_better():
+    one, two, actual = _ranges(365, seed=2)
+    tight = two.sub(actual, axis=0).div(3).add(actual, axis=0)   # three times closer to the price
+    assert E.dm_pinball(one, tight, actual) < 0.01
+    assert E.dm_pinball(tight, one, actual) > 0.99
+
+
+def test_dm_pinball_drops_an_hour_one_range_lacks_from_both():
+    """The first range is far off at an hour the second does not cover; that hour
+    must leave the comparison, not stay in the first range's day."""
+    one, two, actual = _ranges(30, seed=4)
+    gone = one.index[100]
+    one.loc[gone] += 500
+    two.loc[gone] = np.nan
+    p = E.dm_pinball(one, two, actual)
+    assert p == E.dm_pinball(one.drop(gone), two.drop(gone), actual)

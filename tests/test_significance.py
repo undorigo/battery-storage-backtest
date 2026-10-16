@@ -109,3 +109,58 @@ def test_a_pinned_run_is_read_from_its_commit_only(store):
     assert S.compare(ONCE, {**MONTHLY, "commit": "c-monthly"}, **where)["commits"] == "c-once / c-monthly"
     with pytest.raises(LookupError, match="git checkout c-later"):
         S.compare(ONCE, {**MONTHLY, "commit": "c-later"}, **where)
+
+
+# ── The range comparison ──────────────────────────────────────────────────────
+# Two range runs as `just quantiles` logs them.  QRA's band is the closer one but
+# misses the last day, where it would have been far off, so scoring each run on
+# its own hours would move its pinball.
+
+CONFORMAL = {"model": "conformal", "window": "182", "split": "valid"}
+QRA = {"model": "qra", "window": "182", "split": "valid"}
+
+
+@pytest.fixture(scope="module")
+def ranges(tmp_path_factory):
+    where = tmp_path_factory.mktemp("mlflow")
+    hours = pd.date_range("2023-03-13 00:00", periods=7 * 24, freq="h")
+    n = np.arange(len(hours), dtype=float)
+    actual = pd.Series(80 + 20 * np.sin(n / 4), index=hours)
+    centre = {"conformal": actual + 6 * np.cos(n), "qra": actual + 2 * np.sin(n / 3)}
+    centre["qra"].iloc[-24:] += 90                              # a bad day, then trimmed away
+    kept = {}
+    for method, mid in centre.items():
+        frame = pd.DataFrame({"actual": actual, "lear": actual + 12, 10: mid - 8, 50: mid, 90: mid + 8})
+        if method == "qra":
+            frame = frame.iloc[:-24]
+        row = {"method": method, "split": "valid", "n": len(frame),
+               "pinball": E.pinball(frame[[10, 50, 90]], frame["actual"]), "window": 182}
+        TR.log_range(row, frame, {"window": 182, "commit": f"c-{method}"},
+                     db=where / "mlflow.db", store=where / "mlruns")
+        kept[method] = frame
+    return {"db": where / "mlflow.db"}, kept
+
+
+def test_ranges_are_scored_on_the_hours_both_cover(ranges):
+    where, kept = ranges
+    shared = kept["qra"].index
+    r = S.compare_ranges(CONFORMAL, QRA, **where)
+    assert r["hours"] == 6 * 24
+    c = kept["conformal"].loc[shared]
+    assert r["first"] == pytest.approx(E.pinball(c[[10, 50, 90]], c["actual"]))
+    assert r["second"] == pytest.approx(E.pinball(kept["qra"][[10, 50, 90]], kept["qra"]["actual"]))
+
+
+def test_the_range_p_values_point_the_stated_way(ranges):
+    where, kept = ranges
+    c, q = kept["conformal"].loc[kept["qra"].index], kept["qra"]
+    r = S.compare_ranges(CONFORMAL, QRA, **where)
+    assert r["p_second_better"] == pytest.approx(E.dm_pinball(c[[10, 50, 90]], q[[10, 50, 90]], q["actual"]))
+    assert r["p_first_better"] == pytest.approx(E.dm_pinball(q[[10, 50, 90]], c[[10, 50, 90]], q["actual"]))
+    assert r["p_second_better"] < 0.05 < r["p_first_better"]  # QRA closer: small
+    assert r["commits"] == "c-conformal / c-qra"
+
+
+def test_a_missing_range_run_names_just_quantiles(tmp_path):
+    with pytest.raises(LookupError, match="just quantiles"):
+        S.compare_ranges(CONFORMAL, QRA, db=tmp_path / "mlflow.db")

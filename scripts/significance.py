@@ -1,7 +1,7 @@
 """Is the gap real? — every p-value the README states, regenerated in one command.
 
-Reads the hourly forecasts that `just train` left in MLflow and runs Diebold-Mariano
-on each comparison the README makes.  Writes nothing: `scores.csv` stays the record,
+Reads the hourly forecasts that `just train` and `just quantiles` left in MLflow and
+runs Diebold-Mariano on each comparison the README makes, on pinball loss for ranges.  Writes nothing: `scores.csv` stays the record,
 and this only re-reads what the runs already kept.
 
 **Each side is named by what its run states, not by a run id.**  Ids differ from one
@@ -112,6 +112,38 @@ def compare(first: dict, second: dict, **where) -> dict:
             "hours": len(actual), "commits": f"{c1} / {c2}"}
 
 
+# ── The range comparison: stage 3 ─────────────────────────────────────────────
+# The same question for ranges: does QRA's lower pinball loss stand out from the
+# day-to-day swing?  Read from the runs `just quantiles` left, which keep all 99
+# percentiles per hour, so the test needs no refit.  Both sides are trimmed to the
+# hours both cover and scored there, as `compare` does for point forecasts.
+
+RANGE_COMPARISONS = [
+    ("ranges: conformal → QRA", {"model": "conformal", "window": "182", "split": "valid"},
+     {"model": "qra", "window": "182", "split": "valid"}),
+]
+
+
+def compare_ranges(first: dict, second: dict, **where) -> dict:
+    """Pinball of each side on shared hours, p both ways, and which runs were read."""
+    found = []
+    for side in (first, second):
+        run = TR.latest(**where, **side)
+        if run is None:
+            raise LookupError(f"no {side['model']} run with window={side['window']}: "
+                              "run `just quantiles`")
+        params, kept = TR.read_range(run, **where)
+        found.append((params["commit"], kept))
+    (c1, k1), (c2, k2) = found
+    hours = k1.index.intersection(k2.index)                     # one exam
+    levels = [c for c in k1.columns if isinstance(c, int)]      # the percentile columns
+    q1, q2, actual = k1.loc[hours, levels], k2.loc[hours, levels], k1.loc[hours, "actual"]
+    return {"first": E.pinball(q1, actual), "second": E.pinball(q2, actual),
+            "p_second_better": E.dm_pinball(q1, q2, actual),
+            "p_first_better": E.dm_pinball(q2, q1, actual),
+            "hours": len(hours), "commits": f"{c1} / {c2}"}
+
+
 # ── Running it ────────────────────────────────────────────────────────────────
 
 def main() -> int:
@@ -128,6 +160,19 @@ def main() -> int:
             continue
         print(f"| {label} | {r['first']:.3f} | {r['second']:.3f} | {r['divided_by']} "
               f"| {r['p_second_better']:.2g} "
+              f"| {r['p_first_better']:.2g} | {r['hours']:,} | {r['commits']} |")
+
+    print("\n| Comparison | Pinball first | Pinball second | p second better "
+          "| p first better | Hours | Commits |")
+    print("|---|---|---|---|---|---|---|")
+    for label, first, second in RANGE_COMPARISONS:
+        try:
+            r = compare_ranges(first, second)
+        except LookupError as exc:
+            print(f"| {label} | — | — | — | — | — | {exc} |")
+            missing += 1
+            continue
+        print(f"| {label} | {r['first']:.3f} | {r['second']:.3f} | {r['p_second_better']:.2g} "
               f"| {r['p_first_better']:.2g} | {r['hours']:,} | {r['commits']} |")
     return 1 if missing else 0
 
