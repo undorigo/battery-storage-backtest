@@ -13,6 +13,7 @@ the first step, and a range for 2024–25 belongs to the reading that closes the
 
 from __future__ import annotations
 
+import argparse
 import time
 
 import pandas as pd
@@ -94,8 +95,25 @@ def table(rows: list[dict]) -> str:
 # train daily`, and LEAR is deterministic, so its rMAE is printed as a check:
 # it must read what `scores.csv` already holds for that run (0.504, last week's
 # 0.429).  Printed, not recorded, because that row is already in the record.
+#
+# Several windows can share one LEAR walk, the slow half.  None may exceed 182:
+# the walk starts 182 days before 2023, so a longer window would quietly be short
+# through early 2023 and its scores would describe a different window.
 
-def main() -> int:
+def windows(argv: list[str] | None = None) -> list[int]:
+    """The window lengths asked for, 182 if none; refuses any the walk cannot fill."""
+    parser = argparse.ArgumentParser(description="Score QRA and conformal ranges on 2023.")
+    parser.add_argument("windows", nargs="*", type=int, default=[M.QRA_WINDOW],
+                        help="days of dots per fit, at most 182")
+    asked = parser.parse_args(argv).windows
+    if any(not 1 <= w <= M.QRA_WINDOW for w in asked):
+        parser.error(f"windows run from 1 to {M.QRA_WINDOW} days: LEAR's walk starts "
+                     f"{M.QRA_WINDOW} days before 2023")
+    return asked
+
+
+def main(argv: list[str] | None = None) -> int:
+    asked = windows(argv)
     try:
         history = day_rows()                             # training and validation days only
         _, valid = data()                                # hourly 2023, for the benchmarks
@@ -118,19 +136,20 @@ def main() -> int:
     print(f"LEAR on 2023, the check: rMAE {check['rmae_field']:.3f} "
           f"(last week's {check['rmae']:.3f}), {check['n']:,} hours\n")
 
-    started = time.perf_counter()
-    rows, kept = ranges(lear, actual, scored)
-    print(f"Ranges: {time.perf_counter() - started:.0f} s\n")
-    print(table(rows))
+    for window in asked:                                 # each window, the same LEAR
+        started = time.perf_counter()
+        rows, kept = ranges(lear, actual, scored, window)
+        print(f"Ranges, {window} days: {time.perf_counter() - started:.0f} s\n")
+        print(table(rows))
 
-    recorded = record(rows, cfg.QUANTILE_SCORES)
-    print(f"\nAppended {len(rows)} rows to {cfg.QUANTILE_SCORES.relative_to(cfg.ROOT)} "
-          f"— {len(recorded):,} recorded in total.")
+        recorded = record(rows, cfg.QUANTILE_SCORES)
+        print(f"\nAppended {len(rows)} rows to {cfg.QUANTILE_SCORES.relative_to(cfg.ROOT)} "
+              f"— {len(recorded):,} recorded in total.")
 
-    params = {"window": M.QRA_WINDOW, "levels": "1-99", "lear_window": M.WINDOW_DAYS,
-              "lear_from": f"{days.min():%Y-%m-%d}", "commit": git_commit()}
-    ids = {row["method"]: TR.log_range(row, kept[row["method"]], params) for row in rows}
-    print("Logged to MLflow: " + ", ".join(f"{m} {r[:8]}" for m, r in ids.items()))
+        params = {"window": window, "levels": "1-99", "lear_window": M.WINDOW_DAYS,
+                  "lear_from": f"{days.min():%Y-%m-%d}", "commit": git_commit()}
+        ids = {row["method"]: TR.log_range(row, kept[row["method"]], params) for row in rows}
+        print("Logged to MLflow: " + ", ".join(f"{m} {r[:8]}" for m, r in ids.items()) + "\n")
     return 0
 
 

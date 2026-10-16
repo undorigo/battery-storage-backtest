@@ -110,3 +110,20 @@ def test_the_conformal_row_holds_the_symmetric_band_and_the_qra_row_does_not(sco
     c, q = kept["conformal"], kept["qra"]
     np.testing.assert_allclose(c[95] - c["lear"], c["lear"] - c[5])
     assert not np.allclose(q[95] - q["lear"], q["lear"] - q[5])
+
+
+# ── Which windows a run scores ────────────────────────────────────────────────
+
+def test_with_no_window_named_the_run_is_the_182_day_one():
+    assert Q.windows([]) == [182]
+
+
+def test_several_windows_are_scored_in_the_order_named():
+    assert Q.windows(["28", "56", "91"]) == [28, 56, 91]
+
+
+@pytest.mark.parametrize("window", ["183", "364", "0"])
+def test_a_window_the_walk_cannot_fill_is_refused(window):
+    """LEAR walks 182 days before 2023; a longer window would be short in early 2023."""
+    with pytest.raises(SystemExit):
+        Q.windows(["28", window])
