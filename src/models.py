@@ -222,27 +222,22 @@ def lear_walk_forward(table: pd.DataFrame, days: pd.DatetimeIndex,
     return F.unfold(out).rename("predicted")
 
 
-# ── QRA: a range around LEAR, one line per percentile ─────────────────────────
+# ── A range around LEAR: QRA and conformal, on the same walk ──────────────────
 # Stage 3 turns LEAR's one number per hour into 99 (Lipiecki, Uniejewski & Weron
-# 2024).  For one delivery hour, take the window's days as dots — LEAR's forecast
-# across, the real price up — and fit a line per percentile by pinball loss, so
-# the p90 line has 9 dots in 10 below it.  Each line has its own slope, so the
-# band can widen on days LEAR expects to be expensive (*quantile regression
-# averaging*).  The paper feeds it the average of four LEARs; here it is one.
+# 2024), two ways, from the same dots: for one delivery hour, each of the window's
+# days gives LEAR's forecast and the real price.  The walk below is shared, so the
+# strictly-before rule, the window and the labels live in one place for both.
 #
 # The window ends at D−1, as `walk_forward`'s does: D−1's prices were public by
 # 13:00 on D−2.  The dots must be forecasts LEAR really made, never its fit on
 # its own training days, or the misses look small and the band comes out narrow.
-# `alpha=0` because QRA has no penalty; scikit-learn's default would flatten
-# every slope towards zero.
 
 QRA_WINDOW = 182                                            # days of dots per fit
 PERCENTILES = tuple(range(1, 100))                          # p1 to p99, whole numbers
 
 
-def qra(point: pd.Series, actual: pd.Series, days: pd.DatetimeIndex,
-        window: int = QRA_WINDOW, levels: tuple[int, ...] = PERCENTILES) -> pd.DataFrame:
-    """99 lines per delivery hour of `days`, each from the `window` days before. Hourly out."""
+def _range_walk(point: pd.Series, actual: pd.Series, days: pd.DatetimeIndex,
+                window: int, levels: tuple[int, ...], rule: Callable) -> pd.DataFrame:
     x, y = F.fold(point), F.fold(actual)                    # one row per day, one column per hour
     rows = []
     for day in days:
@@ -251,14 +246,51 @@ def qra(point: pd.Series, actual: pd.Series, days: pd.DatetimeIndex,
         for hour in x.columns:
             dots = pd.DataFrame({"x": x.loc[before, hour], "y": y.loc[before, hour]})
             dots = dots.dropna().iloc[-window:]             # the last `window` days with both
-            today = x.loc[[day], [hour]].to_numpy()         # LEAR's forecast for this hour of D
-            lines[hour] = [QuantileRegressor(quantile=p / 100, alpha=0, solver="highs")
-                           .fit(dots[["x"]].to_numpy(), dots["y"]).predict(today)[0]
-                           for p in levels]
+            lines[hour] = rule(dots, x.at[day, hour], levels)   # today: LEAR's forecast for D
         block = pd.DataFrame(lines, index=list(levels)).T          # hours down, percentiles across
         block.index = day + pd.to_timedelta(block.index, unit="h")  # back to grid hour labels
         rows.append(block)
     return pd.concat(rows)
+
+
+# QRA fits a line through the dots per percentile by pinball loss, so the p90
+# line has 9 dots in 10 below it.  Each line has its own slope, so the band can
+# widen on days LEAR expects to be expensive (*quantile regression averaging*).
+# The paper feeds it the average of four LEARs; here it is one.  `alpha=0`
+# because QRA has no penalty: scikit-learn's default charges for the slope, and
+# on real 19:00 data moved the p90 line by 12 EUR/MWh.
+
+def _qra_hour(dots: pd.DataFrame, today: float, levels: tuple[int, ...]) -> list[float]:
+    return [QuantileRegressor(quantile=p / 100, alpha=0, solver="highs")
+            .fit(dots[["x"]].to_numpy(), dots["y"]).predict([[today]])[0]
+            for p in levels]
+
+
+def qra(point: pd.Series, actual: pd.Series, days: pd.DatetimeIndex,
+        window: int = QRA_WINDOW, levels: tuple[int, ...] = PERCENTILES) -> pd.DataFrame:
+    """99 lines per delivery hour of `days`, each from the `window` days before. Hourly out."""
+    return _range_walk(point, actual, days, window, levels, _qra_hour)
+
+
+# Conformal keeps only how big each miss was, never its direction, so the band is
+# centred on LEAR and as wide above as below — the paper's form, which it notes
+# assumes misses fall evenly both ways.  pX sits at the miss size that covered
+# |2X − 100| % of the window's days: p90 and p10 both at the 80 % size, so the
+# p10–p90 band holds 8 in 10.  Plain percentile, without the (n + 1)/n rounding of
+# textbook conformal; which one the paper uses is not checked.  Its width comes
+# from past misses only, so it cannot widen on a day that looks expensive.
+
+def _conformal_hour(dots: pd.DataFrame, today: float, levels: tuple[int, ...]) -> np.ndarray:
+    size = (dots["y"] - dots["x"]).abs().to_numpy()         # how far LEAR missed, either way
+    level = np.asarray(levels)
+    reach = np.quantile(size, np.abs(2 * level / 100 - 1))  # p90 and p10 -> the 80 % size
+    return today + np.sign(level - 50) * reach              # below the forecast under p50
+
+
+def conformal(point: pd.Series, actual: pd.Series, days: pd.DatetimeIndex,
+              window: int = QRA_WINDOW, levels: tuple[int, ...] = PERCENTILES) -> pd.DataFrame:
+    """A symmetric band per delivery hour of `days`, from the sizes of LEAR's misses before."""
+    return _range_walk(point, actual, days, window, levels, _conformal_hour)
 
 
 # Lines fitted one at a time can cross: p91 a little below p90 on some hour.  The

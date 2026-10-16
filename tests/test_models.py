@@ -349,12 +349,16 @@ def point_and_price(n_days: int = 160, seed: int = 3) -> tuple[pd.Series, pd.Ser
     return point, price
 
 
-def test_qra_learns_only_from_the_window_before_each_day():
+RANGES = [M.qra, M.conformal]                               # both walk the same window
+
+
+@pytest.mark.parametrize("method", RANGES, ids=["qra", "conformal"])
+def test_a_range_learns_only_from_the_window_before_each_day(method):
     """Change a price on D or after, or one day older than the window: same lines.
     Change D-1's price, the newest dot: different lines."""
     point, price = point_and_price(60)
     d, window = pd.Timestamp("2023-02-20"), 30
-    run = lambda p: M.qra(point, p, pd.DatetimeIndex([d]), window, levels=(10, 50, 90))
+    run = lambda p: method(point, p, pd.DatetimeIndex([d]), window, levels=(10, 50, 90))
     base = run(price)
 
     later = price.copy()
@@ -370,10 +374,11 @@ def test_qra_learns_only_from_the_window_before_each_day():
     assert not run(newest).equals(base)
 
 
-def test_qra_returns_every_hour_of_every_day_with_its_label():
+@pytest.mark.parametrize("method", RANGES, ids=["qra", "conformal"])
+def test_a_range_returns_every_hour_of_every_day_with_its_label(method):
     point, price = point_and_price(40)
     days = pd.DatetimeIndex(["2023-02-01", "2023-02-02"])
-    out = M.qra(point, price, days, window=30, levels=(10, 90))
+    out = method(point, price, days, window=30, levels=(10, 90))
     assert list(out.columns) == [10, 90]
     assert out.index.equals(pd.date_range("2023-02-01", periods=48, freq="h"))
 
@@ -412,3 +417,33 @@ def test_untangle_sorts_crossed_lines_and_counts_the_hours():
     assert crossed == 1                                     # only the middle hour had crossed
     assert ordered.iloc[1].tolist() == [10.0, 30.0, 31.0]
     assert ordered.columns.equals(lines.columns)
+
+
+# ── Conformal ─────────────────────────────────────────────────────────────────
+
+def test_conformal_worked_out_by_hand():
+    """Four days of misses at every hour: -4, +2, -1, +3, so sizes 1, 2, 3, 4.
+    The 80 % size sits 2.4 of the way along them: 3.4.  So p90 = 103.4 and
+    p10 = 96.6 around a forecast of 100; p50 is the forecast itself."""
+    idx = pd.date_range("2023-01-01", periods=5 * 24, freq="h")
+    point = pd.Series(100.0, index=idx)
+    miss = np.repeat([-4.0, 2.0, -1.0, 3.0, 0.0], 24)
+    price = point + miss
+    q = M.conformal(point, price, pd.DatetimeIndex(["2023-01-05"]), window=4,
+                    levels=(10, 50, 90))
+    assert q[90].tolist() == pytest.approx([103.4] * 24)
+    assert q[10].tolist() == pytest.approx([96.6] * 24)
+    assert q[50].tolist() == pytest.approx([100.0] * 24)
+
+
+def test_conformal_covers_its_share_but_cannot_fan_out():
+    """On the same data where QRA fans out, conformal holds about 8 in 10 overall
+    yet is as wide at 200 as at 20: its width is the window's, not today's."""
+    from src import evaluate as E
+
+    point, price = point_and_price(160)
+    days = pd.date_range("2023-05-10", periods=30, freq="D")
+    q = M.conformal(point, price, days, window=120, levels=(10, 90))
+    assert E.coverage(q, price, 80) == pytest.approx(0.8, abs=0.05)
+    width, level = q[90] - q[10], point.reindex(q.index)
+    assert width[level > 150].mean() == pytest.approx(width[level < 70].mean(), rel=0.1)
