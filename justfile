@@ -62,6 +62,12 @@ explore:
 train refit="once" lear="1092":
     {{py}} -m scripts.train --refit {{refit}} --lear {{lear}}
 
+# Walks LEAR from July 2022 first, so every 2023 range learns from real forecasts.
+# Appends to reports/quantile_scores.csv and MLflow. About 1 to 1.5 hours.
+# Stage 3: QRA and conformal ranges around LEAR, scored on 2023. Offline.
+quantiles:
+    {{py}} -m scripts.quantiles
+
 # Every p-value the README states, from the runs `just train` left in MLflow. Offline.
 # Needs `just train once`, `monthly`, `daily` and `daily all` first; names any missing.
 significance:

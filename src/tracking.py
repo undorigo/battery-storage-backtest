@@ -63,20 +63,42 @@ def log(rows: list[dict], forecasts: pd.DataFrame, params: dict,
     ids = {}
     for row in rows:
         model = row["model"]
-        run = client.create_run(experiment, run_name=model).info.run_id
-        stated = {**params, "model": model, "split": row["split"], "convention": CONVENTION}
-        for key, value in stated.items():
-            client.log_param(run, key, value)
-        for key in ("mae", "rmae", "rmae_field", "n"):
-            client.log_metric(run, key, row[key])
         kept = forecasts[list(dict.fromkeys(["actual", "naive", "naive_field", model]))]   # each once
-        with tempfile.TemporaryDirectory() as tmp:
-            path = Path(tmp) / FORECASTS
-            kept.to_parquet(path)
-            client.log_artifact(run, str(path))              # copied into `store`
-        client.set_terminated(run)
-        ids[model] = run
+        metrics = {key: row[key] for key in ("mae", "rmae", "rmae_field", "n")}
+        ids[model] = _write(client, experiment, model, {**params, "split": row["split"]},
+                            metrics, kept)
     return ids
+
+
+def _write(client: MlflowClient, experiment: str, model: str, params: dict,
+           metrics: dict, kept: pd.DataFrame) -> str:
+    run = client.create_run(experiment, run_name=model).info.run_id
+    for key, value in {**params, "model": model, "convention": CONVENTION}.items():
+        client.log_param(run, key, value)
+    for key, value in metrics.items():
+        client.log_metric(run, key, value)
+    with tempfile.TemporaryDirectory() as tmp:
+        path = Path(tmp) / FORECASTS
+        kept.to_parquet(path)
+        client.log_artifact(run, str(path))                  # copied into `store`
+    client.set_terminated(run)
+    return run
+
+
+# ── Writing a range ───────────────────────────────────────────────────────────
+# Stage 3's runs keep a range rather than one forecast: the actual price, LEAR's
+# point forecast and all 99 percentiles per hour, so a later test or figure reads
+# them back instead of refitting for an hour.  Parquet wants text column names,
+# so percentile 90 is stored as "90", and `read_range` turns it back into 90.
+
+def log_range(row: dict, kept: pd.DataFrame, params: dict,
+              *, db: Path = cfg.MLFLOW_DB, store: Path = cfg.MLRUNS) -> str:
+    """Store one range run: its scores as metrics, its hourly table as the file."""
+    client = _client(db)
+    metrics = {k: v for k, v in row.items() if k not in ("method", "split")}
+    return _write(client, _experiment(client, store), row["method"],
+                  {**params, "split": row["split"]}, metrics,
+                  kept.rename(columns=str))                  # 90 -> "90" for parquet
 
 
 # ── Reading a run back ────────────────────────────────────────────────────────
@@ -90,6 +112,12 @@ def read(run: str, *, db: Path = cfg.MLFLOW_DB) -> tuple[dict, pd.DataFrame]:
     with tempfile.TemporaryDirectory() as tmp:
         forecasts = pd.read_parquet(client.download_artifacts(run, FORECASTS, tmp))
     return params, forecasts
+
+
+def read_range(run: str, *, db: Path = cfg.MLFLOW_DB) -> tuple[dict, pd.DataFrame]:
+    """A range run's params and hourly table, percentile columns back as whole numbers."""
+    params, kept = read(run, db=db)
+    return params, kept.rename(columns=lambda c: int(c) if c.isdigit() else c)
 
 
 # ── Finding a run by what it states ───────────────────────────────────────────

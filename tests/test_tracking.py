@@ -102,3 +102,23 @@ def test_latest_finds_the_newest_matching_run(tmp_path):
 
 def test_latest_on_an_empty_store_is_none(tmp_path):
     assert TR.latest(db=tmp_path / "mlflow.db", model="gbm") is None
+
+
+# ── A range run ───────────────────────────────────────────────────────────────
+
+def test_a_range_run_reads_back_with_whole_number_percentiles_and_its_score(tmp_path):
+    """Parquet stores percentile 90 as "90"; `read_range` must hand back 90, so the
+    stored table scores exactly what the run's metric says."""
+    hours = pd.date_range("2023-03-14 00:00", periods=24, freq="h")
+    actual = pd.Series(np.linspace(50, 120, 24), index=hours)
+    kept = pd.DataFrame({"actual": actual, "lear": actual + 2,
+                         10: actual - 15, 50: actual + 1, 90: actual + 20})
+    row = {"method": "qra", "split": "valid", "n": 24,
+           "pinball": E.pinball(kept[[10, 50, 90]], actual), "crossed": 0, "window": 182}
+    run = TR.log_range(row, kept, {"window": 182, "commit": "abc1234"},
+                       db=tmp_path / "mlflow.db", store=tmp_path / "mlruns")
+    params, back = TR.read_range(run, db=tmp_path / "mlflow.db")
+    assert params["model"] == "qra" and params["convention"] == TR.CONVENTION
+    assert list(back.columns) == ["actual", "lear", 10, 50, 90]
+    assert back.index.equals(hours)
+    assert E.pinball(back[[10, 50, 90]], back["actual"]) == row["pinball"]

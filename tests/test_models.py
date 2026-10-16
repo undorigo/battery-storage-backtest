@@ -383,6 +383,19 @@ def test_a_range_returns_every_hour_of_every_day_with_its_label(method):
     assert out.index.equals(pd.date_range("2023-02-01", periods=48, freq="h"))
 
 
+@pytest.mark.parametrize("method", RANGES, ids=["qra", "conformal"])
+def test_a_range_accepts_prices_reaching_further_back_than_the_forecasts(method):
+    """The real run hands in prices from 2018 and LEAR's forecasts from mid-2022.
+    Dots exist only where both do, so extra price days change nothing.  Found on
+    real data on 16 October 2026: every test until then gave both the same span."""
+    point, price = point_and_price(60)
+    day = pd.DatetimeIndex(["2023-02-20"])
+    short = method(point[point.index >= "2023-01-10"], price[price.index >= "2023-01-10"],
+                   day, window=30, levels=(10, 90))
+    long_ = method(point[point.index >= "2023-01-10"], price, day, window=30, levels=(10, 90))
+    pd.testing.assert_frame_equal(long_, short)
+
+
 def test_qra_covers_its_share_and_fans_out_on_expensive_hours():
     """p10 to p90 holds about 8 prices in 10, and is far wider where LEAR expects
     200 than where it expects 20 — the thing conformal's fixed width cannot do."""

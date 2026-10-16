@@ -238,7 +238,8 @@ PERCENTILES = tuple(range(1, 100))                          # p1 to p99, whole n
 
 def _range_walk(point: pd.Series, actual: pd.Series, days: pd.DatetimeIndex,
                 window: int, levels: tuple[int, ...], rule: Callable) -> pd.DataFrame:
-    x, y = F.fold(point), F.fold(actual)                    # one row per day, one column per hour
+    x = F.fold(point)                                       # one row per day, one column per hour
+    y = F.fold(actual).reindex(x.index)                     # prices span years more: LEAR's days only
     rows = []
     for day in days:
         before = x.index < day                              # strictly before: the rule
