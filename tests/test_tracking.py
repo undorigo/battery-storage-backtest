@@ -122,3 +122,16 @@ def test_a_range_run_reads_back_with_whole_number_percentiles_and_its_score(tmp_
     assert list(back.columns) == ["actual", "lear", 10, 50, 90]
     assert back.index.equals(hours)
     assert E.pinball(back[[10, 50, 90]], back["actual"]) == row["pinball"]
+
+
+def test_an_averaged_range_logs_its_window_as_text(tmp_path):
+    """An average's window is "28+56+91+182".  MLflow metrics must be numbers, so the
+    window is a param only; logging it as a metric crashed the 2023 run on 19 Oct 2026."""
+    hours = pd.date_range("2023-03-14 00:00", periods=24, freq="h")
+    kept = pd.DataFrame({"actual": 80.0, "lear": 82.0, 10: 70.0, 50: 81.0, 90: 95.0}, index=hours)
+    row = {"method": "conformal", "split": "test", "n": 24, "pinball": 1.0, "crossed": 0,
+           "window": "28+56+91+182"}
+    db = tmp_path / "mlflow.db"
+    run = TR.log_range(row, kept, {"window": "28+56+91+182", "commit": "abc1234"},
+                       db=db, store=tmp_path / "mlruns")
+    assert TR.latest(db=db, model="conformal", window="28+56+91+182", split="test") == run

@@ -95,7 +95,8 @@ def log_range(row: dict, kept: pd.DataFrame, params: dict,
               *, db: Path = cfg.MLFLOW_DB, store: Path = cfg.MLRUNS) -> str:
     """Store one range run: its scores as metrics, its hourly table as the file."""
     client = _client(db)
-    metrics = {k: v for k, v in row.items() if k not in ("method", "split")}
+    metrics = {k: v for k, v in row.items()
+               if k not in ("method", "split", "window")}   # the window is a param: "28+56+91+182" is text
     return _write(client, _experiment(client, store), row["method"],
                   {**params, "split": row["split"]}, metrics,
                   kept.rename(columns=str))                  # 90 -> "90" for parquet

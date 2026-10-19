@@ -339,3 +339,33 @@ def test_a_held_back_day_never_learns_from_itself_or_later(walked, read):
                                       base[method].loc[:until, list(R_LEVELS)])
         assert not moved[method].loc["2024-01-11":, list(R_LEVELS)].equals(
             base[method].loc["2024-01-11":, list(R_LEVELS)])
+
+
+def test_the_ranges_reading_runs_to_its_last_line(tmp_path):
+    """`main` is untested elsewhere, and on 19 Oct 2026 the 2023 run crashed at its very
+    last step, logging the average's text window as an MLflow number.  This runs the whole
+    reading on the fixture, record and MLflow in a temporary folder, to the last line."""
+    import functools
+
+    from src import tracking as TR
+
+    db, store = tmp_path / "mlflow.db", tmp_path / "mlruns"
+    real_ranges = FS.ranges
+    with pytest.MonkeyPatch.context() as mp:
+        mp.setattr(F, "data_load", lambda key: _sources()[key])
+        mp.setattr(M, "lear_walk_forward", stand_in_lear)
+        mp.setattr(FS, "RANGE_WINDOWS", R_WINDOWS)
+        mp.setattr(FS, "ranges", lambda lear, actual, days: real_ranges(
+            lear, actual, days, R_WINDOWS, R_LEVELS))
+        mp.setattr(cfg, "QUANTILE_SCORES", tmp_path / "quantile_scores.csv")
+        mp.setattr(TR, "log_range", functools.partial(TR.log_range, db=db, store=store))
+        assert FS.main(["ranges"]) == 0
+
+    recorded = pd.read_csv(tmp_path / "quantile_scores.csv")
+    assert recorded["split"].tolist() == ["test", "test"]
+    assert recorded["window"].tolist() == ["5+10", "5+10"]
+    for method in ("qra", "conformal"):
+        run = TR.latest(db=db, model=method, window="5+10", split="test")
+        assert run is not None
+        _, kept = TR.read_range(run, db=db)
+        assert len(kept) == 21 * 24
