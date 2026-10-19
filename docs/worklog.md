@@ -3461,33 +3461,44 @@ near nominal, not narrow bands that still hold.
 
 ---
 
+**Plan refreshed:** README (status line, stage table, *Where stage 3 landed*, *Roughly when*,
+structure), CLAUDE.md's stage table, `docs/architecture.md`, the plan page (version 16). **Stage 3
+closed.**
+
+**State at close (19 Oct).** `main` after this entry's commit, suite 262 green. Learnings for today
+(averaging windows, backtest against live cost, the untested end of a run, the bytecode cache, why
+QRA narrowed in early 2024, pinball and the price level) in `docs/learnings.md`.
+
+---
+
 ### Next — next session
 
-**Stage 3: choose the window, then the one held-back reading of the ranges.**
+**Stage 4 starts: bids, schedule, capture rate.**
 
 #### Recap questions
 
-1. At 182 days QRA beat conformal clearly (p 0.001); at 91 days it could not be told apart
-   (p 0.078). What does that say about what QRA was really good at?
-2. On 1 December QRA's lines crossed by 58 € at 14:00. Why there, and why does sorting them back
-   into order not fix the problem underneath?
-3. A planted swap of the conformal and QRA tables passed every test. Which test caught it, and why
-   could a row that reproduces from its own table not?
-4. A loop block's buy limit is 40 € and its sell limit 90 €. Which real prices fill the pair, and
-   why can it not hold "buy below p10 *and* sell above p90"?
-5. The bands were too wide in spring and too narrow in autumn. What about a 182-day window causes
-   that, and why does choosing the best of four windows on 2023 flatter the winner?
+1. The average of four windows beat every single window on 2023, though each was worse alone.
+   What does averaging do that picking the best window cannot?
+2. The held-back reading took 4.5 hours, a live day about 20 seconds. Where does the difference
+   come from, and what would a faster machine change?
+3. The 2023 run crashed in its last second after two hours. Why could no existing test have
+   caught it, and what kind of test now does?
+4. A planted `any` → `all` kept running after the file was restored. What happened, and what did
+   it mean for the plants run earlier the same day?
+5. QRA's held-back lead sits mostly in January–March 2024. What did prices do, why could QRA's
+   band follow where conformal's could not, and why can 4.655 not be set against 2023's 5.195?
 
 #### Then, in order
 
-1. **Choose the window** with the user: 56 and 91 days tie (p 0.47); 91 has the lower pinball and
-   coverage nearest nominal at 80 and 90 %. Field variant noted, not proposed: Lipiecki et al.'s
-   average over 28–182 days. Decide before reading the held-back years.
-2. **The held-back reading of the ranges, once:** QRA and conformal on 2024–25 from LEAR's daily
-   held-back forecasts, the window chosen in 1, scored by pinball and coverage. Not built: it needs
-   LEAR's walk through 2024–25 (as `final_score.py` does) and the ranges behind it. Design first.
-3. Cheap, from MLflow: pinball on the 2.9 % of hours where LEAR lies outside its window against the
-   rest, and whether *hours crossed* should give way to a size measure (raw lines are not stored).
-4. Open: the unfilled-order rule for stage 4 (loop blocks judged on the pair's combined gain, read
-   16 Oct; their availability in DE-LU after the 15-minute switch unconfirmed). Why LEAR's held-back
-   lead grows into 2025 (a note, not a task).
+1. **Decide the unfilled-order rule** with the user, before any optimiser code: (a) half full,
+   rebalanced next day by an unlimited bid (Nitka & Weron 2023); (b) loop blocks, filled together
+   on the pair's combined gain (Hirsch & Ziel 2026; availability in DE-LU after the 15-minute
+   switch unconfirmed); (c) a fixed schedule only as the first step. Settlement (Contract 3) and
+   the shared horizon (Contract 4) depend on it.
+2. **The perfect-foresight ceiling first**: the MILP on actual prices, 48 hours optimised, 24
+   implemented, charge carried forward, on 2023. The ceiling, naive and model runs must share that
+   convention. New dependency to decide (solver): ask before adding.
+3. Then the fixed schedule from LEAR's point forecast, then bids from the quantiles.
+4. Noted, not tasks: QRA's held-back bands run slightly narrow (80 % held 0.789), which matters
+   once quantiles become limit prices; why LEAR's held-back lead grows into 2025; item 3's
+   recommendation (no size measure for crossing) awaits the user's word.
