@@ -427,9 +427,32 @@ def test_untangle_sorts_crossed_lines_and_counts_the_hours():
     lines = pd.DataFrame([[10.0, 20.0, 30.0], [10.0, 31.0, 30.0], [5.0, 6.0, 7.0]],
                          columns=[10, 50, 90])
     ordered, crossed = M.untangle(lines)
-    assert crossed == 1                                     # only the middle hour had crossed
+    assert crossed.tolist() == [False, True, False]         # only the middle hour had crossed
+    assert crossed.index.equals(lines.index)
     assert ordered.iloc[1].tolist() == [10.0, 30.0, 31.0]
     assert ordered.columns.equals(lines.columns)
+
+
+def test_average_worked_out_by_hand():
+    """Two hours, three percentiles, two ranges: each cell is the mean of its pair."""
+    hours = pd.date_range("2023-03-01", periods=2, freq="h")
+    a = pd.DataFrame([[10.0, 20.0, 30.0], [0.0, 4.0, 8.0]], index=hours, columns=[10, 50, 90])
+    b = pd.DataFrame([[14.0, 20.0, 50.0], [2.0, 4.0, 6.0]], index=hours, columns=[10, 50, 90])
+    c = pd.DataFrame([[12.0, 26.0, 40.0], [1.0, 7.0, 7.0]], index=hours, columns=[10, 50, 90])
+    out = M.average([a, b, c])
+    assert out.iloc[0].tolist() == [12.0, 22.0, 40.0]
+    assert out.iloc[1].tolist() == [1.0, 5.0, 7.0]
+    assert out.index.equals(hours) and out.columns.equals(a.columns)
+
+
+@pytest.mark.parametrize("change", ["hours", "percentiles"])
+def test_average_refuses_ranges_that_cover_different_ground(change):
+    """Trimming to the shared hours would average three windows here and four there."""
+    hours = pd.date_range("2023-03-01", periods=3, freq="h")
+    a = pd.DataFrame(1.0, index=hours, columns=[10, 90])
+    b = a.iloc[:2] if change == "hours" else a.set_axis([10, 80], axis=1)
+    with pytest.raises(ValueError):
+        M.average([a, a, b])
 
 
 # ── Conformal ─────────────────────────────────────────────────────────────────

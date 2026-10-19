@@ -296,11 +296,27 @@ def conformal(point: pd.Series, actual: pd.Series, days: pd.DatetimeIndex,
 
 # Lines fitted one at a time can cross: p91 a little below p90 on some hour.  The
 # usual repair is to sort each hour's values back into order, which can only
-# lower pinball loss.  How many hours needed it is returned beside the result,
-# so the repair is counted rather than hidden.
+# lower pinball loss.  Which hours needed it is returned beside the result, so
+# the repair is counted rather than hidden, and an average of several ranges can
+# say which of its hours rest on a repaired one.
 
-def untangle(lines: pd.DataFrame) -> tuple[pd.DataFrame, int]:
-    """Each hour's percentiles sorted into order, and how many hours had crossed."""
+def untangle(lines: pd.DataFrame) -> tuple[pd.DataFrame, pd.Series]:
+    """Each hour's percentiles sorted into order, and which hours had crossed."""
     ordered = np.sort(lines.to_numpy(), axis=1)             # lowest percentile first
-    crossed = int((ordered != lines.to_numpy()).any(axis=1).sum())
+    crossed = pd.Series((ordered != lines.to_numpy()).any(axis=1), index=lines.index)
     return pd.DataFrame(ordered, index=lines.index, columns=lines.columns), crossed
+
+
+# The field does not pick one window: Lipiecki et al. average the ranges from
+# several, percentile by percentile, because each window is wrong at different
+# moments.  On 2023 the average of 28, 56, 91 and 182 days beat every single one
+# (chosen 19 Oct 2026).  Ranges covering different hours are refused, not trimmed:
+# an hour averaged over three windows beside one over four is a different range.
+
+def average(ranges: list[pd.DataFrame]) -> pd.DataFrame:
+    """The mean of several ranges, percentile by percentile, hour by hour."""
+    first = ranges[0]
+    for other in ranges[1:]:
+        if not (other.index.equals(first.index) and other.columns.equals(first.columns)):
+            raise ValueError("ranges to average must cover the same hours and percentiles")
+    return sum(ranges[1:], first) / len(ranges)             # sorted inputs stay sorted

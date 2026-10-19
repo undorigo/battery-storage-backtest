@@ -2,7 +2,8 @@
 
 Walks LEAR forward from mid-2022 so every day of 2023 has 182 real forecasts behind
 it, turns LEAR's one number per hour into 99 percentiles two ways (QRA, conformal),
-and scores both ranges on 2023 by pinball loss and coverage.
+and scores both ranges on 2023 by pinball loss and coverage.  Given several
+windows, it also scores their average, the range stage 3 chose.
 
 Nothing here decides anything.  `models.py` holds LEAR, QRA and conformal;
 `evaluate.py` the scores.  This file puts them in order and writes down what came out.
@@ -58,26 +59,54 @@ def prices(table: pd.DataFrame) -> pd.Series:
 #
 # Each row carries its window, because the record's header is fixed once written
 # and a later comparison of shorter windows must be told apart from this one.
+#
+# Fitting and scoring are separate steps so that several windows' lines can be
+# averaged before anything is scored.  The average's window reads "28+56+91+182",
+# and an hour counts as crossed in it if any window's lines crossed there.
 
 SHARES = (50, 80, 90)                                    # central bands whose coverage is reported
+METHODS = {"qra": M.qra, "conformal": M.conformal}
 
 
-def ranges(lear: pd.Series, actual: pd.Series, days: pd.DatetimeIndex,
-           window: int = M.QRA_WINDOW,
-           levels: tuple[int, ...] = M.PERCENTILES) -> tuple[list[dict], dict[str, pd.DataFrame]]:
-    """Score QRA and conformal on `days`. Rows, and each method's hourly table."""
-    lines, crossed = M.untangle(M.qra(lear, actual, days, window, levels))
-    bands, crossed_bands = M.untangle(M.conformal(lear, actual, days, window, levels))
+def lines(lear: pd.Series, actual: pd.Series, days: pd.DatetimeIndex, window: int,
+          levels: tuple[int, ...] = M.PERCENTILES) -> dict[str, tuple[pd.DataFrame, pd.Series]]:
+    """Each method's lines on `days`, sorted, and which hours had crossed."""
+    return {method: M.untangle(make(lear, actual, days, window, levels))
+            for method, make in METHODS.items()}
+
+
+def averaged(per_window: list[dict]) -> dict[str, tuple[pd.DataFrame, pd.Series]]:
+    """Each method's lines averaged over the windows; crossed where any window crossed."""
+    return {method: (M.average([found[method][0] for found in per_window]),
+                     pd.concat([found[method][1] for found in per_window], axis=1).any(axis=1))
+            for method in METHODS}
+
+
+def score(found: dict, lear: pd.Series, actual: pd.Series, window: int | str,
+          split: str = "valid") -> tuple[list[dict], dict[str, pd.DataFrame]]:
+    """One row per method, and each method's hourly table as scored."""
     rows, kept = [], {}
-    for method, q, n_crossed in (("qra", lines, crossed), ("conformal", bands, crossed_bands)):
-        row = {"method": method, "split": "valid", "n": len(q),
+    for method, (q, crossed) in found.items():
+        row = {"method": method, "split": split, "n": len(q),
                "pinball": E.pinball(q, actual)}
         row.update({f"cover{s}": E.coverage(q, actual, s) for s in SHARES})
-        row.update({"crossed": n_crossed, "window": window})
+        row.update({"crossed": int(crossed.sum()), "window": window})
         rows.append(row)
         kept[method] = pd.concat([actual.rename("actual"), lear.rename("lear"), q],
                                  axis=1, join="inner")   # the scored hours only
     return rows, kept
+
+
+def runs(lear: pd.Series, actual: pd.Series, days: pd.DatetimeIndex, windows: list[int],
+         levels: tuple[int, ...] = M.PERCENTILES):
+    """Each window's (label, rows, tables) as it finishes, then their average if several."""
+    per_window = []
+    for window in windows:
+        per_window.append(lines(lear, actual, days, window, levels))
+        yield window, *score(per_window[-1], lear, actual, window)   # recorded before the next
+    if len(windows) > 1:
+        label = "+".join(str(w) for w in windows)        # e.g. "28+56+91+182"
+        yield label, *score(averaged(per_window), lear, actual, label)
 
 
 def table(rows: list[dict]) -> str:
@@ -136,9 +165,8 @@ def main(argv: list[str] | None = None) -> int:
     print(f"LEAR on 2023, the check: rMAE {check['rmae_field']:.3f} "
           f"(last week's {check['rmae']:.3f}), {check['n']:,} hours\n")
 
-    for window in asked:                                 # each window, the same LEAR
-        started = time.perf_counter()
-        rows, kept = ranges(lear, actual, scored, window)
+    started = time.perf_counter()
+    for window, rows, kept in runs(lear, actual, scored, asked):   # each window, the same LEAR
         print(f"Ranges, {window} days: {time.perf_counter() - started:.0f} s\n")
         print(table(rows))
 
@@ -150,6 +178,7 @@ def main(argv: list[str] | None = None) -> int:
                   "lear_from": f"{days.min():%Y-%m-%d}", "commit": git_commit()}
         ids = {row["method"]: TR.log_range(row, kept[row["method"]], params) for row in rows}
         print("Logged to MLflow: " + ", ".join(f"{m} {r[:8]}" for m, r in ids.items()) + "\n")
+        started = time.perf_counter()                    # the next window's clock
     return 0
 
 

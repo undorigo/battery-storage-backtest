@@ -66,7 +66,7 @@ def scored():
     lear = pd.Series(rng.uniform(20, 200, len(idx)), index=idx)
     actual = lear + rng.normal(0, 1, len(idx)) * 0.2 * lear
     days = pd.DatetimeIndex(["2023-02-08", "2023-02-09"])
-    rows, kept = Q.ranges(lear, actual, days, window=30, levels=LEVELS)
+    [(_, rows, kept)] = Q.runs(lear, actual, days, [30], levels=LEVELS)   # one window: no average
     return rows, kept, days
 
 
@@ -110,6 +110,58 @@ def test_the_conformal_row_holds_the_symmetric_band_and_the_qra_row_does_not(sco
     c, q = kept["conformal"], kept["qra"]
     np.testing.assert_allclose(c[95] - c["lear"], c["lear"] - c[5])
     assert not np.allclose(q[95] - q["lear"], q["lear"] - q[5])
+
+
+# ── The average of several windows ────────────────────────────────────────────
+# Three windows on the same made-up data.  The average is checked against the
+# windows' own tables averaged here by hand, and its crossed hours against the
+# raw lines fitted again outside the script, so neither check can agree with a
+# mistake inside `runs`.
+
+WINDOWS = [10, 20, 30]
+
+
+@pytest.fixture(scope="module")
+def several():
+    idx = pd.date_range("2023-01-01", periods=40 * 24, freq="h")
+    rng = np.random.default_rng(7)
+    lear = pd.Series(rng.uniform(20, 200, len(idx)), index=idx)
+    actual = lear + rng.normal(0, 1, len(idx)) * 0.2 * lear
+    days = pd.DatetimeIndex(["2023-02-08", "2023-02-09"])
+    return lear, actual, days, list(Q.runs(lear, actual, days, WINDOWS, levels=LEVELS))
+
+
+def test_each_window_comes_first_then_their_average(several):
+    *_, out = several
+    assert [label for label, _, _ in out] == [10, 20, 30, "10+20+30"]
+    for label, rows, _ in out:
+        assert [r["window"] for r in rows] == [label, label]
+
+
+def test_two_windows_are_enough_for_an_average(several):
+    lear, actual, days, _ = several
+    labels = [label for label, _, _ in Q.runs(lear, actual, days, [10, 20], levels=LEVELS)]
+    assert labels == [10, 20, "10+20"]
+
+
+def test_the_average_is_the_windows_lines_averaged(several):
+    *_, out = several
+    (_, _, k10), (_, _, k20), (_, _, k30), (_, rows, avg) = out
+    for method in ("qra", "conformal"):
+        by_hand = (k10[method][list(LEVELS)] + k20[method][list(LEVELS)]
+                   + k30[method][list(LEVELS)]) / 3
+        np.testing.assert_allclose(avg[method][list(LEVELS)], by_hand)
+    assert rows[0]["pinball"] == E.pinball(avg["qra"][list(LEVELS)], avg["qra"]["actual"])
+
+
+def test_an_averaged_hour_counts_as_crossed_if_any_window_crossed(several):
+    from src import models as M
+
+    lear, actual, days, out = several
+    raw = [M.qra(lear, actual, days, w, LEVELS).to_numpy() for w in WINDOWS]
+    each = [(np.sort(r, axis=1) != r).any(axis=1) for r in raw]
+    assert len({int(e.sum()) for e in each}) > 1         # the windows differ, so "any" is tested
+    assert out[-1][1][0]["crossed"] == int(np.logical_or.reduce(each).sum())
 
 
 # ── Which windows a run scores ────────────────────────────────────────────────
