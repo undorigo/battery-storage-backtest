@@ -3397,6 +3397,68 @@ before D (planted: prices a day early, caught); windows and average chosen on 20
 ranges learn from held-back days only once past, as stage 2's daily refits; settlement untouched.
 `main`'s new argument untested, as `main` is elsewhere. Suite 260 green.
 
+#### The 2023 re-run crashed at its last line; the held-back run stopped before it could (`5411efd`, `b4b9700`)
+
+`just quantiles 28 56 91 182` at `886afeb`: LEAR's check read 0.504 again, every window reproduced
+16 October's scores to the last digit, and **the average read 5.195** (conformal 5.398), recorded.
+Then MLflow refused the average's run: `log_range` logged every row field as a metric, and the
+window `"28+56+91+182"` is text. Every tracking test had a numeric window. The held-back run would
+have hit the same line at ~20:00, after writing its rows but before keeping its hourly tables, so
+its p-value could only have come from a second reading. **Stopped at 17:55 with the user's
+agreement**, 28 and 56 days done and nothing scored: `final_score` prints only timings until the
+end, and no held-back row was recorded. Fixed (window a param only), with a test that failed on
+the old code; and a test that runs `just final-score ranges` to its last line on the fixture,
+record and MLflow in a temporary folder (planted: the crash, logging skipped; both caught). **The
+16 October lesson again, from the other side:** the end of a long run is what no test reaches.
+Both runs restarted at 18:03 at `b4b9700`. A half-written MLflow run for the 2023 average is left
+in the local store; `latest` reads the newer one.
+
+#### Hours where LEAR lies outside its window: hard hours, not QRA's failure (item 3)
+
+From stored 2023 runs, July–December (every window inside stored LEAR forecasts), nothing refitted:
+
+| | Outside | QRA in / out | Conformal in / out | LEAR's miss in / out |
+|---|---|---|---|---|
+| 28 days | 11.0 % | 4.81 / 9.79 | 4.98 / 9.23 | 13.4 / 23.6 € |
+| 56 days | 6.5 % | 4.79 / 10.66 | 5.03 / 11.09 | 13.6 / 28.0 € |
+| 91 days | 4.7 % | 4.81 / 12.14 | 5.08 / 12.32 | 13.8 / 30.8 € |
+| 182 days | 2.9 % | 4.94 / 13.91 | 5.15 / 14.34 | 14.0 / 35.1 € |
+
+Both methods score 2–3 times worse there, and conformal, which cannot extrapolate, as badly as
+QRA; LEAR's own miss is twice as large. So these hours are the market doing something new, not
+QRA's lines running past their data; only at 28 days (fewest dots) is QRA worse than conformal
+there. **Recommended, not yet agreed with the user: *hours crossed* stays as it is, no size measure.**
+
+#### Stage 3's one reading of the held-back years: QRA's lead holds (`b4b9700`)
+
+`just final-score ranges` at `b4b9700`, 18:03–22:33: LEAR walked 913 days in 2,288 s and **the
+check held** (MAE 13.283, rMAE 0.485, last week's 0.405, on 17,544 hours: stage 2's `lear daily`);
+windows 2,747 / 3,100 / 3,396 / 4,625 s. "2 held-back rows recorded. This is the first reading."
+The 2023 re-run at the same commit reproduced every window to the last digit and the average at 5.195.
+
+| 2024–25, average of four windows | Pinball | 50 % band | 80 % band | 90 % band | Hours crossed |
+|---|---|---|---|---|---|
+| **QRA** | **4.655** | 0.494 | 0.789 | 0.883 | 15,611 of 17,544 (any window) |
+| conformal | 4.983 | 0.511 | 0.805 | 0.899 | 0 |
+
+`just significance`: held back, conformal → QRA **p = 1.2e-06** (reverse 1). On 2023: 91 days →
+average p = 0.00013; average, conformal → QRA p = 0.0019, so averaging restores QRA's lead that a
+single 91-day window had lost (p 0.078). **The ranking chosen on 2023 held.**
+
+**Where the lead sits.** January–March 2024 carries most of it: QRA 3.86 / 3.23 / 2.88 against
+conformal 5.26 / 4.96 / 4.91. Prices fell from ~100 € late 2023 to 61–77 €; LEAR was not biased
+(mean miss −0.6 to +2.0, typical miss 13.6–15 €, as later). QRA's 80 % band was 28–36 € wide and
+held 0.84–0.86; conformal kept the dearer window's 45 € and held 0.79–0.81. Read (not decomposed):
+QRA's lines narrow the band on cheaper hours, conformal keeps the window's width. After March the
+two are close month by month. By year: QRA 4.805 / 4.505, conformal 5.337 / 4.627.
+
+**Stated limits.** QRA's bands are slightly narrow on these years (80 % held 0.789, 90 % 0.883);
+conformal's sit on nominal. The lag remains: QRA's 80 % band held 0.71–0.76 April–June 2024, and
+both fell to ~0.70–0.75 in November–December 2024, the most expensive months (LEAR's miss 19–22 €).
+Pinball scales with the price level, so 4.655 is not comparable with 2023's 5.195. **Still error,
+not money**: whether the range earns anything is stage 4's question. Nothing implausible: coverage
+near nominal, not narrow bands that still hold.
+
 ---
 
 ### Next — next session
