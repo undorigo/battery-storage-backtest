@@ -3334,6 +3334,13 @@ market late, the loop block's pair test) in `docs/learnings.md`.
 
 ---
 
+<a id="d20261019"></a>
+### 19 October 2026
+
+**Recap (all five):** 1 half right: non-parallel lines named, but the lead shrank with the window, so it was about coping with a stale window. 2 half right: the situation is known, LEAR's forecast beyond every dot in the window at the season's turn. 3 not remembered: the outside fact (conformal symmetric around LEAR) caught it; the principle matters, not the test. 4 mostly right: only the limits' gap counts, but 50 is a gap not a price, and negative prices are fine. 5 half right: the window lags, not just holds noise; selection on 2023 not answered.
+
+---
+
 ### Next — next session
 
 **Stage 3: choose the window, then the one held-back reading of the ranges.**
