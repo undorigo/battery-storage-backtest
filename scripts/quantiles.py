@@ -39,9 +39,10 @@ from src import tracking as TR
 START = pd.Timestamp(cfg.TRAIN_END) - pd.Timedelta(days=M.QRA_WINDOW - 1)   # 2022-07-03
 
 
-def walk_days(table: pd.DataFrame) -> pd.DatetimeIndex:
-    """The days LEAR forecasts here: 182 before 2023, then 2023, clues complete."""
-    days = table.loc[(table.index >= START) & (table.index <= pd.Timestamp(cfg.VALID_END))]
+def walk_days(table: pd.DataFrame, start: pd.Timestamp = START,
+              end: str = cfg.VALID_END) -> pd.DatetimeIndex:
+    """The days LEAR forecasts: 182 before 2023, then 2023 (unless told), clues complete."""
+    days = table.loc[(table.index >= start) & (table.index <= pd.Timestamp(end))]
     ready = days[F.day_feature_columns(table)].notna().all(axis=1)
     return days.index[ready]
 
@@ -105,8 +106,12 @@ def runs(lear: pd.Series, actual: pd.Series, days: pd.DatetimeIndex, windows: li
         per_window.append(lines(lear, actual, days, window, levels))
         yield window, *score(per_window[-1], lear, actual, window)   # recorded before the next
     if len(windows) > 1:
-        label = "+".join(str(w) for w in windows)        # e.g. "28+56+91+182"
-        yield label, *score(averaged(per_window), lear, actual, label)
+        yield named(windows), *score(averaged(per_window), lear, actual, named(windows))
+
+
+def named(windows: list[int]) -> str:
+    """An average's window, as recorded: "28+56+91+182"."""
+    return "+".join(str(w) for w in windows)
 
 
 def table(rows: list[dict]) -> str:

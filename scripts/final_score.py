@@ -20,14 +20,19 @@ the held-back years are looked at, not how many forecasts are scored in a single
 
 A daily refit learns from held-back days once they are in the past, as a live run would
 on 5 March 2025 with 4 March in hand. What it never sees is the day it forecasts.
+
+**Stage 3's reading is `just final-score ranges`**, a separate run of this file so that
+reading the ranges does not read stage 2's forecasts a second time.
 """
 
 from __future__ import annotations
 
+import argparse
 import time
 
 import pandas as pd
 
+from scripts import quantiles as Q                         # stage 3's ranges, same code as on 2023
 from scripts.train import git_commit, lear_days, record   # same stamping, same rules
 from src import config as cfg
 from src import evaluate as E
@@ -117,9 +122,79 @@ def reading_note(recorded: pd.DataFrame, just_written: int) -> str:
             f"The held-back years have been read before — check the commit column.")
 
 
-# ── Running it ────────────────────────────────────────────────────────────────
+# ── Stage 3: the ranges, read once ────────────────────────────────────────────
+# The range chosen on 2023 (19 Oct 2026): QRA and conformal around LEAR, each averaged
+# over four windows.  LEAR walks from 182 days before 2024, so the first held-back day's
+# longest window holds forecasts LEAR really made, as `just quantiles` does for 2023.
+#
+# Only the two averages are scored.  Each window's own held-back score would invite
+# choosing the window again on the years held back, which is the choice 2023 was for.
+# Every range at D learns from days before D, held-back days included once past.
 
-def main() -> int:
+RANGE_WINDOWS = [28, 56, 91, 182]                    # chosen on 2023: the field's average
+RANGE_START = pd.Timestamp(cfg.VALID_END) - pd.Timedelta(days=max(RANGE_WINDOWS) - 1)   # 2023-07-03
+
+
+def range_walk(table: pd.DataFrame) -> tuple[pd.DatetimeIndex, pd.Series]:
+    """The days LEAR walks for the ranges, and its forecast for each."""
+    days = Q.walk_days(table, RANGE_START, cfg.TEST_END)
+    return days, M.lear_walk_forward(table, days)
+
+
+def ranges(lear: pd.Series, actual: pd.Series, days: pd.DatetimeIndex,
+           windows: list[int] = RANGE_WINDOWS,
+           levels: tuple[int, ...] = M.PERCENTILES) -> tuple[list[dict], dict[str, pd.DataFrame]]:
+    """Both methods' averaged ranges on the held-back days of `days`, scored."""
+    scored = days[days > pd.Timestamp(cfg.VALID_END)]    # the held-back days only
+    per_window = []
+    for window in windows:
+        started = time.perf_counter()
+        per_window.append(Q.lines(lear, actual, scored, window, levels))
+        print(f"Ranges, {window} days: {time.perf_counter() - started:.0f} s", flush=True)
+    return Q.score(Q.averaged(per_window), lear, actual, Q.named(windows), SPLIT)
+
+
+def read_ranges() -> int:
+    try:
+        _, _, holdout = data()                       # hourly 2024-25, for the benchmarks
+        table = day_rows()
+    except FileNotFoundError as exc:
+        print(exc)
+        print("\nNo cached data. Run `just pull` first.")
+        return 2
+
+    started = time.perf_counter()
+    days, lear = range_walk(table)
+    print(f"LEAR walks {len(days)} days ({days.min():%Y-%m-%d} to {days.max():%Y-%m-%d}): "
+          f"{time.perf_counter() - started:.0f} s", flush=True)
+    actual = Q.prices(table)
+    # LEAR is deterministic, so this must read what stage 2's reading holds for `lear daily`.
+    check = E.score("lear", SPLIT, lear, M.naive_forecast(holdout), actual,
+                    field=M.field_naive(holdout))
+    print(f"LEAR on 2024-25, the check: MAE {check['mae']:.3f}, rMAE {check['rmae_field']:.3f} "
+          f"(last week's {check['rmae']:.3f}), {check['n']:,} hours\n", flush=True)
+
+    rows, kept = ranges(lear, actual, days)
+    print("\n" + Q.table(rows))
+    print("\n" + reading_note(record(rows, cfg.QUANTILE_SCORES), len(rows)))
+
+    params = {"window": Q.named(RANGE_WINDOWS), "levels": "1-99", "lear_window": M.WINDOW_DAYS,
+              "lear_from": f"{days.min():%Y-%m-%d}", "commit": git_commit()}
+    ids = {row["method"]: TR.log_range(row, kept[row["method"]], params) for row in rows}
+    print("Logged to MLflow: " + ", ".join(f"{m} {r[:8]}" for m, r in ids.items()))
+    return 0
+
+
+# ── Running it ────────────────────────────────────────────────────────────────
+# Two readings, one per stage that has closed: `points` is stage 2's forecasts, the
+# default because it came first; `ranges` is stage 3's.
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description="Read the held-back years, once per stage.")
+    parser.add_argument("what", nargs="?", choices=["points", "ranges"], default="points")
+    if parser.parse_args(argv).what == "ranges":
+        return read_ranges()
+
     try:
         train, valid, holdout = data()
     except FileNotFoundError as exc:

@@ -118,8 +118,11 @@ def compare(first: dict, second: dict, **where) -> dict:
 # percentiles per hour, so the test needs no refit.  Both sides are trimmed to the
 # hours both cover and scored there, as `compare` does for point forecasts.
 
-def _range(model: str, window: int) -> dict:
-    return {"model": model, "window": str(window), "split": "valid"}
+def _range(model: str, window: int | str, split: str = "valid") -> dict:
+    return {"model": model, "window": str(window), "split": split}
+
+
+AVERAGE = "28+56+91+182"                                        # stage 3's chosen range
 
 
 RANGE_COMPARISONS = [
@@ -129,6 +132,12 @@ RANGE_COMPARISONS = [
     ("QRA: 56 → 91 days", _range("qra", 56), _range("qra", 91)),
     ("conformal: 182 → 91 days", _range("conformal", 182), _range("conformal", 91)),
     ("91 days: conformal → QRA", _range("conformal", 91), _range("qra", 91)),
+    # The average, 19 Oct: the field's recipe against the best single window.
+    ("QRA: 91 days → average", _range("qra", 91), _range("qra", AVERAGE)),
+    ("average: conformal → QRA", _range("conformal", AVERAGE), _range("qra", AVERAGE)),
+    # Stage 3's one reading of 2024-25.
+    ("held back, average: conformal → QRA", _range("conformal", AVERAGE, "test"),
+     _range("qra", AVERAGE, "test")),
 ]
 
 
@@ -138,8 +147,9 @@ def compare_ranges(first: dict, second: dict, **where) -> dict:
     for side in (first, second):
         run = TR.latest(**where, **side)
         if run is None:
+            command = "just final-score ranges" if side["split"] == "test" else "just quantiles"
             raise LookupError(f"no {side['model']} run with window={side['window']}: "
-                              "run `just quantiles`")
+                              f"run `{command}`")
         params, kept = TR.read_range(run, **where)
         found.append((params["commit"], kept))
     (c1, k1), (c2, k2) = found

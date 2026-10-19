@@ -164,3 +164,16 @@ def test_the_range_p_values_point_the_stated_way(ranges):
 def test_a_missing_range_run_names_just_quantiles(tmp_path):
     with pytest.raises(LookupError, match="just quantiles"):
         S.compare_ranges(CONFORMAL, QRA, db=tmp_path / "mlflow.db")
+
+
+def test_a_missing_held_back_range_names_the_final_reading(tmp_path):
+    held_back = {**QRA, "split": "test"}
+    with pytest.raises(LookupError, match="just final-score ranges"):
+        S.compare_ranges(held_back, held_back, db=tmp_path / "mlflow.db")
+
+
+def test_held_back_range_comparisons_read_held_back_runs_only():
+    """Without the split, the newest 2023 run of the same window could stand in."""
+    for label, first, second in S.RANGE_COMPARISONS:
+        expected = "test" if label.startswith("held back") else "valid"
+        assert first["split"] == second["split"] == expected, label

@@ -250,3 +250,92 @@ def test_validation_rows_are_never_counted_as_held_back():
     """The count must key on the split label, not on how many rows the file holds."""
     frame = recorded(["valid"] * 99 + ["test"] * 3)
     assert "first reading" in FS.reading_note(frame, just_written=3)
+
+
+# ── Stage 3's reading: the ranges ─────────────────────────────────────────────
+# The same fixture's day table, with a stand-in for LEAR that records the days it is
+# handed and forecasts each day as its price, scaled and shifted with a little noise, so
+# the dots are not one exact line.  Small windows and seven percentiles keep it quick;
+# that the real windows are the four chosen on 2023 is checked on the constant itself.
+
+R_WINDOWS, R_LEVELS = [5, 10], (5, 10, 25, 50, 75, 90, 95)   # each band reported needs its pair
+FIRST_TEST_DAY = pd.Timestamp("2024-01-01")
+
+
+def stand_in_lear(table: pd.DataFrame, days: pd.DatetimeIndex) -> pd.Series:
+    answers = table.loc[days, F.day_answer_columns(table)]
+    answers.columns = [int(c[-2:]) for c in answers.columns]
+    noise = np.random.default_rng(8).normal(0, 3, answers.shape)
+    return F.unfold(0.9 * answers + 5 + noise).rename("predicted")
+
+
+@pytest.fixture(scope="module")
+def walked():
+    seen: dict = {}
+
+    def lear(table, days):
+        seen["days"] = days
+        return stand_in_lear(table, days)
+
+    with pytest.MonkeyPatch.context() as mp:
+        mp.setattr(F, "data_load", lambda key: _sources()[key])
+        table = FS.day_rows()
+        mp.setattr(M, "lear_walk_forward", lear)
+        days, forecast = FS.range_walk(table)
+    from scripts import quantiles as Q
+    return table, days, forecast, Q.prices(table), seen
+
+
+@pytest.fixture(scope="module")
+def read(walked):
+    _, days, lear, actual, _ = walked
+    return FS.ranges(lear, actual, days, R_WINDOWS, R_LEVELS)
+
+
+def test_the_real_reading_averages_the_four_windows_chosen_on_2023():
+    assert FS.RANGE_WINDOWS == [28, 56, 91, 182]
+    assert FS.RANGE_START == pd.Timestamp("2023-07-03")      # 182 days before 2024
+
+
+def test_lear_walks_from_182_days_before_2024_to_the_last_held_back_day(walked):
+    table, days, _, _, seen = walked
+    assert seen["days"].equals(days)
+    assert days.min() == pd.Timestamp("2023-07-03")
+    assert days.max() == pd.Timestamp("2024-01-21")          # the 22nd is incomplete: skipped
+    assert (days < FIRST_TEST_DAY).sum() == 182
+
+
+def test_only_the_two_averages_are_scored_and_only_on_held_back_hours(read):
+    rows, kept = read
+    assert [r["method"] for r in rows] == ["qra", "conformal"]
+    hours = pd.date_range(FIRST_TEST_HOUR, "2024-01-21 23:00", freq="h")
+    for row in rows:
+        assert row["split"] == "test" and row["window"] == "5+10" and row["n"] == len(hours)
+        assert kept[row["method"]].index.equals(hours)
+
+
+def test_the_reading_is_the_average_of_the_windows_run_alone(walked, read):
+    """Checked from outside: each window fitted again through `quantiles`, then averaged."""
+    from scripts import quantiles as Q
+
+    _, days, lear, actual, _ = walked
+    scored = days[days >= FIRST_TEST_DAY]
+    _, kept = read
+    alone = [Q.lines(lear, actual, scored, w, R_LEVELS)["qra"][0] for w in R_WINDOWS]
+    np.testing.assert_allclose(kept["qra"][list(R_LEVELS)], (alone[0] + alone[1]) / 2)
+
+
+def test_a_held_back_day_never_learns_from_itself_or_later(walked, read):
+    """Prices from 10 January on raised by 500: every range before that day unchanged,
+    and 10 January's own range unchanged too, because its window ends the day before."""
+    _, days, lear, actual, _ = walked
+    _, base = read
+    later = actual.copy()
+    later[later.index >= pd.Timestamp("2024-01-10")] += 500
+    _, moved = FS.ranges(lear, later, days, R_WINDOWS, R_LEVELS)
+    until = pd.Timestamp("2024-01-10 23:00")
+    for method in ("qra", "conformal"):
+        pd.testing.assert_frame_equal(moved[method].loc[:until, list(R_LEVELS)],
+                                      base[method].loc[:until, list(R_LEVELS)])
+        assert not moved[method].loc["2024-01-11":, list(R_LEVELS)].equals(
+            base[method].loc["2024-01-11":, list(R_LEVELS)])

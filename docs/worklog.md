@@ -3339,6 +3339,64 @@ market late, the loop block's pair test) in `docs/learnings.md`.
 
 **Recap (all five):** 1 half right: non-parallel lines named, but the lead shrank with the window, so it was about coping with a stale window. 2 half right: the situation is known, LEAR's forecast beyond every dot in the window at the season's turn. 3 not remembered: the outside fact (conformal symmetric around LEAR) caught it; the principle matters, not the test. 4 mostly right: only the limits' gap counts, but 50 is a gap not a price, and negative prices are fine. 5 half right: the window lags, not just holds noise; selection on 2023 not answered.
 
+#### Window chosen: the average of four, as the field does
+
+**Shown on real 2023 data first** (stored runs, nothing refitted). 56 and 91 days are a coin toss
+day by day (91 better on 185 days, 56 on 180) and within ~0.2 pinball every month from April; they
+part only in late winter, each way once: February 56 better (5.18 against 5.74), March 91 better
+(5.39 against 5.65; 80 % band held 0.905 against 0.804, 64 € wide against 47 €). With 56 days
+about half a dot lies below the p1 line, with 91 about one. **Then the field's recipe**
+(Lipiecki et al.: average the ranges of several windows, percentile by percentile), from the four
+stored runs: QRA **5.195**, 50 / 80 / 90 % held 0.539 / 0.821 / 0.911; against 91 days
+**p = 0.0001** (reverse 1.0), better in 10 of 12 months. Conformal gains nothing (5.398). Why it
+works: each window is wrong at different moments (56 in March, 91 in February, 182 all spring).
+
+**Decided with the user: the average of 28, 56, 91 and 182 days**, for QRA and conformal alike.
+Rejected: 91 days (ties 56, loses to the average), 56 days. **Stated limits:** a fifth candidate
+looked at on 2023, so slightly flattered; less so than a tuned one, because it is the published
+recipe and its lead holds month by month. Not checked: that the paper uses exactly these lengths.
+
+**What it costs to run, asked by the user.** The hours are a backtest's, not a live day's. A live
+run forecasts one day: one LEAR fit (~3 s: 1,662 s over 547 days) and one day's ranges per window
+(3.6–4.3 s at 28–91 days, ~6 s at 182, both methods, 99 percentiles, measured 16 Oct), so
+**~20–25 s on this laptop** against ~8 s for one window. The held-back reading replays 912 days,
+hence ~4.5 h (derived, not timed). A faster machine shortens the replay only; the four windows are
+independent and could run on separate cores, not built. Derived from the pieces, not timed as one
+live run.
+
+#### Stage 3's held-back reading designed and built
+
+**Decided with the user.** `just final-score ranges`: one file stays the only door to the
+held-back years, and a separate argument keeps stage 2's forecasts unread. Rejected: a new
+`final_ranges.py` (two doors). Only the two averages are recorded; rejected: each window too
+(choosing the window again on the test years). 2023's average goes into the record by re-running
+`just quantiles 28 56 91 182`, which now also scores the average of the windows it runs; it must
+read 5.195 again. Rejected: printing it from stored runs (no row in the record).
+
+**Defaults stated:** each window's lines sorted, then averaged (matches 5.195; an average of
+ordered lines is ordered); an averaged hour counts as crossed if any window crossed there. LEAR
+walks from 3 July 2023; its 2024–25 MAE must read 13.283 on 17,544 hours, stage 2's `lear daily`.
+
+| Piece | Planted bug | Caught by |
+|---|---|---|
+| `M.average`, `untangle` | divided by n−1; a range dropped; columns unchecked; no check; crossed by `all` | hand-worked average, refusal tests, untangle test |
+| `quantiles.runs` | crossed by `all`; each window scores the first; no average; label lost; one window left out; count of hours, not crossed | average by hand from the windows' tables, crossed counted from raw lines refitted outside |
+| | **average only from three windows up** | **nothing at first**: every test used one or three. Two-window test added; caught |
+| `final_score` ranges | walk a day short; walk stops at 2023; 2023 scored; one window averaged; labelled valid; label from the constant; prices a day early; a window dropped; LEAR walks held-back days only | walk, label, average-from-outside and *never learns from itself or later* tests (scoring 2023 crashes on an empty first window rather than failing an assertion) |
+| `significance` | held-back miss names `just quantiles`; held-back comparison reads 2023 runs (either side) | two tests added |
+
+**Two lessons from the planting itself.** (1) A plant restored within the same second, at the
+same length, kept running from Python's bytecode cache: `any`→`all` went on executing after the
+file was restored, and a new test "failed" on correct code. Planting now runs with
+`PYTHONDONTWRITEBYTECODE=1` and the pycache cleared, and every plant was repeated. (2) A
+`git checkout` to undo a plant restored the committed file and discarded uncommitted work; it was
+recovered from the copy taken before planting. Plants are restored only from their copy.
+
+Leakage check: no feature changed; each range at D reads LEAR's forecast for D and prices of days
+before D (planted: prices a day early, caught); windows and average chosen on 2023; the held-back
+ranges learn from held-back days only once past, as stage 2's daily refits; settlement untouched.
+`main`'s new argument untested, as `main` is elsewhere. Suite 260 green.
+
 ---
 
 ### Next — next session
