@@ -3,11 +3,12 @@
 Forecasting German day-ahead electricity prices, and measuring what the forecast is
 actually worth to a battery.
 
-**Status:** stage 2 of 6 complete, 14 October 2026; stage 3 next. LEAR, the field's statistical
+**Status:** stage 3 of 6 complete, 19 October 2026; stage 4 next. LEAR, the field's statistical
 benchmark, refitted every day, forecasts the held-back years at **rMAE 0.485** against the field's
-benchmark, 0.405 against a week-old lookup. **The yardstick changed at the close of stage 2** — see
-the note under the stage table. Stage 4, where the forecast becomes a capture rate, is the one the
-rest exists for.
+benchmark, 0.405 against a week-old lookup. Around it, a range of 99 percentiles (QRA, averaged over
+four windows) scores **pinball 4.655** on the same years, ahead of the simpler band (4.983,
+p < 0.0001). **The yardstick changed at the close of stage 2** — see the note under the stage table.
+Stage 4, where the forecast becomes a capture rate, is the one the rest exists for.
 
 ---
 
@@ -52,7 +53,7 @@ so a claim can always be traced back to the run that produced it.
 | 0 | Reproducible data pull, split locked | negative hours, daily spread | **done** 17 Sep 2026 |
 | 1 | First model against a naive benchmark | rMAE 0.532 *(last week)* | **done** 30 Sep 2026 |
 | 2 | Recalibration, LEAR, holidays | **rMAE 0.485** *(0.405 last week)* | **done** 14 Oct 2026 |
-| 3 | Quantile forecasts: QRA on LEAR, conformal beside it | pinball 5.30 on 2023 *(QRA, 91 days)* | **built, measured on 2023** 16 Oct 2026 |
+| 3 | Quantile forecasts: QRA on LEAR, conformal beside it | **pinball 4.655** *(QRA, four windows averaged)* | **done** 19 Oct 2026 |
 | 4 | Price-dependent bids and a MILP schedule, revenue | **capture rate** | |
 | 5 | Drift monitoring, scheduled run | reproducibility | |
 
@@ -212,41 +213,54 @@ those runs. It needs the `just train` runs first, and names any that are missing
 Every step is judged with the significance test, because stage 1 demonstrated that a gap of
 0.044 on one year is not evidence of anything.
 
-### Where stage 3 stands
+### Where stage 3 landed
 
-**Built and measured on 2023, not yet read on the held-back years.** LEAR's one forecast per hour
-becomes 99 percentiles, two ways. *QRA* fits a line through last months' dots — LEAR's forecast
-against the real price — for each percentile, so the band can widen when LEAR expects a high price.
-*Conformal* takes how big LEAR's past misses were and puts a band of that width around today's
-forecast. Both learn only from forecasts LEAR really made: LEAR is walked forward from July 2022
-first, and its 2023 score comes back at 0.504, as in stage 2. Reproduce with `just quantiles` and
-`just quantiles 28 56 91` (`reports/quantile_scores.csv`), and the p-values with `just significance`.
+**Closed on 19 October 2026.** LEAR's one forecast per hour becomes 99 percentiles, two ways. *QRA*
+fits a line through recent dots — LEAR's forecast against the real price — for each percentile, so
+the band can widen when LEAR expects a high price and narrow when it expects a low one. *Conformal*
+takes how big LEAR's past misses were and puts a band of that width around today's forecast. Both
+learn only from forecasts LEAR really made: LEAR is walked forward first, and its scores come back
+exactly as stage 2 reported them (0.504 on 2023, MAE 13.283 on the held-back years).
 
-| 2023, by window | QRA pinball | Conformal pinball | 80 % band holds (QRA) |
-|---|---|---|---|
-| 182 days | 5.381 | 5.546 | 0.832 |
-| **91 days** | **5.300** | 5.397 | 0.814 |
-| 56 days | 5.304 | 5.388 | 0.800 |
-| 28 days | 5.394 | 5.395 | 0.757 |
+**The range chosen on 2023 is the field's: the average of four.** Each method is run with windows of
+28, 56, 91 and 182 days and the four ranges are averaged percentile by percentile (Lipiecki,
+Uniejewski & Weron 2024). Each window is wrong at different moments — a short one forgets a calm
+spell too fast, a long one remembers a crisis too long — and averaging lets those errors partly
+cancel.
+
+| Pinball *(lower is better)* | 2023, validation | 2024–25, held back |
+|---|---|---|
+| **QRA, average of four** | **5.195** | **4.655** |
+| conformal, average of four | 5.398 | 4.983 |
+| QRA, best single window (91 days) | 5.300 | *not read* |
+| 80 % band holds (QRA / conformal) | 0.821 / 0.823 | 0.789 / 0.805 |
 
 Pinball loss is the average distance from the price to each line, charged lopsidedly: for p90, a
-price above the line costs nine times what one below costs. Lower is better.
+price above the line costs nine times what one below costs. It grows with the price level, so the
+two columns are not comparable with each other; each row is compared within its column.
 
-**With 182 days, QRA wins clearly** (p = 0.0011). **But the long window was the problem.** It
-remembers the market half a year late: in January–June 2023 it was full of crisis days, so the bands
-were too wide (QRA's 80 % band held 83–92 %), and from July they were too narrow (70 % in October).
-**A 91-day window helps QRA a little** (5.381 → 5.300, p = 0.033) and conformal a lot (p < 0.0001).
-At 91 days the two methods can no longer be told apart (p = 0.078); 56 and 91 days tie (p = 0.47).
-Read so far, from one year: QRA's lead at 182 days was mostly its better handling of a stale window. Even at 91 days the
-bands still lag: the 80 % band held 68 % in August and 71 % in October.
+**The ranking held on the years held back.** QRA beats conformal on 2024–25 (p < 0.0001), as on 2023
+(p = 0.0019). On 2023, the average beat the best single window (p = 0.0001), and single windows told
+their own story: with 182 days QRA won clearly, at 91 days the two could not be told apart, so most of
+QRA's single-window lead was coping with a stale window. Most of the held-back lead sits in
+January–March 2024, when prices fell from about 100 €/MWh to 60–75: QRA's 80 % band narrowed to
+28–36 € and still held 85 %, while conformal kept the 45 € it had learned on dearer days.
+Reproduce with `just quantiles 28 56 91 182`, `just final-score ranges` (read once, about 4.5
+hours) and `just significance`; the rows are in `reports/quantile_scores.csv`.
 
-**Stated limits.** Four windows were tried on 2023 and the best is quoted, which flatters it
-slightly. Each hour's 99 lines are fitted separately and often cross (5,925 of 8,760 hours at 91
-days); they are sorted back into order. On the one day checked (1 December), the large crossings sat
-where LEAR's forecast lay beyond every forecast in the window, so QRA had to guess past its data;
-that happens in 2.9 % of hours July–December.
-**All of this is error, not money.** Which window, and whether the range earns anything, is
-stage 4's question as much as stage 3's.
+**Stated limits.** The window average was chosen on 2023 among five candidates, which flatters its
+2023 score slightly; the held-back years were read once, after the choice. QRA's bands run a little
+narrow on the held-back years (80 % held 79 %, 90 % held 88 %); conformal's sit on target. Both still
+lag the market: QRA's 80 % band held 71–76 % in April–June 2024, and both fell to about 70–75 % in
+November–December 2024, the dearest months. Each hour's 99 lines are fitted separately and often
+cross; they are sorted back into order. Where LEAR's forecast lies beyond every forecast in the
+window, both methods score two to three times worse, conformal as badly as QRA, so those are hard
+hours rather than QRA guessing past its data. **All of this is error, not money.** Whether the range
+earns anything is stage 4's question.
+
+**What it costs to run.** The held-back reading replays 913 days and takes about 4.5 hours on a
+laptop. A live forecast does one day: about 20–25 seconds for LEAR and the four windows, against
+about 8 for a single window (worked out from measured parts, not timed as one run).
 
 ### Parked on purpose
 
@@ -270,8 +284,9 @@ not maintained — [docs/worklog.md](docs/worklog.md) records both links and whi
 Re-estimated on 7 October from what the stages actually took — seven working days for stage 0,
 six for stage 1 — at about three and a half working days a week.
 
-**Stage 3 was built and measured on 2023 on 16 October**; what remains is choosing its window and
-the one reading of the held-back years. **Stage 2 closed on 14 October**, about a week ahead of that estimate, after running longer than
+**Stage 3 closed on 19 October**, the week the estimate gave, with the window chosen and the
+held-back years read once. Stage 4 starts with one open decision: what happens to an unfilled order.
+**Stage 2 closed on 14 October**, about a week ahead of that estimate, after running longer than
 first planned: the 24-hour grid, MLflow and the significance test went in front of recalibration.
 The later stages keep their estimates and move forward with it. Stage 4 is the least certain,
 because the optimiser does not exist yet, and since 15 October it also bids with limit prices
@@ -280,7 +295,7 @@ rather than only committing one schedule.
 | Stage | Estimate | Ends around |
 |---|---|---|
 | 2 | done | 14 October 2026 |
-| 3 | ~1 week | week of 19 October 2026 |
+| 3 | done | 19 October 2026 |
 | 4 | ~2 weeks | week of 2 November 2026 |
 | 5 | ~1 week | week of 9 November 2026 |
 
@@ -549,7 +564,7 @@ BUILT
   scripts/explore.py         just explore     — headline numbers and the README figures
   scripts/train.py           just train       — score the validation year, as often as you like
   scripts/quantiles.py       just quantiles   — QRA and conformal ranges around LEAR, scored on 2023
-  scripts/final_score.py     just final-score — read the held-back years, once per stage
+  scripts/final_score.py     just final-score — read the held-back years, once per stage (`ranges`: stage 3)
   scripts/significance.py    just significance — every p-value the README states, from MLflow
   reports/scores.csv         every scored run, appended, stamped with its commit
   reports/quantile_scores.csv the same for ranges: pinball, coverage, crossing, window

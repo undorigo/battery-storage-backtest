@@ -81,7 +81,9 @@ Eleven of twelve exist. `backtest.py` is a name and an intention, nothing more.
 held-back years to be scored once per stage, and a promise in a docstring would not survive a
 hurried afternoon. So `train.py` has no code path to those rows at all, and a test enforces
 it. The script that may reach them is reached by its own command, which you have to mean to
-run. The two share `models.py` and `evaluate.py`, so the numbers stay comparable.
+run. The two share `models.py` and `evaluate.py`, so the numbers stay comparable. Each closed
+stage's reading goes through that one door: `just final-score` for stage 2's forecasts, `just
+final-score ranges` for stage 3's ranges, so reading one never re-reads the other.
 
 ---
 
