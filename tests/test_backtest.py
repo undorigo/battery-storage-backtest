@@ -139,3 +139,25 @@ def test_nothing_beats_the_ceiling_within_one_window():
         _, best = BT.ceiling(truth)
         other = BT.settle(BT.walk(guess), truth)
         assert other.sum() <= best.sum() + 1e-6
+
+
+# ── The command, to its last line ─────────────────────────────────────────────
+
+def test_the_ceiling_command_runs_on_2023_alone(monkeypatch, capsys):
+    """Runs `just backtest ceiling` on a stand-in cache spanning both year ends.
+    A dear morning on 1 January 2024 must not reach a 2023 run, nor 31 December 2022."""
+    from scripts import backtest as SB
+    from src import data
+
+    rng = np.random.default_rng(2)
+    edges = [berlin_days(*(list(rng.normal(80, 60, 24)) for _ in range(3)), start=start)
+             for start in ("2022-12-31", "2023-12-30")]
+    cache = pd.concat(edges)
+    cache[BT.delivery_days(cache.index) == pd.Timestamp("2024-01-01", tz="Europe/Berlin")] = 5000.0
+    monkeypatch.setattr(data, "load", lambda key: cache.to_frame("day_ahead_price"))
+
+    assert SB.main(["ceiling"]) == 0
+    assert "4 days, 96 hours" in capsys.readouterr().out
+    years = BT.delivery_days(SB.actual_prices().index).year
+    assert set(years) == {2023}
+    assert SB.ceiling(SB.actual_prices())["best_day"] < 1000      # 5,000 EUR never seen

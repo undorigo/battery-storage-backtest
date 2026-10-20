@@ -69,6 +69,11 @@ train refit="once" lear="1092":
 quantiles *windows:
     {{py}} -m scripts.quantiles {{windows}}
 
+# Stage 4: the battery planned on 2023's real prices, the most it could have earned. Offline.
+# Plans two days, keeps one, carries the charge over midnight. A few seconds.
+backtest what="ceiling":
+    {{py}} -m scripts.backtest {{what}}
+
 # Every p-value the README states, from the runs `just train` left in MLflow. Offline.
 # Needs `just train once`, `monthly`, `daily`, `daily all` and `just quantiles` first; names any missing.
 significance:
