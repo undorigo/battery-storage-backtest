@@ -17,6 +17,7 @@ matplotlib==3.11.1      # stage 0 figures: price history, negative hours, daily 
 scikit-learn==1.9.1     # stage 1 models; the estimators only, no pipelines or scalers yet
 mlflow==3.16.1          # stage 2: runs side by side, each keeping its hourly forecasts
 holidays==0.106         # stage 2: Germany's nationwide public holidays, Easter-linked ones included
+scipy==1.17.1           # stage 4: milp (HiGHS) plans the battery; already pulled in by scikit-learn
 
 # Testing.  Scoped to the Integration Contracts rather than general coverage —
 # the failures worth pinning are the silent ones: a split boundary that leaks an
