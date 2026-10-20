@@ -3500,6 +3500,17 @@ operators correcting day-ahead positions intraday. Plain-language notes in `docs
 
 ---
 
+### 20 October 2026, second session
+
+**Recap (all five):** 1 half right: the two ways windows fail, not that they fail on different days
+and cancel. 2 off: no one-off training, each day refits; the backtest replays 913 days. 3 not
+remembered: the last step stored a text label as a number; the whole-command test catches it. 4
+mostly right: pays 58 €; missing that a high limit also fills on dear hours, and the line sets the
+fill rate. 5 half right: non-parallel lines right, but prices fell rather than spiked; pinball and
+the price level not answered.
+
+---
+
 ### Next — next session
 
 **Stage 4 starts: bids, schedule, capture rate.**
