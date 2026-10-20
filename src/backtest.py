@@ -14,6 +14,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 import numpy as np
+import pandas as pd
 from scipy.optimize import Bounds, LinearConstraint, milp
 
 from src import config as cfg
@@ -78,3 +79,41 @@ def plan(prices: np.ndarray, start_mwh: float,
         raise RuntimeError(f"no plan found: {result.message}")
     x = result.x
     return Plan(charge=x[:T], discharge=x[T:2 * T], level=x[2 * T:3 * T])
+
+
+# ── Walking forward a day at a time ───────────────────────────────────────────
+# Plan two delivery days, keep the first, carry the stored level over midnight
+# (Contract 4).  A one-day plan has no reason to hold charge past its end, so it
+# would empty the battery every night even when tomorrow's morning is the dearest
+# hour.  The horizon is counted in delivery days, not in hours, because on real
+# hours a day has 23, 24 or 25 of them.
+#
+# The walk reads only the prices it is handed.  Its last day therefore plans one
+# day, not two: handed 2023, it never reads 1 January 2024, which belongs to the
+# held-back years (Contract 2).  Every run that shares this walk shares that edge.
+
+PLAN_DAYS = cfg.HORIZON_OPTIMISE_HOURS // 24                     # two delivery days
+KEEP_DAYS = cfg.HORIZON_IMPLEMENT_HOURS // 24                    # of which the first is kept
+
+
+def delivery_days(index: pd.DatetimeIndex) -> pd.Index:
+    """The Berlin calendar day each hour is delivered on."""
+    if index.tz is None:
+        raise ValueError("prices need a time zone: a naive hour is ambiguous twice a year")
+    return index.tz_convert(cfg.TZ_MARKET).normalize()
+
+
+def walk(prices: pd.Series, start_mwh: float = 0.0,
+         battery: cfg.Battery = cfg.BATTERY) -> pd.DataFrame:
+    """Hour by hour over every day in `prices`: charge, discharge and level, in MWh."""
+    day = delivery_days(prices.index)
+    days = day.unique()
+    level, kept = start_mwh, []
+    for i in range(0, len(days), KEEP_DAYS):
+        window = day.isin(days[i:i + PLAN_DAYS])                 # today and tomorrow, if handed
+        keep = day[window].isin(days[i:i + KEEP_DAYS])           # the part that is implemented
+        got = plan(prices[window].to_numpy(), level, battery)
+        kept.append(pd.DataFrame({"charge": got.charge[keep], "discharge": got.discharge[keep],
+                                  "level": got.level[keep]}, index=prices.index[window][keep]))
+        level = got.level[keep][-1]                              # where tomorrow starts
+    return pd.concat(kept)

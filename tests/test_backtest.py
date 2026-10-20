@@ -7,6 +7,7 @@ Every expected number below follows from those four figures on paper.
 from __future__ import annotations
 
 import numpy as np
+import pandas as pd
 import pytest
 
 from src import backtest as BT
@@ -43,3 +44,63 @@ def test_stored_energy_stays_within_the_battery():
     assert got.level.max() == pytest.approx(2.0, abs=1e-6)
     assert got.charge.sum() == pytest.approx(2.0 / 0.9, abs=1e-6)
     assert got.charge.max() <= 1.0 + 1e-9                         # 1 MW, one hour at a time
+
+
+# ── Walking day by day ────────────────────────────────────────────────────────
+
+def berlin_days(*days: list[float], start: str = "2023-01-10") -> pd.Series:
+    """Prices given per Berlin delivery day, stored in UTC as `data.load` returns them."""
+    hours = pd.date_range(start, periods=sum(map(len, days)), freq="h", tz="Europe/Berlin")
+    return pd.Series(np.concatenate(days), index=hours.tz_convert("UTC"))
+
+
+# Free power late on day 1, 200 early on day 2, 180 otherwise: worth holding over
+# midnight, and not worth buying at 180, since only 0.81 x 200 = 162 comes back.
+NIGHT = [180.0] * 22 + [0.0, 0.0]
+MORNING = [180.0] * 7 + [200.0, 200.0] + [180.0] * 15
+FLAT = [180.0] * 24
+
+
+def test_charge_bought_late_is_held_over_midnight():
+    got = BT.walk(berlin_days(NIGHT, MORNING))
+    assert got.level.iloc[23] == pytest.approx(1.8, abs=1e-6)   # 2 MWh bought, 1.8 stored
+    assert got.discharge.iloc[24:].sum() == pytest.approx(1.62, abs=1e-6)
+
+
+def test_the_next_day_starts_where_the_kept_day_ended():
+    # Day 1's two-day plan ends empty after selling on day 2.  Carrying that
+    # end-of-window level instead of day 1's would leave day 2 nothing to sell.
+    got = BT.walk(berlin_days(NIGHT, MORNING, FLAT))
+    assert got.discharge.iloc[24:48].sum() == pytest.approx(1.62, abs=1e-6)
+
+
+
+def test_each_day_is_replanned_with_the_day_after_in_view():
+    # Day 1's plan sells on day 2's morning at 200.  Re-planned on day 2 with day 3
+    # in view, it holds on for 300.  Keeping both days of day 1's plan would not.
+    DEARER = [180.0] * 7 + [300.0, 300.0] + [180.0] * 15
+    got = BT.walk(berlin_days(NIGHT, MORNING, DEARER))
+    assert got.discharge.iloc[24:48].sum() == pytest.approx(0.0, abs=1e-6)
+    # At 300 even 180 is worth buying (0.81 x 300 = 243), so day 2 tops up to 2 MWh.
+    assert got.discharge.iloc[48:].sum() == pytest.approx(1.8, abs=1e-6)
+
+def test_energy_adds_up_across_every_midnight():
+    rng = np.random.default_rng(0)
+    prices = berlin_days(*(list(rng.normal(80, 60, 24)) for _ in range(5)))
+    got = BT.walk(prices, start_mwh=0.5)
+    before = np.concatenate([[0.5], got.level.to_numpy()[:-1]])
+    assert got.level.to_numpy() == pytest.approx(
+        before + 0.9 * got.charge.to_numpy() - got.discharge.to_numpy() / 0.9, abs=1e-6)
+    assert got.index.equals(prices.index)                         # every hour, once, in order
+
+
+def test_a_day_is_a_berlin_day_with_23_hours_in_march():
+    hours = pd.date_range("2023-03-25", "2023-03-28", freq="h", tz="Europe/Berlin",
+                          inclusive="left").tz_convert("UTC")
+    counts = pd.Series(1, index=hours).groupby(BT.delivery_days(hours)).size()
+    assert list(counts) == [24, 23, 24]
+
+
+def test_the_last_day_plans_alone():
+    # Handed one day, the walk cannot see tomorrow's dear morning, so it does not buy.
+    assert BT.walk(berlin_days(NIGHT)).charge.sum() == pytest.approx(0.0, abs=1e-6)
