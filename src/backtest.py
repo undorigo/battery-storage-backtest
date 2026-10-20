@@ -117,3 +117,33 @@ def walk(prices: pd.Series, start_mwh: float = 0.0,
                                   "level": got.level[keep]}, index=prices.index[window][keep]))
         level = got.level[keep][-1]                              # where tomorrow starts
     return pd.concat(kept)
+
+
+# ── Settlement: what the plan earned at the prices that happened ──────────────
+# The one place real prices meet a schedule (Contract 3).  Every hour of the
+# schedule must have a price: lining the two up by timestamp would drop an
+# unpriced hour silently, and the total would describe fewer hours than were run.
+# Wear is paid per MWh sold, so a schedule that cycles for nothing loses money here.
+
+def settle(schedule: pd.DataFrame, actual: pd.Series,
+           battery: cfg.Battery = cfg.BATTERY) -> pd.Series:
+    """Hour by hour, in EUR: sold minus bought at the real price, minus wear."""
+    missing = schedule.index.difference(actual.index)
+    if len(missing):
+        raise ValueError(f"{len(missing)} scheduled hours have no price, first {missing[0]}")
+    price = actual.reindex(schedule.index)
+    return (price * (schedule.discharge - schedule.charge)
+            - battery.cycle_cost_eur_per_mwh * schedule.discharge).rename("earned")
+
+
+# ── The perfect-foresight ceiling ─────────────────────────────────────────────
+# The battery planned on the very prices it is paid at: the 100 % every capture
+# rate divides by.  It is the best plan *within each two-day window*, not over
+# the year — a plan made from a forecast can, by luck, carry charge past a window
+# and sell it dearer on the third day, which this one never looks for.
+
+def ceiling(actual: pd.Series, start_mwh: float = 0.0,
+            battery: cfg.Battery = cfg.BATTERY) -> tuple[pd.DataFrame, pd.Series]:
+    """The schedule planned on real prices, and what it earned at them."""
+    schedule = walk(actual, start_mwh, battery)
+    return schedule, settle(schedule, actual, battery)

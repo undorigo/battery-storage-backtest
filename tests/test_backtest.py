@@ -104,3 +104,38 @@ def test_a_day_is_a_berlin_day_with_23_hours_in_march():
 def test_the_last_day_plans_alone():
     # Handed one day, the walk cannot see tomorrow's dear morning, so it does not buy.
     assert BT.walk(berlin_days(NIGHT)).charge.sum() == pytest.approx(0.0, abs=1e-6)
+
+
+# ── Settlement and the ceiling ────────────────────────────────────────────────
+
+def test_settlement_pays_the_real_price_minus_wear():
+    # The plan from the first test, settled at 10 then 100: -10, then 81 - 6.48.
+    prices = berlin_days([10.0, 100.0])
+    schedule, earned = BT.ceiling(prices)
+    assert earned.to_numpy() == pytest.approx([-10.0, 74.52], abs=1e-6)
+
+
+
+def test_the_ceiling_plans_with_the_wear_it_is_charged():
+    # 50 then 66: 3.46 EUR before wear, 6.48 of wear.  Planned without wear it
+    # would trade and settle at -3.02; the ceiling sits still and earns nothing.
+    _, earned = BT.ceiling(berlin_days([50.0, 66.0]))
+    assert earned.sum() == pytest.approx(0.0, abs=1e-6)
+
+def test_settlement_refuses_an_hour_with_no_price():
+    prices = berlin_days([10.0, 100.0])
+    schedule = BT.walk(prices)
+    with pytest.raises(ValueError, match="no price"):
+        BT.settle(schedule, prices.iloc[:1])
+
+
+def test_nothing_beats_the_ceiling_within_one_window():
+    # Plan on a noisy guess, settle at the truth: never more than planning on the truth.
+    # One day, so one window.  Across windows this need not hold (see `ceiling`).
+    rng = np.random.default_rng(1)
+    for _ in range(20):
+        truth = berlin_days(list(rng.normal(80, 60, 24)))
+        guess = truth + rng.normal(0, 40, len(truth))
+        _, best = BT.ceiling(truth)
+        other = BT.settle(BT.walk(guess), truth)
+        assert other.sum() <= best.sum() + 1e-6
