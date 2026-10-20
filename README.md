@@ -95,6 +95,15 @@ blocks remain in the German auction after the 15-minute switch (October–Decemb
 package can span several charging hours, and how the range sets the pair's one minimum gain, since
 it describes each hour, not the gap.
 
+**The ceiling, built 20 October: 51,024 € on 2023** (`just backtest ceiling`, a few seconds). It is
+what the battery would have earned planned on the prices that actually cleared: two delivery days
+planned, the first kept, the charge carried over midnight, wear included, about 523 full cycles.
+Each hour is either charging or discharging, never both, because otherwise the plan would collect
+money at very negative prices for burning energy as losses, which 2023's 27 hours below about −34 €
+made worth doing. **Stated limit:** it is the best plan within each two-day window, not over the
+year, so a plan made from a forecast can in principle beat it by luck, carrying charge into a third
+day. How often, and by how much, the fixed schedule will show.
+
 Two warnings from the literature are carried in: the most accurate ranges did not earn the most
 (Nitka & Weron 2023), and simple quantile bidding rules can be gamed and ignore that a battery's
 hours depend on each other (Hirsch & Ziel 2026).
@@ -295,8 +304,9 @@ Re-estimated on 7 October from what the stages actually took — seven working d
 six for stage 1 — at about three and a half working days a week.
 
 **Stage 3 closed on 19 October**, the week the estimate gave, with the window chosen and the
-held-back years read once. Stage 4 started 20 October by settling its one open decision: an
-unfilled order is handled as a loop block, buy and sell together or not at all.
+held-back years read once. Stage 4 started 20 October by settling its one open decision (an
+unfilled order is handled as a loop block, buy and sell together or not at all) and building the
+perfect-foresight ceiling.
 **Stage 2 closed on 14 October**, about a week ahead of that estimate, after running longer than
 first planned: the 24-hour grid, MLflow and the significance test went in front of recalibration.
 The later stages keep their estimates and move forward with it. Stage 4 is the least certain,
@@ -571,17 +581,16 @@ BUILT
   src/features.py            the gate — where the availability rule is enforced, not declared
   src/models.py              the benchmarks, the line, the tree, LEAR, and QRA and conformal ranges
   src/evaluate.py            rMAE, pinball and coverage, Diebold-Mariano, all on shared hours
+  src/backtest.py            the battery's plan (a MILP), the day-by-day walk, settlement at real prices
   scripts/pull.py            just pull        — fetch every series in the catalog
   scripts/explore.py         just explore     — headline numbers and the README figures
   scripts/train.py           just train       — score the validation year, as often as you like
   scripts/quantiles.py       just quantiles   — QRA and conformal ranges around LEAR, scored on 2023
   scripts/final_score.py     just final-score — read the held-back years, once per stage (`ranges`: stage 3)
   scripts/significance.py    just significance — every p-value the README states, from MLflow
+  scripts/backtest.py        just backtest    — the battery on 2023 (`ceiling`: perfect foresight)
   reports/scores.csv         every scored run, appended, stamped with its commit
   reports/quantile_scores.csv the same for ranges: pinball, coverage, crossing, window
-
-PLANNED
-  src/backtest.py            dispatch optimiser and settlement
 ```
 
 Everything above `features.py` is transport: getting data from ENTSO-E onto disk without

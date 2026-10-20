@@ -3536,37 +3536,87 @@ with 90 % efficiency the volumes differ and the check is volume-weighted (my ari
 **Plan refreshed:** README (*Where this is going*, *Roughly when*), CLAUDE.md, the plan page
 (version 17: stage 4 under way, a *Stage 4, in order* list).
 
+#### The perfect-foresight ceiling designed and built (`1bac4c3`, `8046d66`, `f1e7837`, `6952451`)
+
+**Explained first, then decided with the user:** scipy's `milp` (HiGHS; already installed through
+scikit-learn, now pinned as a direct import), rejected PuLP and highspy (new installs for no gain
+at 192 variables a window); planning and settlement on **real hours**, the model's slots to be put
+back onto real hours just before planning (rejected: planning on the 24-slot grid, whose spring and
+autumn slots would need energy rules, not only price rules); `just backtest ceiling` through a new
+`scripts/backtest.py` (rejected: functions only until the fixed schedule exists).
+
+**Why a MILP, from the data.** Without an on/off switch per hour, a plan at a very negative price
+charges and discharges at once and is paid for burning energy as losses; it pays below about −34 €,
+and 2023 had 27 such hours (lowest −500). On 2–3 July 2023 the plain LP did it in 6 hours and
+claimed 50 € too much; the switch, in none. **Defaults stated, not asked:** the first day starts
+empty; the last day of a period plans alone, so 2023 never reads 1 January 2024 (Contract 2); the
+planner takes prices as an argument and cannot tell real from forecast (Contract 3). Checked
+before guarding: no hour missing in any split, so the hour-after-hour balance needs no gap check.
+
+| Piece | Planted bug | Caught by |
+|---|---|---|
+| `plan` | losses dropped; switch made continuous; switch removed; wear removed; capacity unbounded; start ignored; power doubled | hand-worked cheap-then-dear, negative-price, wear and capacity tests |
+| | **power doubled in the bounds only** | **survived**: the switch constraints already cap power at P, so the bound is redundant; planted on P itself, caught |
+| `walk` | one-day horizon; window's end level carried; UTC days; both days kept; start ignored | midnight hold, carry-over, re-plan with day 3 in view, energy balance across midnights, 23-hour March day |
+| | UTC days | caught only by the direct `delivery_days` check: the 48-hour window makes the schedule barely sensitive to where midnight falls |
+| `settle`, `ceiling` | price an hour late; wear added; bought and sold swapped; unpriced hours dropped; ceiling plans on shifted prices; **ceiling plans without wear** | hand-worked settlement, refusal, one-window property; the last **survived** until a 50 → 66 € case was added |
+| `scripts/backtest.py` | every year handed over; held-back years; 2023 plus 1 January 2024 | the command run to its last line on a stand-in cache spanning both year ends |
+
+**My expectations were wrong twice, not the code.** At a base price of 150 buying to sell at 200
+still pays (5.52 €), and at 300 on day 3 so does buying at 180; both tests were corrected with the
+arithmetic beside them. And the "nothing beats the ceiling" test first ran over two days, which are
+two windows, where it is not a theorem; it now runs on one.
+
+**The ceiling on 2023, at `6952451`: 51,024 €**, 365 days, 8,760 hours, 3.2 s; median day 122 €,
+best 1,108, worst −242; about 523 full cycles. Reproduces the scratch sketch shown before the code
+(same formulation, so a reproduction, not an independent check). **The 12 losing days all end
+full**: they buy for tomorrow (5 February: 2.22 MWh bought, nothing sold, next day 371 €). So a
+capture rate split by day must follow the charge, not the calendar.
+
+**Stated limit found while designing:** the ceiling is the best plan within each two-day window, not
+over the year. A forecast-made plan can by luck carry charge into a third day and beat it, so a
+capture rate slightly above 100 % is possible without a leak. CLAUDE.md's "always a bug" stays
+until the fixed schedule measures how often and by how much.
+
+Leakage check, each piece in writing during the session: no feature touched; no statistic fitted
+(battery figures are constants); settlement is the only place real prices meet a schedule, and the
+planner never sees where its prices came from. The ceiling plans on actuals by definition, as the
+denominator, never a decision. Suite 277 green.
+
+**Plan refreshed:** README (*Where this is going*, *Roughly when*, structure), the plan page
+(version 18).
+
 ---
 
 ### Next — next session
 
-**Stage 4 starts: bids, schedule, capture rate.**
+**Stage 4 continues: the fixed schedule from LEAR, then bids.** Main after this entry's commit,
+277 green. Ceiling 51,024 € on 2023 (`just backtest ceiling`).
 
 #### Recap questions
 
-1. The average of four windows beat every single window on 2023, though each was worse alone.
-   What does averaging do that picking the best window cannot?
-2. The held-back reading took 4.5 hours, a live day about 20 seconds. Where does the difference
-   come from, and what would a faster machine change?
-3. The 2023 run crashed in its last second after two hours. Why could no existing test have
-   caught it, and what kind of test now does?
-4. A buy bid at 03:00 has a 70 € limit and the price comes out at 58 €. What is paid, why does a
-   high limit not cost more, and what does the range have to do with where the limit sits?
-5. QRA's held-back lead sits mostly in January–March 2024. What did prices do, why could QRA's
-   band follow where conformal's could not, and why can 4.655 not be set against 2023's 5.195?
+1. Without an on/off switch, what does the plan do at −200 €, and why can no battery do it?
+2. Why plan two days and keep one? What would a 24-hour plan do every evening?
+3. The ceiling's worst day lost 242 €. Why is that not a mistake, and what does it mean for
+   splitting the capture rate by day?
+4. A loop block's limits are 80.70 € and 108.60 €; prices come out at 95 € and 120 €. Does it go
+   through? Which of the three gaps decided it, and when was each known?
+5. Why can a capture rate land slightly above 100 % under this convention without any leak?
 
 #### Then, in order
 
-1. **Decide the unfilled-order rule** with the user, before any optimiser code: (a) half full,
-   rebalanced next day by an unlimited bid (Nitka & Weron 2023); (b) loop blocks, filled together
-   on the pair's combined gain (Hirsch & Ziel 2026; availability in DE-LU after the 15-minute
-   switch unconfirmed); (c) a fixed schedule only as the first step. Settlement (Contract 3) and
-   the shared horizon (Contract 4) depend on it.
-2. **The perfect-foresight ceiling first**: the MILP on actual prices, 48 hours optimised, 24
-   implemented, charge carried forward, on 2023. The ceiling, naive and model runs must share that
-   convention. New dependency to decide (solver): ask before adding.
-3. Then the fixed schedule from LEAR's point forecast, then bids from the quantiles. Design
-   ideas from 20 Oct to decide with the user: capture rate split by ordinary against extreme days;
-   the naive rule's capture rate beside the model's.
-4. Noted, not tasks: QRA's held-back bands run slightly narrow (80 % held 0.789), which matters
+1. **The fixed schedule from LEAR's point forecast**, settled at real prices: the first capture
+   rate. To decide with the user first: what LEAR's forecast is for the plan's second day (it is
+   not published by 12:00 D−1: a 36–60-hour forecast, or D's forecast repeated, or a one-day plan
+   for every run; Contract 4 says all runs share the convention); the slots put back onto real
+   hours before planning (spring: drop the filled slot; autumn: the averaged slot on both hours).
+2. **Measure how often the fixed schedule beats the ceiling** on a window boundary; then settle
+   CLAUDE.md's "capture rate above 100 % is always a bug" wording.
+3. The naive rule's schedule beside it; then the bids as loop blocks. Open: how the range sets one
+   minimum gain per pair; loop blocks in DE-LU after the 15-minute switch; one package spanning
+   several charging hours.
+4. Design ideas from 20 Oct still to decide: capture rate split by ordinary against extreme days
+   (must follow the charge, see the losing days); revenue record file when the first capture rate
+   exists.
+5. Noted, not tasks: QRA's held-back bands run slightly narrow (80 % held 0.789), which matters
    once quantiles become limit prices; why LEAR's held-back lead grows into 2025.
