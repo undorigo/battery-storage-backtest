@@ -3471,6 +3471,21 @@ QRA narrowed in early 2024, pinball and the price level) in `docs/learnings.md`.
 
 ---
 
+<a id="d20261020"></a>
+### 20 October 2026
+
+#### Item 3 closed: no size measure for crossing lines
+
+Agreed with the user after a plain-language walk-through of crossing lines, hard hours, calibration
+against sharpness and why the best score may not earn the most. *Hours crossed* stays as it is;
+nothing built. Reason, from 19 October: on hours where LEAR lies outside its window, conformal,
+which cannot cross, scores as badly as QRA, so the crossings mark hard hours rather than cause the
+loss. Shown on held-back data during the walk-through (stored runs, read only): 80 % band width
+median 34.3 € QRA against 40.8 € conformal (mean 37.3 / 39.6); QRA's pinball lower on every line
+checked, p5 to p95 (p10 2.90 / 2.98, p50 6.21 / 6.64, p90 3.47 / 3.81).
+
+---
+
 ### Next — next session
 
 **Stage 4 starts: bids, schedule, capture rate.**
@@ -3500,5 +3515,4 @@ QRA narrowed in early 2024, pinball and the price level) in `docs/learnings.md`.
    convention. New dependency to decide (solver): ask before adding.
 3. Then the fixed schedule from LEAR's point forecast, then bids from the quantiles.
 4. Noted, not tasks: QRA's held-back bands run slightly narrow (80 % held 0.789), which matters
-   once quantiles become limit prices; why LEAR's held-back lead grows into 2025; item 3's
-   recommendation (no size measure for crossing) awaits the user's word.
+   once quantiles become limit prices; why LEAR's held-back lead grows into 2025.
