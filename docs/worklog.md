@@ -3484,6 +3484,20 @@ loss. Shown on held-back data during the walk-through (stored runs, read only): 
 median 34.3 € QRA against 40.8 € conformal (mean 37.3 / 39.6); QRA's pinball lower on every line
 checked, p5 to p95 (p10 2.90 / 2.98, p50 6.21 / 6.64, p90 3.47 / 3.81).
 
+#### Stage 4 previewed in plain language; a rough timing sketch on 2023
+
+Asked by the user: how bids with limits work, why a trade can fail, why the best score may not
+earn the most, and whether a forecast of averages can time a battery. **Sketch, not a result**
+(stored `lear daily` 2023 run, one buy hour before one sell hour per day, 0.81 round trip, no
+capacity, carry-over, wear or limits): the best 10 % of days held 23 % of the year's perfect-
+knowledge value (20 %: 39 %); LEAR named the exact cheapest hour on 39 % of days, the dearest on
+53 %, and captured ~90 % (98 % on the best 10 % of days, 88 % on the rest). Read: ordinary days
+carry most of the money, and the shape of a day matters more than its level. Not to be quoted.
+**Design ideas for stage 4, not decided:** split the capture rate by ordinary against extreme days
+(and by hour, which needs a rule, since profit comes from pairs of hours); the naive rule's capture
+rate beside the model's. Practice claims not checked this session: decision-focused learning, and
+operators correcting day-ahead positions intraday. Plain-language notes in `docs/learnings.md`.
+
 ---
 
 ### Next — next session
@@ -3498,8 +3512,8 @@ checked, p5 to p95 (p10 2.90 / 2.98, p50 6.21 / 6.64, p90 3.47 / 3.81).
    come from, and what would a faster machine change?
 3. The 2023 run crashed in its last second after two hours. Why could no existing test have
    caught it, and what kind of test now does?
-4. A planted `any` → `all` kept running after the file was restored. What happened, and what did
-   it mean for the plants run earlier the same day?
+4. A buy bid at 03:00 has a 70 € limit and the price comes out at 58 €. What is paid, why does a
+   high limit not cost more, and what does the range have to do with where the limit sits?
 5. QRA's held-back lead sits mostly in January–March 2024. What did prices do, why could QRA's
    band follow where conformal's could not, and why can 4.655 not be set against 2023's 5.195?
 
@@ -3513,6 +3527,8 @@ checked, p5 to p95 (p10 2.90 / 2.98, p50 6.21 / 6.64, p90 3.47 / 3.81).
 2. **The perfect-foresight ceiling first**: the MILP on actual prices, 48 hours optimised, 24
    implemented, charge carried forward, on 2023. The ceiling, naive and model runs must share that
    convention. New dependency to decide (solver): ask before adding.
-3. Then the fixed schedule from LEAR's point forecast, then bids from the quantiles.
+3. Then the fixed schedule from LEAR's point forecast, then bids from the quantiles. Design
+   ideas from 20 Oct to decide with the user: capture rate split by ordinary against extreme days;
+   the naive rule's capture rate beside the model's.
 4. Noted, not tasks: QRA's held-back bands run slightly narrow (80 % held 0.789), which matters
    once quantiles become limit prices; why LEAR's held-back lead grows into 2025.
