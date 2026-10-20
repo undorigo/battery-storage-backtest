@@ -68,7 +68,8 @@ price Tue–Fri, last week's Sat–Mon — with last week's beside it in `scores
 
 **Stage 4 bids with limit prices** (decided 15 Oct), so stage 3's range changes a decision: a fixed
 schedule that ignores risk would need only the average forecast. The fixed schedule stays beside the
-bids; the rule for an unfilled order is open until stage 4 starts.
+bids. An unfilled order is settled as a loop block (decided 20 Oct): buy and sell go through
+together or not at all, judged on the pair's gap against the limits' gap.
 | 5 | Drift monitoring, scheduled run | reproducibility | |
 
 Stage 2 led with "model craft" until 30 September. It now leads with **recalibration**, because

@@ -80,14 +80,24 @@ into quantiles the way the field does (*Quantile Regression Averaging*, Nowotars
 compared in Lipiecki, Uniejewski & Weron 2024), with *conformal prediction* — a band read off past
 misses — as the simple comparison, scored by pinball loss and coverage on 2023. Stage 4 bids with
 those quantiles, as in Nitka & Weron (2023), and keeps the fixed schedule beside the bids, so the
-capture rate shows in euros whether the range was worth having. **Open until stage 4 starts:** what
-happens to an unfilled order, which the settlement depends on. Read 16 October: the exchange's
-*loop blocks*, which fill a buy and a sell together or not at all, are judged on the pair's combined
-gain, not on each limit, so they cannot carry two independent quantile limits (EPEX SPOT's FRA
-algorithm description, 2022; not yet confirmed for the German day-ahead auction). Two warnings from the literature are
-carried in: the most accurate ranges did not earn the most (Nitka & Weron 2023), and simple quantile
-bidding rules can be gamed and ignore that a battery's hours depend on each other (Hirsch & Ziel
-2026).
+capture rate shows in euros whether the range was worth having.
+
+**Decided 20 October: a buy and its sell are sent as one package, which goes through whole or not at
+all** (the exchange's *loop blocks*; Hirsch & Ziel 2026). Each order still carries a limit price,
+set from the range before the auction closes. The exchange then checks the pair, not each order: the
+pair goes through if the sell price comes out at least as far above the buy price as the sell limit
+is above the buy limit. So the battery never ends a day half-traded, and every run — perfect
+foresight, naive, fixed schedule, bids — keeps the same 48-hour, charge-carried convention.
+Rejected: starting each day half full and fixing a one-sided day with an unlimited order the next
+day (Nitka & Weron 2023, and most papers), because it uses half the battery and would change the
+ceiling; a fixed schedule only, because it postpones the question. **Not yet checked:** that loop
+blocks remain in the German auction after the 15-minute switch (October–December 2025), that one
+package can span several charging hours, and how the range sets the pair's one minimum gain, since
+it describes each hour, not the gap.
+
+Two warnings from the literature are carried in: the most accurate ranges did not earn the most
+(Nitka & Weron 2023), and simple quantile bidding rules can be gamed and ignore that a battery's
+hours depend on each other (Hirsch & Ziel 2026).
 
 **Why that way round.** A standalone price forecast is close to a commodity — several vendors
 sell them and the accuracy differences between them are thin. The margin sits in the two things
@@ -285,7 +295,8 @@ Re-estimated on 7 October from what the stages actually took — seven working d
 six for stage 1 — at about three and a half working days a week.
 
 **Stage 3 closed on 19 October**, the week the estimate gave, with the window chosen and the
-held-back years read once. Stage 4 starts with one open decision: what happens to an unfilled order.
+held-back years read once. Stage 4 started 20 October by settling its one open decision: an
+unfilled order is handled as a loop block, buy and sell together or not at all.
 **Stage 2 closed on 14 October**, about a week ahead of that estimate, after running longer than
 first planned: the 24-hour grid, MLflow and the significance test went in front of recalibration.
 The later stages keep their estimates and move forward with it. Stage 4 is the least certain,

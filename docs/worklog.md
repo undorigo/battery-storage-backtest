@@ -3509,6 +3509,33 @@ mostly right: pays 58 €; missing that a high limit also fills on dear hours, a
 fill rate. 5 half right: non-parallel lines right, but prices fell rather than spiked; pinball and
 the price level not answered.
 
+#### The unfilled-order rule decided: loop blocks
+
+**Shown on real 2023 data first** (stored QRA average run, nothing refitted; an illustrative rule,
+not a proposal: buy 1 MWh in LEAR's cheapest hour with its limit on the p80 line, sell in the
+dearest with its limit on p20, losses and hour order ignored). With two separate limits, both went
+through on 223 days, only the buy on 71, only the sell on 59, neither on 12; the buy went through
+on 80.5 % of days, as a p80 line should. As a pair, the same limits went through on 90 % of days.
+Two days walked through: 4 January (bought at 8.70 €, sell missed at 86.20 € against a 108.60 € limit;
+the pair fills, +77.50 €) and 14 January (bought at 41.20 €, the 18:00 price fell to 13.70 €; the
+pair fills neither side, no loss). Under the half-full rule the forced sale the next day fetched
+178 € on 5 January and 27 € on 15 January.
+
+**Decided with the user: loop blocks** (Hirsch & Ziel 2026). The battery never ends a day
+half-traded, so every run keeps the 48/24 convention (Contract 4) and settlement checks one
+condition per pair (Contract 3). Rejected: (a) half full, rebalanced next day by an unlimited order
+(Nitka & Weron 2023, most papers): half the battery, a different ceiling, and our years and model
+differ from theirs, so comparability buys little; (c) fixed schedule only: postpones the question.
+The user asked twice before deciding: how the loop works, and how a battery can act on a real gap
+it cannot know. Answered: it hands in a condition before 12:00 (the limits' gap, from the
+forecast), the exchange checks it against the real gap after clearing; the decision step reads only
+forecasts, settlement only actuals. **Not yet checked:** loop blocks in DE-LU after the 15-minute
+switch; one package spanning several charging hours; how the range sets one minimum gain per pair;
+with 90 % efficiency the volumes differ and the check is volume-weighted (my arithmetic).
+
+**Plan refreshed:** README (*Where this is going*, *Roughly when*), CLAUDE.md, the plan page
+(version 17: stage 4 under way, a *Stage 4, in order* list).
+
 ---
 
 ### Next — next session
