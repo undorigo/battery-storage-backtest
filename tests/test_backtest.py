@@ -159,3 +159,40 @@ def test_the_ceiling_command_runs_on_2023_alone(monkeypatch, capsys):
     years = BT.delivery_days(SB.actual_prices().index).year
     assert set(years) == {2023}
     assert SB.ceiling(SB.actual_prices())["best_day"] < 1000      # 5,000 EUR never seen
+
+
+def test_the_fixed_command_plans_on_the_stored_forecast_and_pays_real_prices(monkeypatch, capsys):
+    """Runs `just backtest fixed` on a stand-in cache and a stand-in stored run.
+    A forecast equal to the real prices must score exactly 100 %; one that gets
+    every price backwards must score less; and 1 January 2024 is never read."""
+    from scripts import backtest as SB
+    from src import data, tracking as TR
+
+    rng = np.random.default_rng(3)
+    edges = [berlin_days(*(list(rng.normal(80, 60, 24)) for _ in range(3)), start=start)
+             for start in ("2022-12-31", "2023-12-30")]
+    cache = pd.concat(edges)
+    cache[BT.delivery_days(cache.index) == pd.Timestamp("2024-01-01", tz="Europe/Berlin")] = 5000.0
+    monkeypatch.setattr(data, "load", lambda key: cache.to_frame("day_ahead_price"))
+    slots = data.to_slots(SB.actual_prices().to_frame("actual"))["actual"]
+    table = pd.DataFrame({"actual": slots + 50.0,                     # wrong on purpose: never paid
+                          "lear": slots, "naive_field": 160.0 - slots})   # perfect, and backwards
+    monkeypatch.setattr(TR, "latest", lambda **where: "run" if where == SB.LEAR_RUN else None)
+    monkeypatch.setattr(TR, "read", lambda run: ({"commit": "abc1234"}, table))
+
+    assert SB.main(["fixed"]) == 0
+    out = capsys.readouterr().out
+    assert "run at abc1234" in out
+    _, got = SB.capture(SB.actual_prices())
+    assert got["LEAR"]["earned"] == pytest.approx(got["ceiling"]["earned"], abs=1e-6)
+    assert got["naive (field)"]["earned"] < got["ceiling"]["earned"]
+    assert got["ceiling"]["earned"] < 1000 * 4                    # 5,000 EUR never seen
+
+
+def test_the_fixed_command_names_the_run_it_needs(monkeypatch):
+    from scripts import backtest as SB
+    from src import tracking as TR
+
+    monkeypatch.setattr(TR, "latest", lambda **where: None)
+    with pytest.raises(LookupError, match="just train daily"):
+        SB.forecasts(pd.DatetimeIndex([], tz="UTC"))
