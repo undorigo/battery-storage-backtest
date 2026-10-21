@@ -70,7 +70,7 @@ quantiles *windows:
     {{py}} -m scripts.quantiles {{windows}}
 
 # Stage 4: the battery planned on 2023's real prices, the most it could have earned. Offline.
-# Plans two days, keeps one, carries the charge over midnight. A few seconds.
+# Plans one day at a time, carries the charge over midnight. A few seconds.
 backtest what="ceiling":
     {{py}} -m scripts.backtest {{what}}
 

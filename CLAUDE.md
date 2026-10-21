@@ -49,8 +49,9 @@ EIC code. Splicing across that boundary joins two different markets.
 ### Battery being modelled
 
 1 MW power, 2 MWh capacity, 90 % efficiency each direction, state of charge 0–100 %,
-a cost penalty per cycle for degradation. State of charge carries over midnight, handled
-by an overlapping horizon: optimise 48 hours, implement the first 24, carry forward.
+a cost penalty per cycle for degradation. Each delivery day is planned on its own prices
+alone and the state of charge carries over midnight (decided 21 Oct): at 12:00 on D−1 nobody
+has a forecast for D+1, and on 2023 every stand-in for one earned less than leaving it out.
 
 ### Stage plan
 
@@ -450,8 +451,9 @@ Mixing them is the single most common way a capture rate exceeds 100 %.
 **Dependents:** ceiling run, model runs, naive run
 
 All three comparison runs — perfect foresight, model, naive — must use the identical
-horizon and state-of-charge convention (48-hour optimisation, 24-hour implementation,
-charge carried forward).
+horizon and state-of-charge convention: one delivery day planned at a time, on that day's
+prices alone, the charge carried forward. A plan never reads the next day, so a year of
+forecasts handed over at once cannot plan day D on the forecast made for D+1.
 
 If they differ, the capture rate measures the convention rather than the forecast.
 

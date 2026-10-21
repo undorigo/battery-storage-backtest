@@ -82,19 +82,15 @@ def plan(prices: np.ndarray, start_mwh: float,
 
 
 # ── Walking forward a day at a time ───────────────────────────────────────────
-# Plan two delivery days, keep the first, carry the stored level over midnight
-# (Contract 4).  A one-day plan has no reason to hold charge past its end, so it
-# would empty the battery every night even when tomorrow's morning is the dearest
-# hour.  The horizon is counted in delivery days, not in hours, because on real
-# hours a day has 23, 24 or 25 of them.
+# Each delivery day is planned on its own prices alone, and the stored level is
+# carried over midnight (Contract 4).  One day, not two, because at 12:00 on D-1
+# nobody has a forecast for D+1: the TSO forecasts it would need come out a day
+# later.  Measured on 2023 (21 October 2026): seeing tomorrow is worth 482 EUR a
+# year even on real prices, and every stand-in for it tried — a copy of today,
+# last week, LEAR's next-day forecast — earned less than leaving it out.
 #
-# The walk reads only the prices it is handed.  Its last day therefore plans one
-# day, not two: handed 2023, it never reads 1 January 2024, which belongs to the
-# held-back years (Contract 2).  Every run that shares this walk shares that edge.
-
-PLAN_DAYS = cfg.HORIZON_OPTIMISE_HOURS // 24                     # two delivery days
-KEEP_DAYS = cfg.HORIZON_IMPLEMENT_HOURS // 24                    # of which the first is kept
-
+# So a plan reads only its own day's prices.  A whole year of forecasts can be
+# handed over at once without the plan for D seeing the forecast made for D+1.
 
 def delivery_days(index: pd.DatetimeIndex) -> pd.Index:
     """The Berlin calendar day each hour is delivered on."""
@@ -106,16 +102,14 @@ def delivery_days(index: pd.DatetimeIndex) -> pd.Index:
 def walk(prices: pd.Series, start_mwh: float = 0.0,
          battery: cfg.Battery = cfg.BATTERY) -> pd.DataFrame:
     """Hour by hour over every day in `prices`: charge, discharge and level, in MWh."""
-    day = delivery_days(prices.index)
-    days = day.unique()
+    day = delivery_days(prices.index)                            # 23, 24 or 25 hours each
     level, kept = start_mwh, []
-    for i in range(0, len(days), KEEP_DAYS):
-        window = day.isin(days[i:i + PLAN_DAYS])                 # today and tomorrow, if handed
-        keep = day[window].isin(days[i:i + KEEP_DAYS])           # the part that is implemented
-        got = plan(prices[window].to_numpy(), level, battery)
-        kept.append(pd.DataFrame({"charge": got.charge[keep], "discharge": got.discharge[keep],
-                                  "level": got.level[keep]}, index=prices.index[window][keep]))
-        level = got.level[keep][-1]                              # where tomorrow starts
+    for d in day.unique():
+        today = day == d
+        got = plan(prices[today].to_numpy(), level, battery)
+        kept.append(pd.DataFrame({"charge": got.charge, "discharge": got.discharge,
+                                  "level": got.level}, index=prices.index[today]))
+        level = got.level[-1]                                    # where tomorrow starts
     return pd.concat(kept)
 
 
@@ -138,9 +132,9 @@ def settle(schedule: pd.DataFrame, actual: pd.Series,
 
 # ── The perfect-foresight ceiling ─────────────────────────────────────────────
 # The battery planned on the very prices it is paid at: the 100 % every capture
-# rate divides by.  It is the best plan *within each two-day window*, not over
-# the year — a plan made from a forecast can, by luck, carry charge past a window
-# and sell it dearer on the third day, which this one never looks for.
+# rate divides by.  It is the best plan for each day *given the charge it starts
+# with*.  A plan made from a forecast that ends a day holding charge starts the
+# next one with energy the ceiling does not have, and can beat it that day.
 
 def ceiling(actual: pd.Series, start_mwh: float = 0.0,
             battery: cfg.Battery = cfg.BATTERY) -> tuple[pd.DataFrame, pd.Series]:

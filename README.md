@@ -87,13 +87,27 @@ all** (the exchange's *loop blocks*; Hirsch & Ziel 2026). Each order still carri
 set from the range before the auction closes. The exchange then checks the pair, not each order: the
 pair goes through if the sell price comes out at least as far above the buy price as the sell limit
 is above the buy limit. So the battery never ends a day half-traded, and every run — perfect
-foresight, naive, fixed schedule, bids — keeps the same 48-hour, charge-carried convention.
+foresight, naive, fixed schedule, bids — keeps the same one-day, charge-carried convention.
 Rejected: starting each day half full and fixing a one-sided day with an unlimited order the next
 day (Nitka & Weron 2023, and most papers), because it uses half the battery and would change the
 ceiling; a fixed schedule only, because it postpones the question. **Not yet checked:** that loop
 blocks remain in the German auction after the 15-minute switch (October–December 2025), that one
 package can span several charging hours, and how the range sets the pair's one minimum gain, since
 it describes each hour, not the gap.
+
+**Decided 21 October: every run plans one delivery day at a time, the charge carried over
+midnight.** At 12:00 on D−1 LEAR forecasts day D only; nobody has a forecast for D+1, because the
+grid operators' wind, solar and load forecasts for it come out a day later. On 2023, with LEAR's
+stored forecasts (a scratch comparison, nothing refitted): planning one day earned 45,950 €; a copy
+of day D standing in for D+1, 42,502 €; real prices from the same weekday a week earlier, 40,627 €;
+even LEAR's own forecast for D+1, made a day *later* and so not available, 45,047 €. Seeing
+tomorrow is worth only 482 € a year on real prices, because a 2-hour battery fills and empties
+within the day anyway; an overnight trade must beat 19 % losses and wear, a gap about the size of
+LEAR's error, so a forecast of day two loses more bets than it wins. The field plans the same way on
+this market (Hirsch & Ziel 2026, one day, empty at its end); longer horizons pay for storage that
+takes many hours to fill (Prat et al., *How long is long enough?*). Rejected: a copy of day D (−3,450
+€); a separate 36–60-hour forecast (a second model without the inputs that make the first one
+work). **Stated limit:** overnight trades are given up, worth at most 482 € (0.9 %) in 2023.
 
 **The ceiling, built 20 October: 51,024 € on 2023** (`just backtest ceiling`, a few seconds). It is
 what the battery would have earned planned on the prices that actually cleared: two delivery days

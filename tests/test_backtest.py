@@ -54,35 +54,31 @@ def berlin_days(*days: list[float], start: str = "2023-01-10") -> pd.Series:
     return pd.Series(np.concatenate(days), index=hours.tz_convert("UTC"))
 
 
-# Free power late on day 1, 200 early on day 2, 180 otherwise: worth holding over
-# midnight, and not worth buying at 180, since only 0.81 x 200 = 162 comes back.
+# Free power late on day 1, 200 early on day 2, 180 otherwise.  Holding the free
+# power over midnight would pay; a one-day plan cannot know that, so it buys nothing.
 NIGHT = [180.0] * 22 + [0.0, 0.0]
 MORNING = [180.0] * 7 + [200.0, 200.0] + [180.0] * 15
+DEARER = [180.0] * 7 + [300.0, 300.0] + [180.0] * 15
 FLAT = [180.0] * 24
 
 
-def test_charge_bought_late_is_held_over_midnight():
-    got = BT.walk(berlin_days(NIGHT, MORNING))
-    assert got.level.iloc[23] == pytest.approx(1.8, abs=1e-6)   # 2 MWh bought, 1.8 stored
-    assert got.discharge.iloc[24:].sum() == pytest.approx(1.62, abs=1e-6)
+def test_a_day_is_planned_without_seeing_tomorrow():
+    # At 12:00 on D-1 nobody has a forecast for D+1.  Day 1's plan must come out the
+    # same whatever day 2 holds, or a year of forecasts handed over at once would
+    # plan each day on the forecast made a day later.
+    plans = [BT.walk(berlin_days(NIGHT, after)).iloc[:24] for after in (MORNING, DEARER, FLAT)]
+    for other in plans[1:]:
+        pd.testing.assert_frame_equal(plans[0], other)
+    assert plans[0].charge.sum() == pytest.approx(0.0, abs=1e-6)   # free power, nothing to sell into
 
 
-def test_the_next_day_starts_where_the_kept_day_ended():
-    # Day 1's two-day plan ends empty after selling on day 2.  Carrying that
-    # end-of-window level instead of day 1's would leave day 2 nothing to sell.
-    got = BT.walk(berlin_days(NIGHT, MORNING, FLAT))
-    assert got.discharge.iloc[24:48].sum() == pytest.approx(1.62, abs=1e-6)
+def test_the_next_day_starts_where_the_last_one_ended():
+    # Start full.  Day 1 sells 1 MWh at 100, leaving 2 - 1/0.9 = 0.89 stored; at 5 the
+    # rest is not worth selling (5 < 8 of wear).  Day 2 sells what is left: 0.89 x 0.9.
+    got = BT.walk(berlin_days([100.0] + [5.0] * 23, [100.0] * 24), start_mwh=2.0)
+    assert got.level.iloc[23] == pytest.approx(2.0 - 1.0 / 0.9, abs=1e-6)
+    assert got.discharge.iloc[24:].sum() == pytest.approx(0.8, abs=1e-6)
 
-
-
-def test_each_day_is_replanned_with_the_day_after_in_view():
-    # Day 1's plan sells on day 2's morning at 200.  Re-planned on day 2 with day 3
-    # in view, it holds on for 300.  Keeping both days of day 1's plan would not.
-    DEARER = [180.0] * 7 + [300.0, 300.0] + [180.0] * 15
-    got = BT.walk(berlin_days(NIGHT, MORNING, DEARER))
-    assert got.discharge.iloc[24:48].sum() == pytest.approx(0.0, abs=1e-6)
-    # At 300 even 180 is worth buying (0.81 x 300 = 243), so day 2 tops up to 2 MWh.
-    assert got.discharge.iloc[48:].sum() == pytest.approx(1.8, abs=1e-6)
 
 def test_energy_adds_up_across_every_midnight():
     rng = np.random.default_rng(0)
@@ -99,11 +95,6 @@ def test_a_day_is_a_berlin_day_with_23_hours_in_march():
                           inclusive="left").tz_convert("UTC")
     counts = pd.Series(1, index=hours).groupby(BT.delivery_days(hours)).size()
     assert list(counts) == [24, 23, 24]
-
-
-def test_the_last_day_plans_alone():
-    # Handed one day, the walk cannot see tomorrow's dear morning, so it does not buy.
-    assert BT.walk(berlin_days(NIGHT)).charge.sum() == pytest.approx(0.0, abs=1e-6)
 
 
 # ── Settlement and the ceiling ────────────────────────────────────────────────
@@ -129,9 +120,9 @@ def test_settlement_refuses_an_hour_with_no_price():
         BT.settle(schedule, prices.iloc[:1])
 
 
-def test_nothing_beats_the_ceiling_within_one_window():
+def test_nothing_beats_the_ceiling_on_a_day_that_starts_empty():
     # Plan on a noisy guess, settle at the truth: never more than planning on the truth.
-    # One day, so one window.  Across windows this need not hold (see `ceiling`).
+    # One day, starting empty.  Starting a day with charge the ceiling lacks, it can.
     rng = np.random.default_rng(1)
     for _ in range(20):
         truth = berlin_days(list(rng.normal(80, 60, 24)))

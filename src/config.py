@@ -161,11 +161,3 @@ class Battery:
 
 
 BATTERY = Battery()
-
-# Overlapping horizon — Contract 4.  Optimise two days, keep the first, carry the
-# state of charge forward.  Optimising exactly 24 hours would empty the battery
-# every midnight, because a finite horizon has no reason to hold charge past its
-# end.  All three runs (perfect foresight, model, naive) must share these numbers
-# or the capture rate measures the convention rather than the forecast.
-HORIZON_OPTIMISE_HOURS = 48
-HORIZON_IMPLEMENT_HOURS = 24

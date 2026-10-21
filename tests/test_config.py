@@ -93,12 +93,3 @@ def test_history_starts_when_the_de_lu_zone_did():
 
 def test_battery_round_trip_efficiency():
     assert cfg.BATTERY.round_trip_efficiency == pytest.approx(0.81)
-
-
-def test_horizon_implements_less_than_it_optimises():
-    """Contract 4: optimise 48 h, implement 24 h, carry state of charge forward.
-
-    Optimising exactly the implemented window would empty the battery every
-    midnight, because a finite horizon has no reason to hold charge past its end.
-    """
-    assert cfg.HORIZON_IMPLEMENT_HOURS < cfg.HORIZON_OPTIMISE_HOURS

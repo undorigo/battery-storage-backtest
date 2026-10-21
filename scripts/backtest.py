@@ -9,7 +9,7 @@ Nothing here decides anything.  `backtest.py` holds the planner and settlement;
 this file puts them in order and prints what came out.
 
 **The test years are unreachable from here**: only 2023 is handed to the walk,
-so its last day plans alone rather than reading 1 January 2024.
+and each day is planned on its own prices, so 31 December never reads 1 January 2024.
 """
 
 from __future__ import annotations
