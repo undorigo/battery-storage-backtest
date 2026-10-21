@@ -130,6 +130,19 @@ def settle(schedule: pd.DataFrame, actual: pd.Series,
             - battery.cycle_cost_eur_per_mwh * schedule.discharge).rename("earned")
 
 
+# ── The fixed schedule: planned on one set of prices, paid at another ─────────
+# The decision and the settlement take separate arguments, so nothing a plan
+# reads can be the price it is paid (Contract 3).  Every run comes through here —
+# the model's forecast, the naive rule's, and the ceiling's real prices — so all
+# of them share one walk (Contract 4).
+
+def fixed(forecast: pd.Series, actual: pd.Series, start_mwh: float = 0.0,
+          battery: cfg.Battery = cfg.BATTERY) -> tuple[pd.DataFrame, pd.Series]:
+    """The schedule planned on `forecast`, and what it earned at `actual`."""
+    schedule = walk(forecast, start_mwh, battery)
+    return schedule, settle(schedule, actual, battery)
+
+
 # ── The perfect-foresight ceiling ─────────────────────────────────────────────
 # The battery planned on the very prices it is paid at: the 100 % every capture
 # rate divides by.  It is the best plan for each day *given the charge it starts
@@ -139,5 +152,4 @@ def settle(schedule: pd.DataFrame, actual: pd.Series,
 def ceiling(actual: pd.Series, start_mwh: float = 0.0,
             battery: cfg.Battery = cfg.BATTERY) -> tuple[pd.DataFrame, pd.Series]:
     """The schedule planned on real prices, and what it earned at them."""
-    schedule = walk(actual, start_mwh, battery)
-    return schedule, settle(schedule, actual, battery)
+    return fixed(actual, actual, start_mwh, battery)

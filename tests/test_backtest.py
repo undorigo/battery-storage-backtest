@@ -113,6 +113,13 @@ def test_the_ceiling_plans_with_the_wear_it_is_charged():
     _, earned = BT.ceiling(berlin_days([50.0, 66.0]))
     assert earned.sum() == pytest.approx(0.0, abs=1e-6)
 
+def test_a_fixed_schedule_is_planned_on_the_forecast_and_paid_the_real_price():
+    # Forecast 10 then 100: buy 1 MWh, sell 0.81.  The day comes out the other way
+    # round, 100 then 10: -100 + 0.81 x 10 - 0.81 x 8 of wear = -98.38.
+    _, earned = BT.fixed(berlin_days([10.0, 100.0]), berlin_days([100.0, 10.0]))
+    assert earned.sum() == pytest.approx(-98.38, abs=1e-6)
+
+
 def test_settlement_refuses_an_hour_with_no_price():
     prices = berlin_days([10.0, 100.0])
     schedule = BT.walk(prices)
