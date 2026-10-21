@@ -3586,6 +3586,13 @@ denominator, never a decision. Suite 277 green.
 **Plan refreshed:** README (*Where this is going*, *Roughly when*, structure), the plan page
 (version 18).
 
+### 21 October 2026
+
+**Recap (all five):** 1 half right: no simultaneous flow, but not that the plan is paid for burning
+energy as losses; 2 mostly right; 3 half right: the losing days end full (buy for tomorrow), not
+empty, and the split-follows-the-charge point not answered; 4 verdict and timing right, but stated
+as two separate limits rather than the pair's gap against the limits' gap; 5 not remembered.
+
 ---
 
 ### Next — next session
