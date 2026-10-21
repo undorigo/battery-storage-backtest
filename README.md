@@ -90,10 +90,14 @@ is above the buy limit. So the battery never ends a day half-traded, and every r
 foresight, naive, fixed schedule, bids — keeps the same one-day, charge-carried convention.
 Rejected: starting each day half full and fixing a one-sided day with an unlimited order the next
 day (Nitka & Weron 2023, and most papers), because it uses half the battery and would change the
-ceiling; a fixed schedule only, because it postpones the question. **Not yet checked:** that loop
-blocks remain in the German auction after the 15-minute switch (October–December 2025), that one
-package can span several charging hours, and how the range sets the pair's one minimum gain, since
-it describes each hour, not the gap.
+ceiling; a fixed schedule only, because it postpones the question. **Checked 21 October:** EPEX
+still offers loop blocks after the 15-minute switch (*Trading at EPEX SPOT*, February 2026), and one
+block can cover several hours, not necessarily adjacent (EUPHEMIA public description, December
+2025). **Not yet checked, and settled before any bid is built:** whether each block must clear its
+own limit or the pair's gap decides — on an illustrative 2023 rule that is the difference between
+61 % and 90 % of days going through, and our rule is the generous one; whether one participant may
+send several loops for the same day, which decides how a day with two buy-then-sell rounds is bid
+(the planner does two on 198 days of 2023); and how the range sets the limits.
 
 **Decided 21 October: every run plans one delivery day at a time, the charge carried over
 midnight.** At 12:00 on D−1 LEAR forecasts day D only; nobody has a forecast for D+1, because the
