@@ -151,6 +151,36 @@ def test_to_slots_rejects_a_naive_index():
         data.to_slots(naive)
 
 
+# ── And back onto real hours ──────────────────────────────────────────────────
+
+def real_hours(start: str, periods: int) -> pd.DatetimeIndex:
+    return pd.date_range(start, periods=periods, freq="h", tz=cfg.TZ_MARKET).tz_convert("UTC")
+
+
+def test_from_slots_drops_the_spring_slot_that_never_happened():
+    slots = data.to_slots(counted("2024-03-31", 23))["v"]     # 0, 1, [1.5], 2, 3 ...
+    back = data.from_slots(slots, real_hours("2024-03-31", 23))
+    assert back.tolist() == list(range(23))
+
+
+def test_from_slots_puts_the_autumn_slot_on_both_hours():
+    slots = data.to_slots(counted("2024-10-27", 25))["v"]     # the two 02:00s averaged: 2.5
+    back = data.from_slots(slots, real_hours("2024-10-27", 25))
+    assert back.tolist() == [0, 1, 2.5, 2.5] + list(range(4, 25))
+
+
+def test_from_slots_refuses_an_hour_without_a_forecast():
+    slots = data.to_slots(counted("2024-06-01", 24))["v"]
+    with pytest.raises(ValueError, match="no slot value"):
+        data.from_slots(slots, real_hours("2024-06-01", 25))  # one hour into 2 June
+
+
+def test_from_slots_rejects_naive_hours():
+    slots = data.to_slots(counted("2024-06-01", 24))["v"]
+    with pytest.raises(ValueError, match="tz-aware"):
+        data.from_slots(slots, pd.date_range("2024-06-01", periods=24, freq="h"))
+
+
 # ── Column flattening ─────────────────────────────────────────────────────────
 
 

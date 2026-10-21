@@ -190,6 +190,23 @@ def to_slots(df: pd.DataFrame) -> pd.DataFrame:
     return out
 
 
+# ── And back: a slot forecast onto the hours a battery is paid in ─────────────
+# Only stage 4 needs this, because only settlement deals in real hours.  Each real
+# hour takes the slot with its Berlin clock time, so the invented spring 02:00 finds
+# no hour and drops out, and both autumn 02:00s take the one averaged slot.  A real
+# hour with no forecast is refused rather than planned on a blank.
+
+def from_slots(slots: pd.Series, hours: pd.DatetimeIndex) -> pd.Series:
+    """A 24-slot series laid onto real tz-aware hours, by Berlin wall clock."""
+    if hours.tz is None:
+        raise ValueError("Hours must be tz-aware: they are the real ones (Contract 5).")
+    wall = hours.tz_convert(cfg.TZ_MARKET).tz_localize(None)    # each hour's clock reading
+    out = pd.Series(slots.reindex(wall).to_numpy(), index=hours, name=slots.name)
+    if out.isna().any():
+        raise ValueError(f"{out.isna().sum()} hours have no slot value, first {out.index[out.isna()][0]}")
+    return out
+
+
 def detected_resolution(df: pd.DataFrame) -> str:
     """The commonest gap between timestamps — what actually arrived, not what was promised."""
     if len(df) < 2:
