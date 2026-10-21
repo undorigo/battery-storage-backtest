@@ -119,6 +119,19 @@ about −34 € made worth doing. **Stated limit:** it is the best plan for each
 it starts with*. A plan from a forecast that ends a day holding charge starts the next with energy
 the ceiling lacks, and can beat it that day. How often, the fixed schedule will show.
 
+**The first capture rate, 21 October: LEAR's fixed schedule earned 45,950 € on 2023, 90.9 % of the
+ceiling; the field's naive rule 39,978 €, 79.1 %** (`just backtest fixed`, about 10 seconds, reading
+the stored `just train daily` run, nothing refitted). Each day's forecast is put back onto real
+hours (the invented spring 02:00 dropped, the averaged autumn 02:00 on both hours), planned like the
+ceiling and paid at real prices. So LEAR's lower error is worth about 6,000 € a year here, and the
+room between the simplest rule and perfect knowledge is only 21 points — a forecast can add at most
+that. **Days above the ceiling:** LEAR none; the naive rule 4, by 113 € in all, each one a day it
+started with different charge than the ceiling and repaid by the day before (7 January: it bought
+2 MWh at a forecast of −1 € and real 38–88 €, losing 202 €, then beat the ceiling by 4.60 € the
+next morning). A full battery is not always the better start: on 25 December the market paid buyers
+up to 13 €, and the ceiling, full from the day before, had to sell at a loss first. **Stated limits:**
+one year, one fixed schedule, no significance test on the gap yet; the limit-price bids are next.
+
 Two warnings from the literature are carried in: the most accurate ranges did not earn the most
 (Nitka & Weron 2023), and simple quantile bidding rules can be gamed and ignore that a battery's
 hours depend on each other (Hirsch & Ziel 2026).
@@ -321,7 +334,8 @@ six for stage 1 — at about three and a half working days a week.
 **Stage 3 closed on 19 October**, the week the estimate gave, with the window chosen and the
 held-back years read once. Stage 4 started 20 October by settling its one open decision (an
 unfilled order is handled as a loop block, buy and sell together or not at all) and building the
-perfect-foresight ceiling.
+perfect-foresight ceiling. On 21 October each run was set to plan one day at a time and the
+first capture rate came in: LEAR 90.9 %, the naive rule 79.1 %. The bids remain.
 **Stage 2 closed on 14 October**, about a week ahead of that estimate, after running longer than
 first planned: the 24-hour grid, MLflow and the significance test went in front of recalibration.
 The later stages keep their estimates and move forward with it. Stage 4 is the least certain,
@@ -603,7 +617,7 @@ BUILT
   scripts/quantiles.py       just quantiles   — QRA and conformal ranges around LEAR, scored on 2023
   scripts/final_score.py     just final-score — read the held-back years, once per stage (`ranges`: stage 3)
   scripts/significance.py    just significance — every p-value the README states, from MLflow
-  scripts/backtest.py        just backtest    — the battery on 2023 (`ceiling`: perfect foresight)
+  scripts/backtest.py        just backtest    — the battery on 2023 (`ceiling`: perfect foresight; `fixed`: LEAR and naive)
   reports/scores.csv         every scored run, appended, stamped with its commit
   reports/quantile_scores.csv the same for ranges: pinball, coverage, crossing, window
 ```

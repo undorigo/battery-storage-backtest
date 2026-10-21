@@ -494,7 +494,11 @@ not inside the loader, so the tests' world-clock fixtures take the same path as 
   If weather is ever needed, use the Previous Runs API.
 - **ENTSO-E outage data.** Heavily revised after publication. Pulling it today returns the
   corrected version, not what was known before gate closure. Out of scope for now.
-- **Capture rate above 100 %.** Always a bug, never a result.
+- **Capture rate above 100 %.** Over a period: a bug until shown otherwise; assume leakage
+  first. On a single day it can happen honestly: the ceiling is the best plan *given the charge
+  it starts the day with*, and a schedule starting with different charge (more, or less before
+  negative prices) can beat it that day. 2023: naive on 4 days (113 €), each repaid by the day
+  before; LEAR on none.
 
 ---
 
