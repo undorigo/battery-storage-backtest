@@ -3593,37 +3593,114 @@ energy as losses; 2 mostly right; 3 half right: the losing days end full (buy fo
 empty, and the split-follows-the-charge point not answered; 4 verdict and timing right, but stated
 as two separate limits rather than the pair's gap against the limits' gap; 5 not remembered.
 
+#### The plan's second day decided: one delivery day at a time
+
+**The question:** at 12:00 D−1 LEAR forecasts D only, and the TSO forecasts for D+1 come out on D,
+so whatever fills a two-day plan's second day is a choice. **Shown on 2023 first** (scratch, stored
+`lear` run `9b2ed8d`, nothing refitted): ceiling 51,024 € two-day, 50,542 € one-day, so seeing
+tomorrow is worth 482 € even on real prices. LEAR one-day 45,950 €; D copied 42,502 €; real prices
+of the same weekday last week 40,627 €; **LEAR's own D+1 forecast, made a day later (a leak),
+45,047 €**; leftover charge valued at 0.5–1.0 × LEAR's day mean, 45,871 → 44,220 €, falling with
+the value. Walked through 23 February: the copy's 199 € morning peak bought 2 MWh at 131–151 € for
+a real peak of 155 €; −253 € over two days against +1 €. Mechanism: day two only serves overnight
+trades, capped at ~480 €, each a bet on a gap the size of LEAR's error. A Friday-into-Saturday
+cause was tested and not supported (losses spread over the week).
+
+**The user asked for more before deciding**: why the copy loses, what research does and promises,
+good and bad ways to build it. Research, read in part: Hirsch & Ziel 2026 (German day-ahead, one day,
+empty at its end); Uniejewski 2025 (half full at day end); Prat et al., *How long is long enough?*
+(perfect prices: the needed horizon grows with hours-to-fill; their 10-hour storage loses 16 % at
+24 h, 0.1 % at 48 h; uncertainty beyond day one left open). A Spanish 4-hour study reportedly 87 %
+at 24 h, 89 % at 168 h with a real week-ahead forecast: page refused, **not verified**. **Bad way
+found in our own code:** `walk(lear)` on the two-day walk silently plans D on D+1's later forecast,
+and earns less, so no alarm fires. **Decided with the user: one-day plan for every run**, charge
+carried. Rejected: D copied; a 36–60 h model (no TSO inputs for D+1, a second model). Stated limit:
+overnight trades given up, ≤ 482 € (0.9 %).
+
+#### Built (`a8ddc5f`, `cc573e1`, `f8b91e1`, `dcf16a1`, `a4245e8`)
+
+Contract 4 changed with its dependents in one commit: the walk plans each day alone; the horizon
+constants left `config.py`; CLAUDE.md, README and justfile reworded; tests that encoded the
+two-day view replaced. **Ceiling rerun: 50,542 €** (541 cycles, no losing day). `data.from_slots`
+puts slot forecasts on real hours (spring slot dropped, autumn slot on both). `backtest.fixed`
+plans on one series and settles at another; the ceiling is `fixed(actual, actual)`. `just backtest
+fixed` reads the stored run, ignores its slot-averaged `actual` column, and prints LEAR and naive.
+
+| Piece | Planted bug | Caught by |
+|---|---|---|
+| walk | two-day window back (the `walk(lear)` leak) | **planned without seeing tomorrow**, carry-over test |
+| | level reset to start / to empty | carry-over + energy balance / **only** the new carry-over test |
+| | UTC days | 5 tests |
+| `from_slots` | UTC clock; no blank check | clock-change tests; refusal test |
+| | no tz check | **caught only by pandas' own TypeError**, not by the check |
+| `fixed`, ceiling | settled at the forecast; planned on the actual; ceiling on a flat price | hand-worked −98.38 € test; settlement and ceiling tests |
+| `just backtest fixed` | settle at forecast; settle at the stored slot `actual`; naive read as LEAR; no-run guard off | the command test (stand-in run with a deliberately wrong `actual`); the missing-run test |
+| | held-back years handed over | **not by the new test** (a constant 5,000 € day earns nothing); the ceiling command test |
+
+Leakage check in writing: the plan for D reads LEAR's D forecast and D−1's end level only, never D+1
+(tested); nothing fitted; settlement reads the price cache on real hours, never the forecast or
+the stored slot `actual`. Suite 281 green.
+
+#### The first capture rate, at `a4245e8`: LEAR 90.9 %, naive 79.1 %
+
+45,950 € and 39,978 € against 50,542 €, `just backtest fixed`, 9 s. LEAR never beat the ceiling on
+a day; the naive rule on 4 (113 €), each one starting with different charge than the ceiling and
+repaid by the day before (7–8 January: bought 2 MWh at a forecast of −1 €, real 38–88 €, −202 €,
+then +4.60 €). 25 December: the naive plan started **empty** and still won by 0.40 €, because the
+ceiling started full when the market paid buyers up to 13 €. **CLAUDE.md reworded with the user**
+(day vs period): a period above 100 % is a bug until shown otherwise; a day can be honest.
+
+**Plan refreshed (two milestones, one refresh):** README (*Where this is going*, *Roughly when*,
+structure), CLAUDE.md, the plan page (version 19).
+
+#### Loop blocks after the 15-minute switch: half confirmed
+
+EPEX's *Trading at EPEX SPOT*, February 2026: "Loop blocks: families of two blocks which are executed
+or rejected together. They allow to bundle buy and sell blocks to model storage", for its day-ahead
+auctions incl. Germany (types not listed per country); 60, 30 and 15-minute products all offered.
+EUPHEMIA public description, 18 December 2025, §5.4: a block can span non-consecutive periods with
+a different volume in each and one acceptance ratio; a block's resolution may be coarser than the
+hub's, so hourly blocks remain. **So one loop can carry several hours**: a buy block over every
+charging hour, a sell block over every discharging hour. **Not confirmed:** the loop's acceptance
+rule. EUPHEMIA 2025 never names loop blocks; linked families accept an out-of-the-money parent if
+the family's surplus is non-negative, but a loop has no parent. If each block must clear its own
+limit, our 20 October rule (the pair's gap against the limits' gap) is wrong, 4 January would not
+fill, and the recap answer 4 correction was too strong. Also unread: whether a loop's minimum
+acceptance ratio may be below 1 (EPEX sFTP spec, code C88, per a search snippet).
+
 ---
 
 ### Next — next session
 
-**Stage 4 continues: the fixed schedule from LEAR, then bids.** Main after this entry's commit,
-277 green. Ceiling 51,024 € on 2023 (`just backtest ceiling`).
+**Stage 4 continues: settle the loop rule, then the bids.** Main after this entry's commit, 281
+green. Ceiling 50,542 € on 2023 (`just backtest ceiling`), fixed schedule LEAR 90.9 %, naive
+79.1 % (`just backtest fixed`), every run one day at a time.
 
 #### Recap questions
 
-1. Without an on/off switch, what does the plan do at −200 €, and why can no battery do it?
-2. Why plan two days and keep one? What would a 24-hour plan do every evening?
-3. The ceiling's worst day lost 242 €. Why is that not a mistake, and what does it mean for
-   splitting the capture rate by day?
-4. A loop block's limits are 80.70 € and 108.60 €; prices come out at 95 € and 120 €. Does it go
-   through? Which of the three gaps decided it, and when was each known?
-5. Why can a capture rate land slightly above 100 % under this convention without any leak?
+1. Why is seeing tomorrow worth only 482 € a year for this battery, and why does a forecast of
+   tomorrow lose more than that?
+2. On the old two-day walk, what would `walk(lear_forecasts)` have read for day two, and why would
+   no alarm have gone off?
+3. On 25 December the naive plan started empty and beat a ceiling that started full. How?
+4. LEAR kept 90.9 %, the naive rule 79.1 %. What does the gap between 79.1 and 100 tell you about
+   how much any forecast can add?
+5. A battery charges 02:00–04:00 and sells at 08:00 and 19:00. What do the two blocks of its loop
+   look like, and what is still unknown about when the pair goes through?
 
 #### Then, in order
 
-1. **The fixed schedule from LEAR's point forecast**, settled at real prices: the first capture
-   rate. To decide with the user first: what LEAR's forecast is for the plan's second day (it is
-   not published by 12:00 D−1: a 36–60-hour forecast, or D's forecast repeated, or a one-day plan
-   for every run; Contract 4 says all runs share the convention); the slots put back onto real
-   hours before planning (spring: drop the filled slot; autumn: the averaged slot on both hours).
-2. **Measure how often the fixed schedule beats the ceiling** on a window boundary; then settle
-   CLAUDE.md's "capture rate above 100 % is always a bug" wording.
-3. The naive rule's schedule beside it; then the bids as loop blocks. Open: how the range sets one
-   minimum gain per pair; loop blocks in DE-LU after the 15-minute switch; one package spanning
-   several charging hours.
-4. Design ideas from 20 Oct still to decide: capture rate split by ordinary against extreme days
-   (must follow the charge, see the losing days); revenue record file when the first capture rate
-   exists.
+1. **Settle the loop acceptance rule** before building bids (Contract 3: settlement): each block
+   in the money on its own, or the pair's surplus non-negative (our 20 October rule). Sources to
+   find: EPEX's loop-block product description or sFTP spec (C88), an older EUPHEMIA description
+   (2019/2020 named loop families; the 2020 PDF refused a plain download), Hirsch & Ziel's
+   wording. Decide with the user; say whether 4 January-type pairs fill.
+2. **Bids from the range as loop blocks:** a buy block over the charging hours, a sell block over
+   the discharging hours, limits from QRA; how the range sets the limits (volume-weighted, 90 %
+   each way). Settled under the rule from step 1.
+3. Whether LEAR's 6,000 € lead over the naive rule is more than chance: a test on daily earnings
+   (Hirsch & Ziel warn backtest profits discriminate weakly).
+4. Design ideas still open: capture rate split by ordinary against extreme days (now mostly within
+   a day, since plans rarely carry charge); a revenue record file beside `scores.csv`.
 5. Noted, not tasks: QRA's held-back bands run slightly narrow (80 % held 0.789), which matters
    once quantiles become limit prices; why LEAR's held-back lead grows into 2025.
