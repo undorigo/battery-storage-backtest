@@ -3668,13 +3668,41 @@ limit, our 20 October rule (the pair's gap against the limits' gap) is wrong, 4 
 fill, and the recap answer 4 correction was too strong. Also unread: whether a loop's minimum
 acceptance ratio may be below 1 (EPEX sFTP spec, code C88, per a search snippet).
 
+#### Several trades a day, and the fill assumption (end of session)
+
+**Asked by the user:** can the battery trade several times a day, and why only one buy and one
+sell? **Answered from the schedules:** it already does. Buy-then-sell rounds per day on 2023: ceiling
+0/1/2/3+ on 3/162/198/2 days, LEAR's fixed schedule 3/150/209/3. 14 June (LEAR): buy 02–04 at ~87 €,
+sell 07–08 at 128–136, buy 12–14 at 74–78, sell 19–20 at 142–152; two valleys (night, solar midday)
+and two peaks. "One buy, one sell" came only from the 20 October illustrations and from the
+papers' bidding rule (Uniejewski & Weron's cheapest and dearest hour, kept simple so each side has
+one limit; Hirsch & Ziel allow one or two cycles). With loop blocks a day goes out either as one
+loop (each block covering both rounds' hours, one condition) or one loop per round (each judged
+alone; each round starts and ends empty, so a failed round never leaves the battery over- or
+under-filled), if several loops a day are allowed.
+
+**Asked next: what kind of problem are the two open exchange rules?** A *fill assumption*: settlement
+imitates the auction, so the backtest must guess someone else's rules. What usually goes wrong: the
+generous reading is taken and flatters every result (our pair rule fills 90 % of days on the 20
+October illustrative rule, the strict per-block reading 61 %); rules taken from a paraphrase (ours
+from Hirsch & Ziel, not EPEX); rules changing over the backtest's years (EUPHEMIA 2025 dropped the
+loop wording; the 15-minute switch sits in the held-back years); silent failure, like leakage; a
+bid design learning to exploit the generous rule; small rules left out (paradoxically rejected
+blocks, volume tick 0.1 MW, block caps). **Proposed, not decided:** primary sources first; until
+found, report bids under both rules; if one must lead, the strict one. **The user asked that the
+several-trades question be settled soon rather than late**: it is now step 1 of *Next*, time-boxed.
+
+**README and plan page corrected** (`e429a38`, plan page version 20): two of the "not yet checked"
+items closed, the acceptance rule and loops per day named as binding, a step added before the bids.
+
 ---
 
 ### Next — next session
 
-**Stage 4 continues: settle the loop rule, then the bids.** Main after this entry's commit, 281
-green. Ceiling 50,542 € on 2023 (`just backtest ceiling`), fixed schedule LEAR 90.9 %, naive
-79.1 % (`just backtest fixed`), every run one day at a time.
+**Stage 4: settle how a day with several trades is bid, and under which exchange rule, before
+building any bid.** Main after this entry's commit, 281 green. Ceiling 50,542 € on 2023
+(`just backtest ceiling`); fixed schedule LEAR 90.9 %, naive 79.1 % (`just backtest fixed`); every
+run plans one day at a time.
 
 #### Recap questions
 
@@ -3685,22 +3713,35 @@ green. Ceiling 50,542 € on 2023 (`just backtest ceiling`), fixed schedule LEAR
 3. On 25 December the naive plan started empty and beat a ceiling that started full. How?
 4. LEAR kept 90.9 %, the naive rule 79.1 %. What does the gap between 79.1 and 100 tell you about
    how much any forecast can add?
-5. A battery charges 02:00–04:00 and sells at 08:00 and 19:00. What do the two blocks of its loop
-   look like, and what is still unknown about when the pair goes through?
+5. A battery buys 02–04 and 12–14 and sells 07–08 and 19–20. Sent as one loop, or as two? What
+   does each assume about the exchange, and which way would a wrong assumption push the capture rate?
 
 #### Then, in order
 
-1. **Settle the loop acceptance rule** before building bids (Contract 3: settlement): each block
-   in the money on its own, or the pair's surplus non-negative (our 20 October rule). Sources to
-   find: EPEX's loop-block product description or sFTP spec (C88), an older EUPHEMIA description
-   (2019/2020 named loop families; the 2020 PDF refused a plain download), Hirsch & Ziel's
-   wording. Decide with the user; say whether 4 January-type pairs fill.
-2. **Bids from the range as loop blocks:** a buy block over the charging hours, a sell block over
-   the discharging hours, limits from QRA; how the range sets the limits (volume-weighted, 90 %
-   each way). Settled under the rule from step 1.
-3. Whether LEAR's 6,000 € lead over the naive rule is more than chance: a test on daily earnings
+1. **The exchange's rules, from its own documents — time-boxed to about an hour.** Three answers:
+   (a) does a loop go through on the pair's gap, or must each block clear its own limit;
+   (b) may one participant send several loop families for the same delivery day, and is there a
+   cap; (c) may a loop block's minimum acceptance ratio be below 1. Sources: EPEX's product or
+   order specification (loop block code C88 in the sFTP spec), an older EUPHEMIA description
+   (2019/2020 named loop families; the 2020 PDF refused a plain download, so try a browser),
+   Hirsch & Ziel's exact wording, EPEX support if still open. Whatever is not found by the end of
+   the hour is recorded as unknown and step 3 uses the conservative reading.
+2. **Measure what the second round is worth, on real data, before deciding** (explain first, then
+   ask): the ceiling and LEAR's fixed schedule as now (up to two rounds and more) against the same
+   planner held to one round a day (one buy run before one sell run). Show 14 June and one winter
+   day. This prices the papers' "one cycle" simplification in euros.
+3. **Decide with the user how a day is bid**, one question per decision, with the step 1 answers
+   and step 2 numbers in hand: one loop per day (always possible if loops exist; both rounds stand
+   or fall together), one loop per round (needs (b); each round judged alone), or one round only
+   (the papers' rule; costs what step 2 measured). And the fill rule: the strict reading as the
+   headline unless step 1 confirms the pair rule, the other beside it. This is a Contract 3 change
+   (settlement): state the Transparency points before code.
+4. **Then the bids**: hours from LEAR's fixed schedule, limits from QRA's range, each block checked
+   against the volume-weighted price of its hours (90 % each way, so sell volume is 0.81 of buy);
+   settled under the rule from step 3. Open within it: how the range sets one limit for a block
+   spanning several hours.
+5. Whether LEAR's 6,000 € lead over the naive rule is more than chance: a test on daily earnings
    (Hirsch & Ziel warn backtest profits discriminate weakly).
-4. Design ideas still open: capture rate split by ordinary against extreme days (now mostly within
-   a day, since plans rarely carry charge); a revenue record file beside `scores.csv`.
-5. Noted, not tasks: QRA's held-back bands run slightly narrow (80 % held 0.789), which matters
-   once quantiles become limit prices; why LEAR's held-back lead grows into 2025.
+6. Noted, not tasks: capture rate split by ordinary against extreme days; a revenue record file;
+   QRA's held-back bands run slightly narrow (80 % held 0.789), which matters once quantiles become
+   limit prices; why LEAR's held-back lead grows into 2025.
