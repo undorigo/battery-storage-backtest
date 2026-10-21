@@ -109,14 +109,15 @@ takes many hours to fill (Prat et al., *How long is long enough?*). Rejected: a 
 €); a separate 36–60-hour forecast (a second model without the inputs that make the first one
 work). **Stated limit:** overnight trades are given up, worth at most 482 € (0.9 %) in 2023.
 
-**The ceiling, built 20 October: 51,024 € on 2023** (`just backtest ceiling`, a few seconds). It is
-what the battery would have earned planned on the prices that actually cleared: two delivery days
-planned, the first kept, the charge carried over midnight, wear included, about 523 full cycles.
-Each hour is either charging or discharging, never both, because otherwise the plan would collect
-money at very negative prices for burning energy as losses, which 2023's 27 hours below about −34 €
-made worth doing. **Stated limit:** it is the best plan within each two-day window, not over the
-year, so a plan made from a forecast can in principle beat it by luck, carrying charge into a third
-day. How often, and by how much, the fixed schedule will show.
+**The ceiling: 50,542 € on 2023** (`just backtest ceiling`, a few seconds; built 20 October at
+51,024 € on a two-day plan, rerun 21 October on one day). It is what the battery would have earned
+planned on the prices that actually cleared: one delivery day at a time, the charge carried over
+midnight, wear included, about 541 full cycles. No day loses money, since nothing is bought for
+tomorrow. Each hour is either charging or discharging, never both, because otherwise the plan would
+collect money at very negative prices for burning energy as losses, which 2023's 27 hours below
+about −34 € made worth doing. **Stated limit:** it is the best plan for each day *given the charge
+it starts with*. A plan from a forecast that ends a day holding charge starts the next with energy
+the ceiling lacks, and can beat it that day. How often, the fixed schedule will show.
 
 Two warnings from the literature are carried in: the most accurate ranges did not earn the most
 (Nitka & Weron 2023), and simple quantile bidding rules can be gamed and ignore that a battery's
