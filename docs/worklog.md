@@ -3695,6 +3695,13 @@ several-trades question be settled soon rather than late**: it is now step 1 of 
 **README and plan page corrected** (`e429a38`, plan page version 20): two of the "not yet checked"
 items closed, the acceptance rule and loops per day named as binding, a step added before the bids.
 
+### 22 October 2026
+
+**Recap (all five):** 1 half right: the losing bet named, not why the gain is capped (only overnight
+trades); 2 not remembered (a leak that lowers the score sets off no alarm); 3 right, the ceiling's
+"from its own starting charge" missing; 4 right; 5 half right: two loops and its assumption, not the
+direction (too many loops assumed flatters the capture rate).
+
 ---
 
 ### Next — next session
