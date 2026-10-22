@@ -84,20 +84,40 @@ capture rate shows in euros whether the range was worth having.
 
 **Decided 20 October: a buy and its sell are sent as one package, which goes through whole or not at
 all** (the exchange's *loop blocks*; Hirsch & Ziel 2026). Each order still carries a limit price,
-set from the range before the auction closes. The exchange then checks the pair, not each order: the
-pair goes through if the sell price comes out at least as far above the buy price as the sell limit
-is above the buy limit. So the battery never ends a day half-traded, and every run — perfect
+set from the range before the auction closes. So the battery never ends a day half-traded, and every run — perfect
 foresight, naive, fixed schedule, bids — keeps the same one-day convention, each day ending empty.
 Rejected: starting each day half full and fixing a one-sided day with an unlimited order the next
 day (Nitka & Weron 2023, and most papers), because it uses half the battery and would change the
 ceiling; a fixed schedule only, because it postpones the question. **Checked 21 October:** EPEX
 still offers loop blocks after the 15-minute switch (*Trading at EPEX SPOT*, February 2026), and one
 block can cover several hours, not necessarily adjacent (EUPHEMIA public description, December
-2025). **Not yet checked, and settled before any bid is built:** whether each block must clear its
-own limit or the pair's gap decides — on an illustrative 2023 rule that is the difference between
-61 % and 90 % of days going through, and our rule is the generous one; whether one participant may
-send several loops for the same day, which decides how a day with two buy-then-sell rounds is bid
-(the planner does two on 198 days of 2023); and how the range sets the limits.
+2025).
+
+**Checked 22 October, from EPEX's own documents.** Loop blocks have run on the German day-ahead
+since 12 December 2018 (EPEX press release, 13 December 2018). *Each block on its own, or the pair?*
+EPEX states the pair rule for its own loop blocks, though in its GB frequency auction: "If accepted,
+the surplus of the loop family must be non-negative" (*FRA algorithm – Public description*, 2022).
+EUPHEMIA's rules for linked blocks give the same if each block of a loop is the other's parent. No
+document for the German day-ahead says so. *Several loops a day?* EPEX's block parameters sheet
+(13 December 2023) caps loop families per portfolio and market area, but was read only through
+search excerpts (3 or 8), so it is recorded as unknown. *A loop filled in part?* Allowed in EPEX's GB
+auction; not stated for Germany, so all or nothing here. And the exchange checks money, not price
+gaps: a block's *surplus* is how far it beat its limit, times its volume.
+
+**Decided 22 October: one loop per buy-then-sell round, the strict rule leading.** A day is cut
+where the battery is empty again, and each piece goes out as its own loop, judged alone: a weak
+evening round neither rides on a strong morning one nor sinks it. Rounds that share energy merge
+into one loop by the same cut; on 2023 no day of LEAR's needs more than 3. The second round is worth
+6,265 € of the ceiling (12 %), almost all of it from the midday solar dip between spring and autumn;
+held to one round a day, LEAR earns 40,160 € instead of 45,950 € (scratch, before days ended empty).
+A loop fills under the **strict rule** when each block beats its own limit, under the **pair rule**
+when the two surpluses together are not negative. Strict leads because the pair rule is not
+confirmed for Germany, and it fills only a subset of what the pair rule fills. On illustrative
+limits (QRA's 75th percentile to buy, 25th to sell) the two differ by about 14,000 € on 2023, more
+than the second round is worth, so both are reported. Rejected: one loop per day (both rounds stand
+or fall together); one round only (the papers' rule, 11 points given up, and a second planner to
+build). **Still open:** how the range sets one limit for a block spanning several hours, and the cap
+on loops per day, read word for word.
 
 **Decided 21 October: every run plans one delivery day at a time.** At 12:00 on D−1 LEAR forecasts day D only; nobody has a forecast for D+1, because the
 grid operators' wind, solar and load forecasts for it come out a day later. On 2023, with LEAR's
