@@ -70,7 +70,7 @@ quantiles *windows:
     {{py}} -m scripts.quantiles {{windows}}
 
 # Stage 4: the battery planned on 2023's real prices, the most it could have earned. Offline.
-# Plans one day at a time, carries the charge over midnight. A few seconds.
+# Plans one day at a time, each day ending empty. A few seconds.
 # `just backtest fixed` plans on LEAR's stored 2023 forecasts (needs `just train daily`)
 # and the naive rule's, settles both at real prices: the capture rate.
 backtest what="ceiling":

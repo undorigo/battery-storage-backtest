@@ -24,10 +24,10 @@ def test_cheap_then_dear_charges_then_sells_what_survives_the_losses():
 
 
 def test_never_charges_and_discharges_in_the_same_hour():
-    # Full battery, price -200.  Buying 1 and selling 0.81 at once keeps the level
-    # at 2 MWh and nets 0.19 x 200 - 0.81 x 8 = 31.52 EUR for burning energy.
-    # A real battery cannot; it can only sit still.
-    got = BT.plan(np.array([-200.0]), start_mwh=2.0)
+    # Empty battery, price -200.  Buying 1 and selling 0.81 at once keeps the level
+    # at 0, so the day still ends empty, and nets 0.19 x 200 - 0.81 x 8 = 31.52 EUR
+    # for burning energy.  A real battery cannot; it can only sit still.
+    got = BT.plan(np.array([-200.0]), start_mwh=0.0)
     assert got.charge * got.discharge == pytest.approx([0.0], abs=1e-9)
     assert got.charge == pytest.approx([0.0], abs=1e-6)
 
@@ -72,12 +72,15 @@ def test_a_day_is_planned_without_seeing_tomorrow():
     assert plans[0].charge.sum() == pytest.approx(0.0, abs=1e-6)   # free power, nothing to sell into
 
 
-def test_the_next_day_starts_where_the_last_one_ended():
-    # Start full.  Day 1 sells 1 MWh at 100, leaving 2 - 1/0.9 = 0.89 stored; at 5 the
-    # rest is not worth selling (5 < 8 of wear).  Day 2 sells what is left: 0.89 x 0.9.
-    got = BT.walk(berlin_days([100.0] + [5.0] * 23, [100.0] * 24), start_mwh=2.0)
-    assert got.level.iloc[23] == pytest.approx(2.0 - 1.0 / 0.9, abs=1e-6)
-    assert got.discharge.iloc[24:].sum() == pytest.approx(0.8, abs=1e-6)
+def test_every_day_ends_empty_even_when_holding_on_would_pay():
+    # Paid 50 to take power at 22:00 and 23:00.  Free to end full, the plan would buy
+    # both hours and keep 1.8 MWh.  Held to empty, it buys 1 at 22:00 and sells 0.81
+    # at 23:00: +50 - 0.81 x 50 - 0.81 x 8 = +3.02 EUR.  Day 2 starts with nothing.
+    got = BT.walk(berlin_days([180.0] * 22 + [-50.0, -50.0], MORNING))
+    day_ends = got.level.iloc[[23, 47]]
+    assert day_ends.to_numpy() == pytest.approx([0.0, 0.0], abs=1e-6)
+    assert got.charge.iloc[22] == pytest.approx(1.0, abs=1e-6)
+    assert got.discharge.iloc[23] == pytest.approx(0.81, abs=1e-6)
 
 
 def test_energy_adds_up_across_every_midnight():
@@ -127,16 +130,20 @@ def test_settlement_refuses_an_hour_with_no_price():
         BT.settle(schedule, prices.iloc[:1])
 
 
-def test_nothing_beats_the_ceiling_on_a_day_that_starts_empty():
-    # Plan on a noisy guess, settle at the truth: never more than planning on the truth.
-    # One day, starting empty.  Starting a day with charge the ceiling lacks, it can.
-    rng = np.random.default_rng(1)
-    for _ in range(20):
-        truth = berlin_days(list(rng.normal(80, 60, 24)))
-        guess = truth + rng.normal(0, 40, len(truth))
-        _, best = BT.ceiling(truth)
-        other = BT.settle(BT.walk(guess), truth)
-        assert other.sum() <= best.sum() + 1e-6
+def test_nothing_beats_the_ceiling_on_any_day():
+    # 24/25 December in miniature.  The forecast thinks power is paid for at 22:00 and
+    # 23:00 on day 1; really it costs 50, and day 2 opens at 200.  Free to end full, the
+    # forecast plan would buy 2 MWh, sell 1 at 200 on day 2 and beat the ceiling, which
+    # starts day 2 empty.  Held to empty, it buys 1 and sells 0.81 the same evening:
+    # -50 + 0.81 x 50 - 0.81 x 8 = -15.98 on day 1, nothing on day 2.
+    day_2 = [200.0] + [50.0] * 23
+    truth = berlin_days([50.0] * 24, day_2)
+    guess = berlin_days([50.0] * 22 + [-60.0, -60.0], day_2)
+    _, best = BT.ceiling(truth)
+    other = BT.settle(BT.walk(guess), truth)
+    by_day = lambda earned: earned.groupby(BT.delivery_days(earned.index)).sum()
+    assert (by_day(other) <= by_day(best) + 1e-6).all()
+    assert by_day(other).to_numpy() == pytest.approx([-15.98, 0.0], abs=1e-6)
 
 
 # ── The command, to its last line ─────────────────────────────────────────────

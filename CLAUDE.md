@@ -50,8 +50,9 @@ EIC code. Splicing across that boundary joins two different markets.
 
 1 MW power, 2 MWh capacity, 90 % efficiency each direction, state of charge 0–100 %,
 a cost penalty per cycle for degradation. Each delivery day is planned on its own prices
-alone and the state of charge carries over midnight (decided 21 Oct): at 12:00 on D−1 nobody
-has a forecast for D+1, and on 2023 every stand-in for one earned less than leaving it out.
+alone (decided 21 Oct): at 12:00 on D−1 nobody has a forecast for D+1, and on 2023 every
+stand-in for one earned less than leaving it out. Each day ends empty (decided 22 Oct): charge
+held over midnight is a trade split across two auctions, which no loop block can hold.
 
 ### Stage plan
 
@@ -452,8 +453,9 @@ Mixing them is the single most common way a capture rate exceeds 100 %.
 
 All three comparison runs — perfect foresight, model, naive — must use the identical
 horizon and state-of-charge convention: one delivery day planned at a time, on that day's
-prices alone, the charge carried forward. A plan never reads the next day, so a year of
-forecasts handed over at once cannot plan day D on the forecast made for D+1.
+prices alone, starting and ending empty. A plan never reads the next day, so a year of
+forecasts handed over at once cannot plan day D on the forecast made for D+1. Because every
+run starts each day as the ceiling does, the ceiling is the best plan for every single day.
 
 If they differ, the capture rate measures the convention rather than the forecast.
 
@@ -494,11 +496,10 @@ not inside the loader, so the tests' world-clock fixtures take the same path as 
   If weather is ever needed, use the Previous Runs API.
 - **ENTSO-E outage data.** Heavily revised after publication. Pulling it today returns the
   corrected version, not what was known before gate closure. Out of scope for now.
-- **Capture rate above 100 %.** Over a period: a bug until shown otherwise; assume leakage
-  first. On a single day it can happen honestly: the ceiling is the best plan *given the charge
-  it starts the day with*, and a schedule starting with different charge (more, or less before
-  negative prices) can beat it that day. 2023: naive on 4 days (113 €), each repaid by the day
-  before; LEAR on none.
+- **Capture rate above 100 %.** A bug until shown otherwise, over a period and on a single
+  day; assume leakage first. Every run starts each day empty, as the ceiling does, so no day
+  can honestly beat it. (Until 22 October charge carried over midnight, and a day could: naive
+  on 4 days of 2023, each repaid by the day before.)
 
 ---
 

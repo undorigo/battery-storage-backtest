@@ -87,7 +87,7 @@ all** (the exchange's *loop blocks*; Hirsch & Ziel 2026). Each order still carri
 set from the range before the auction closes. The exchange then checks the pair, not each order: the
 pair goes through if the sell price comes out at least as far above the buy price as the sell limit
 is above the buy limit. So the battery never ends a day half-traded, and every run — perfect
-foresight, naive, fixed schedule, bids — keeps the same one-day, charge-carried convention.
+foresight, naive, fixed schedule, bids — keeps the same one-day convention, each day ending empty.
 Rejected: starting each day half full and fixing a one-sided day with an unlimited order the next
 day (Nitka & Weron 2023, and most papers), because it uses half the battery and would change the
 ceiling; a fixed schedule only, because it postpones the question. **Checked 21 October:** EPEX
@@ -99,8 +99,7 @@ own limit or the pair's gap decides — on an illustrative 2023 rule that is the
 send several loops for the same day, which decides how a day with two buy-then-sell rounds is bid
 (the planner does two on 198 days of 2023); and how the range sets the limits.
 
-**Decided 21 October: every run plans one delivery day at a time, the charge carried over
-midnight.** At 12:00 on D−1 LEAR forecasts day D only; nobody has a forecast for D+1, because the
+**Decided 21 October: every run plans one delivery day at a time.** At 12:00 on D−1 LEAR forecasts day D only; nobody has a forecast for D+1, because the
 grid operators' wind, solar and load forecasts for it come out a day later. On 2023, with LEAR's
 stored forecasts (a scratch comparison, nothing refitted): planning one day earned 45,950 €; a copy
 of day D standing in for D+1, 42,502 €; real prices from the same weekday a week earlier, 40,627 €;
@@ -113,27 +112,36 @@ takes many hours to fill (Prat et al., *How long is long enough?*). Rejected: a 
 €); a separate 36–60-hour forecast (a second model without the inputs that make the first one
 work). **Stated limit:** overnight trades are given up, worth at most 482 € (0.9 %) in 2023.
 
-**The ceiling: 50,542 € on 2023** (`just backtest ceiling`, a few seconds; built 20 October at
-51,024 € on a two-day plan, rerun 21 October on one day). It is what the battery would have earned
-planned on the prices that actually cleared: one delivery day at a time, the charge carried over
-midnight, wear included, about 541 full cycles. No day loses money, since nothing is bought for
+**Decided 22 October: each day ends empty.** Charge held over midnight is a trade split across two
+auctions, bought in today's and sold in tomorrow's, and no loop block can hold it. On 2023 it also
+earned less: ending every day empty moved the ceiling from 50,542 € to 50,557 €, LEAR up 42 €, the
+naive rule up 215 €, because a battery that fills on an evening paid to take power meets the next
+paid morning with no room (24 and 25 December). Hirsch & Ziel plan the same way. Rejected: sending
+the evening buy alone as a plain order (planning and settling would have to alternate day by day,
+for 3 days a year); planning it but never sending it (the next day would start from charge that
+is not there). **Stated limit:** an evening below zero before a morning that pays is given up;
+2023 cannot say what that is worth in years with more of them.
+
+**The ceiling: 50,557 € on 2023** (`just backtest ceiling`, a few seconds; built 20 October at
+51,024 € on a two-day plan, rerun 21 October on one day and 22 October ending each day empty). It is
+what the battery would have earned planned on the prices that actually cleared: one delivery day at
+a time, starting and ending empty, wear included, about 541 full cycles. No day loses money, since nothing is bought for
 tomorrow. Each hour is either charging or discharging, never both, because otherwise the plan would
 collect money at very negative prices for burning energy as losses, which 2023's 27 hours below
-about −34 € made worth doing. **Stated limit:** it is the best plan for each day *given the charge
-it starts with*. A plan from a forecast that ends a day holding charge starts the next with energy
-the ceiling lacks, and can beat it that day. How often, the fixed schedule will show.
+about −34 € made worth doing. Every run starts each day empty, as the ceiling does, so the ceiling
+is the best plan for every single day: a day above it is a bug, and `just backtest fixed` counts them.
 
-**The first capture rate, 21 October: LEAR's fixed schedule earned 45,950 € on 2023, 90.9 % of the
-ceiling; the field's naive rule 39,978 €, 79.1 %** (`just backtest fixed`, about 10 seconds, reading
+**The first capture rate: LEAR's fixed schedule earned 45,992 € on 2023, 91.0 % of the ceiling; the
+field's naive rule 40,193 €, 79.5 %** (22 October, each day ending empty; 21 October, with charge
+carried over midnight, 90.9 % and 79.1 %; `just backtest fixed`, about 10 seconds, reading
 the stored `just train daily` run, nothing refitted). Each day's forecast is put back onto real
 hours (the invented spring 02:00 dropped, the averaged autumn 02:00 on both hours), planned like the
-ceiling and paid at real prices. So LEAR's lower error is worth about 6,000 € a year here, and the
-room between the simplest rule and perfect knowledge is only 21 points — a forecast can add at most
-that. **Days above the ceiling:** LEAR none; the naive rule 4, by 113 € in all, each one a day it
-started with different charge than the ceiling and repaid by the day before (7 January: it bought
-2 MWh at a forecast of −1 € and real 38–88 €, losing 202 €, then beat the ceiling by 4.60 € the
-next morning). A full battery is not always the better start: on 25 December the market paid buyers
-up to 13 €, and the ceiling, full from the day before, had to sell at a loss first. **Stated limits:**
+ceiling and paid at real prices. So LEAR's lower error is worth about 5,800 € a year here, and the
+room between the simplest rule and perfect knowledge is only about 20 points — a forecast can add at
+most that. **Days above the ceiling:** none. While charge was carried over midnight the naive rule
+beat it on 4 days (113 €), each a day it started with different charge, repaid by the day before;
+on 25 December the ceiling, full from the day before, met a morning that paid buyers up to 13 € and
+had to sell at a loss first. That is what ending each day empty removed. **Stated limits:**
 one year, one fixed schedule, no significance test on the gap yet; the limit-price bids are next.
 
 Two warnings from the literature are carried in: the most accurate ranges did not earn the most

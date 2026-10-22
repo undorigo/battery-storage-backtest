@@ -31,6 +31,9 @@ from src import config as cfg
 # Charge and discharge are measured at the grid, where the power limit and the
 # price apply; the losses sit between the grid and the cells.  Wear is charged per
 # MWh delivered to the grid, as `Battery.cycle_cost_eur_per_mwh` is defined.
+#
+# The window's last hour ends empty (Contract 4): every trade a day makes is sold
+# again inside that day's auction, where one loop block can hold it.
 
 @dataclass(frozen=True)
 class Plan:
@@ -70,6 +73,7 @@ def plan(prices: np.ndarray, start_mwh: float,
     ]
     upper = np.concatenate([np.full(T, P), np.full(T, P),
                             np.full(T, E * battery.soc_max), np.ones(T)])
+    upper[3 * T - 1] = E * battery.soc_min                       # the last hour's level: empty
     lower = np.concatenate([np.zeros(2 * T), np.full(T, E * battery.soc_min), np.zeros(T)])
     integral = np.concatenate([np.zeros(3 * T), np.ones(T)])     # only the switch is whole
 
@@ -82,12 +86,11 @@ def plan(prices: np.ndarray, start_mwh: float,
 
 
 # ── Walking forward a day at a time ───────────────────────────────────────────
-# Each delivery day is planned on its own prices alone, and the stored level is
-# carried over midnight (Contract 4).  One day, not two, because at 12:00 on D-1
-# nobody has a forecast for D+1: the TSO forecasts it would need come out a day
-# later.  Measured on 2023 (21 October 2026): seeing tomorrow is worth 482 EUR a
-# year even on real prices, and every stand-in for it tried — a copy of today,
-# last week, LEAR's next-day forecast — earned less than leaving it out.
+# Each delivery day is planned on its own prices alone, and ends empty (Contract 4).
+# One day, not two, because at 12:00 on D-1 nobody has a forecast for D+1: the TSO
+# forecasts it would need come out a day later.  Empty, because charge held over
+# midnight is a trade split across two auctions, which no loop block can hold;
+# on 2023 it also earned less (22 October 2026: ceiling -14 EUR, LEAR -42 EUR).
 #
 # So a plan reads only its own day's prices.  A whole year of forecasts can be
 # handed over at once without the plan for D seeing the forecast made for D+1.
@@ -145,9 +148,8 @@ def fixed(forecast: pd.Series, actual: pd.Series, start_mwh: float = 0.0,
 
 # ── The perfect-foresight ceiling ─────────────────────────────────────────────
 # The battery planned on the very prices it is paid at: the 100 % every capture
-# rate divides by.  It is the best plan for each day *given the charge it starts
-# with*.  A plan made from a forecast that ends a day holding charge starts the
-# next one with energy the ceiling does not have, and can beat it that day.
+# rate divides by.  Every run starts each day empty, as the ceiling does, so the
+# ceiling is the best plan for every single day: a day above it is a bug.
 
 def ceiling(actual: pd.Series, start_mwh: float = 0.0,
             battery: cfg.Battery = cfg.BATTERY) -> tuple[pd.DataFrame, pd.Series]:

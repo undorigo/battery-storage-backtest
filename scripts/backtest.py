@@ -84,7 +84,7 @@ def capture(actual: pd.Series) -> tuple[str, dict]:
     for name, forecast in planned.items():
         _, earned = BT.fixed(forecast, actual)
         gap = earned.groupby(BT.delivery_days(earned.index)).sum() - best_day
-        above = gap[gap > 1e-6]                                  # days this run beat the ceiling
+        above = gap[gap > 1e-6]                                  # days above the ceiling: a bug if any
         got[name] = {"earned": earned.sum(), "days_above": len(above), "above_eur": above.sum()}
     return commit, got
 
