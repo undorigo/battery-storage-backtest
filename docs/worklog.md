@@ -3702,53 +3702,120 @@ trades); 2 not remembered (a leak that lowers the score sets off no alarm); 3 ri
 "from its own starting charge" missing; 4 right; 5 half right: two loops and its assumption, not the
 direction (too many loops assumed flatters the capture rate).
 
+#### Step 1: the exchange's rules, from EPEX's own documents (about 45 minutes)
+
+EUPHEMIA's public descriptions (2019, 2020, 2025) never name loop blocks; EPEX's site answers
+automated downloads with 403 or a maintenance page. Read instead: EPEX's press release of 13 Dec 2018
+(Wayback copy), its *FRA algorithm – Public description* (11.02.2022) and *CTS++ Trader User Guide*
+(v12, 19.04.2022), both for the GB frequency auction, hosted by NESO.
+**(a) Pair or each block:** FRA §1.4.4, "it is a 2-block linked family where the two block orders are
+parent of each other" and "If accepted, the surplus of the loop family must be non-negative".
+EUPHEMIA 2020 §5.4.1 rule 3 lets an out-of-the-money parent through on its children's surplus, so
+mutual parents give the pair rule: an inference, not stated for the German day-ahead. **Found on
+the way:** the exchange checks surplus in euros (margin over the limit × volume), not price gaps;
+with 2.22 MWh bought and 1.8 sold, the 20 October gap rule is not the exchange's even as a pair
+rule. **(b) Several loops a day:** EPEX's *Block parameters* sheet (13/12/2023) caps loop families
+per portfolio and market area; only search summaries were read, giving 3 or 8: **unknown**. The
+user was asked to download it. **(c) Fill ratio below 1:** CTS++ "For C88, 0 < MAR < 1", FRA
+"MAR in [0;1]", both GB; the press release confirms loop and curtailable blocks on the German
+day-ahead from 12 Dec 2018 but not curtailable loops: **unknown**, all or nothing applies.
+
+#### Step 2: the second round, priced (scratch, nothing committed)
+
+The planner with a phase switch that may flip once, buy to sell, reproduces nothing new by itself;
+the free walk reproduced 50,542 / 45,950 / 39,978 € and 21 October's round counts exactly.
+Held to one round: ceiling 44,277 € (−6,265), LEAR 40,160 € (−5,790), naive 33,717 € (−6,261).
+LEAR's share stays put (90.7 % of the one-round ceiling against 90.9 %). The second round is the
+midday solar dip: 2,207 € in September–October, 221 € in January, November and December together,
+where it is worth nothing on 74 of 92 days; LEAR's second round lost on 46 days (−773 €). Walked
+through 14 June (both rounds, the morning one worth 31.40 € after wear, LEAR found it too) and
+23 November (real evening 74–78 €, LEAR forecast 99–101 €: bought midday, −32.50 €).
+
+#### Decided with the user, one question each
+
+1. **One loop per round, the day cut where the battery is empty again.** The user asked first for
+   bad and good ways. Bad: cutting by the clock; separate loops for rounds that share energy (17 of
+   LEAR's days; a failed first round would leave the second selling energy never bought, flattering
+   the result); carrying planned instead of real charge; re-planning within the day; checking one
+   hour's price or price gaps; imitating the whole auction. Good: the empty-again cut merges sharing
+   rounds by itself and makes every mix of fills physically possible; one loop settlement serves
+   every cutting; both rules from two surpluses; wide-open limits must reproduce the fixed schedule
+   to the cent. LEAR's days cut into at most 3 pieces, inside either cap reading. Option 3 (one
+   round) needs a second planner, so it is the most code, not the least.
+2. **Every day ends empty** (Contract 4). Measured: ceiling +14.50 €, LEAR +42 €, naive +215 € on
+   2023, because a battery that fills on a paid evening meets the next paid morning with no room
+   (24/25 December, +7 € over the two days). The user asked for a plain-language explanation of the
+   three options before deciding. Rejected: the evening buy sent alone (planning and settling
+   alternate day by day, for 3 days a year); planned but not sent (next day planned from charge not
+   there). Stated limit: negative evenings before paying mornings are given up.
+3. **The strict fill rule leads, the pair rule beside it**, both as surplus in euros. On
+   illustrative limits (QRA's 75th percentile to buy, 25th to sell, volume-weighted): strict fills
+   307 of 561 rounds for 30,192 €, pair 504 for 44,083 €, a 14,000 € gap. 11 September: strict
+   drops a 673 € round whose buy missed by 3.70 €/MWh; 31 January: pair fills a −67 € round because
+   those limits put the buy limit above the sell limit. Found: if the limits themselves describe a
+   profitable round (1.8 × sell limit − 2.22 × buy limit − 14.40 € ≥ 0), no filled round can lose,
+   under either rule; arithmetic, not yet tested.
+
+Transparency stated before code for Contract 4 and Contract 3.
+
+#### Built (`35259c9`, `f3a0d2f`)
+
+One bound in `plan`: the last hour's level is empty. **Ceiling 50,557 €; LEAR 45,992 € (91.0 %),
+naive 40,193 € (79.5 %), no day above the ceiling for either.** Three tests rewritten: the −200 €
+switch test now starts empty; the carry-over test became "every day ends empty even when holding on
+would pay" (hand-worked +3.02 €); the ceiling test now holds on every day, a hand-worked 24/25
+December case (−15.98 €, 0 €).
+
+| Planted bug | Caught by |
+|---|---|
+| no end-empty bound | switch test, ends-empty test, ceiling-every-day test |
+| | **the first version of the ceiling test, on random prices, missed it** (both plans ended full alike); random prices caught it on 3–5 seeds of 10, so it was replaced by the hand case |
+| each day restarts at `start_mwh` | energy balance across midnight |
+| ceiling settled from a full start | settlement, wear and command tests |
+
+Leakage check: the plan for D reads D's forecast only and now starts from a fixed empty battery, so
+its one link to D−1 is gone; nothing fitted; settlement unchanged, real prices only. 281 green.
+README, CLAUDE.md (battery, stage 4, Contract 4, the above-100 % danger zone) and justfile reworded.
+
+**Plan refreshed (three milestones, one refresh):** README (*Where this is going*, *Roughly when*),
+the plan page (version 21).
+
 ---
 
 ### Next — next session
 
-**Stage 4: settle how a day with several trades is bid, and under which exchange rule, before
-building any bid.** Main after this entry's commit, 281 green. Ceiling 50,542 € on 2023
-(`just backtest ceiling`); fixed schedule LEAR 90.9 %, naive 79.1 % (`just backtest fixed`); every
-run plans one day at a time.
+**Stage 4: build the bids under the decided rule.** Main after this entry's commit, 281 green.
+Ceiling 50,557 € on 2023 (`just backtest ceiling`); fixed schedule LEAR 91.0 %, naive 79.5 %
+(`just backtest fixed`); every run plans one day at a time, each day ending empty. Decided: one
+loop per buy-then-sell round, the day cut where the battery is empty again; the strict fill rule
+leads (each block's surplus in euros ≥ 0), the pair rule (the two together ≥ 0) beside it.
 
 #### Recap questions
 
-1. Why is seeing tomorrow worth only 482 € a year for this battery, and why does a forecast of
-   tomorrow lose more than that?
-2. On the old two-day walk, what would `walk(lear_forecasts)` have read for day two, and why would
-   no alarm have gone off?
-3. On 25 December the naive plan started empty and beat a ceiling that started full. How?
-4. LEAR kept 90.9 %, the naive rule 79.1 %. What does the gap between 79.1 and 100 tell you about
-   how much any forecast can add?
-5. A battery buys 02–04 and 12–14 and sells 07–08 and 19–20. Sent as one loop, or as two? What
-   does each assume about the exchange, and which way would a wrong assumption push the capture rate?
+1. Why is a day cut "where the battery is empty again" rather than at noon, and what goes wrong, in
+   which direction, if two rounds that share energy go out as separate loops?
+2. Ending every day empty is an extra rule, yet it raised the ceiling by 14 €. How can a rule that
+   takes options away raise a total?
+3. 11 September: the buy missed its limit by 3.70 €/MWh, the sell beat its limit by 333 €. Which
+   rule fills it, and why does the other one lead anyway?
+4. Why is the second round worth almost nothing in winter, and why did LEAR's lose money there?
+5. The test "nothing beats the ceiling" now holds on every day, not only on a day that starts empty.
+   Why, and what did its first version, on random prices, fail to catch?
 
 #### Then, in order
 
-1. **The exchange's rules, from its own documents — time-boxed to about an hour.** Three answers:
-   (a) does a loop go through on the pair's gap, or must each block clear its own limit;
-   (b) may one participant send several loop families for the same delivery day, and is there a
-   cap; (c) may a loop block's minimum acceptance ratio be below 1. Sources: EPEX's product or
-   order specification (loop block code C88 in the sFTP spec), an older EUPHEMIA description
-   (2019/2020 named loop families; the 2020 PDF refused a plain download, so try a browser),
-   Hirsch & Ziel's exact wording, EPEX support if still open. Whatever is not found by the end of
-   the hour is recorded as unknown and step 3 uses the conservative reading.
-2. **Measure what the second round is worth, on real data, before deciding** (explain first, then
-   ask): the ceiling and LEAR's fixed schedule as now (up to two rounds and more) against the same
-   planner held to one round a day (one buy run before one sell run). Show 14 June and one winter
-   day. This prices the papers' "one cycle" simplification in euros.
-3. **Decide with the user how a day is bid**, one question per decision, with the step 1 answers
-   and step 2 numbers in hand: one loop per day (always possible if loops exist; both rounds stand
-   or fall together), one loop per round (needs (b); each round judged alone), or one round only
-   (the papers' rule; costs what step 2 measured). And the fill rule: the strict reading as the
-   headline unless step 1 confirms the pair rule, the other beside it. This is a Contract 3 change
-   (settlement): state the Transparency points before code.
-4. **Then the bids**: hours from LEAR's fixed schedule, limits from QRA's range, each block checked
-   against the volume-weighted price of its hours (90 % each way, so sell volume is 0.81 of buy);
-   settled under the rule from step 3. Open within it: how the range sets one limit for a block
-   spanning several hours.
-5. Whether LEAR's 6,000 € lead over the naive rule is more than chance: a test on daily earnings
-   (Hirsch & Ziel warn backtest profits discriminate weakly).
-6. Noted, not tasks: capture rate split by ordinary against extreme days; a revenue record file;
-   QRA's held-back bands run slightly narrow (80 % held 0.789), which matters once quantiles become
-   limit prices; why LEAR's held-back lead grows into 2025.
+1. **The bids, explained before code.** One loop per piece of LEAR's fixed schedule; buy block =
+   the piece's charging hours and MWh, sell block = its selling hours and MWh. Open: how QRA's range
+   sets one limit for a block spanning several hours (volume-weighted percentile, as in today's
+   illustration, or something the literature names). Proposed check: the limits must describe a
+   profitable round (1.8 × sell − 2.22 × buy − 14.40 € ≥ 0), so no filled round can lose. Settle
+   under both rules; report strict as the headline. Anchor test: limits wide open reproduce the
+   fixed schedule's 45,992 € to the cent. Plant before claiming; leakage check in writing (limits
+   from QRA at 12:00 on D−1 only, fills from real prices only).
+2. **The block parameters sheet, word for word**, if the user has downloaded it: the cap on loop
+   families for DE-LU (3 or 8). With at most 3 pieces a day on 2023, either suffices; check 2024–25
+   only at the stage's end.
+3. Whether LEAR's lead over the naive rule is more than chance: a test on daily earnings.
+4. Noted, not tasks: capture rate split by ordinary against extreme days; QRA's held-back bands run
+   slightly narrow (80 % held 0.789), which matters now that quantiles become limits; why LEAR's
+   held-back lead grows into 2025; the one-round planner exists only in scratch.

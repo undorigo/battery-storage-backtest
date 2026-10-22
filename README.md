@@ -367,7 +367,9 @@ six for stage 1 — at about three and a half working days a week.
 held-back years read once. Stage 4 started 20 October by settling its one open decision (an
 unfilled order is handled as a loop block, buy and sell together or not at all) and building the
 perfect-foresight ceiling. On 21 October each run was set to plan one day at a time and the
-first capture rate came in: LEAR 90.9 %, the naive rule 79.1 %. The bids remain.
+first capture rate came in. On 22 October the exchange's rules were read from EPEX's own documents,
+each day was set to end empty (LEAR 91.0 %, the naive rule 79.5 %), and the bids' shape was decided:
+one loop per round, the strict fill rule leading. The bids themselves remain.
 **Stage 2 closed on 14 October**, about a week ahead of that estimate, after running longer than
 first planned: the 24-hour grid, MLflow and the significance test went in front of recalibration.
 The later stages keep their estimates and move forward with it. Stage 4 is the least certain,
