@@ -3780,11 +3780,38 @@ README, CLAUDE.md (battery, stage 4, Contract 4, the above-100 % danger zone) an
 **Plan refreshed (three milestones, one refresh):** README (*Where this is going*, *Roughly when*),
 the plan page (version 21).
 
+### 23 October 2026
+
+#### Loop settlement built (`38882e0`), limits still an input
+
+`rounds(schedule)` numbers each hour's round, cut where the battery is empty again (−1 for an empty
+hour with no trade); `bid(schedule, actual, limits, rule)` judges each round's two blocks by surplus
+in euros, strict or pair, drops failed rounds and pays the rest through `settle`. Limits come in as
+one row per round, so how the range sets them stays open. A round without limits is refused: NaN
+compares as "no" under both rules, and the round would vanish quietly. **On 2023, LEAR's schedule
+cuts into 561 rounds, at most 3 a day; with open limits both rules return the fixed schedule's
+45,991.96 € to the cent.** Tests on hand-written schedules (the planner left 0.2 MWh between rounds
+on the first test prices, a tie too fragile to test on).
+
+| Planted bug | Caught by |
+|---|---|
+| cut also where selling turns to buying | the cutting test (shared-energy case) |
+| strict as pair; pair as strict | strict-and-pair test |
+| buy block at its plain average or dearest hour | strict-and-pair test |
+| sell block at its plain average or cheapest hour | strict-and-pair test, **only after its sell limit was set to 113**: at first it was wide open, so the sell side's weighting was untested |
+| failed rounds kept | strict-and-pair test |
+| no missing-limit guard | refusal test |
+| sell surplus sign flipped | strict-and-pair test, open-limits test |
+
+Leakage check: `bid` reads the schedule and limits (decision side) and real prices only to fill and
+pay; nothing returns to a plan; nothing fitted. Where limits come from is checked when built. 285
+green. Not a plan milestone: no number measured.
+
 ---
 
 ### Next — next session
 
-**Stage 4: build the bids under the decided rule.** Main after this entry's commit, 281 green.
+**Stage 4: build the bids under the decided rule.** Main after this entry's commit, 285 green.
 Ceiling 50,557 € on 2023 (`just backtest ceiling`); fixed schedule LEAR 91.0 %, naive 79.5 %
 (`just backtest fixed`); every run plans one day at a time, each day ending empty. Decided: one
 loop per buy-then-sell round, the day cut where the battery is empty again; the strict fill rule
@@ -3804,14 +3831,13 @@ leads (each block's surplus in euros ≥ 0), the pair rule (the two together ≥
 
 #### Then, in order
 
-1. **The bids, explained before code.** One loop per piece of LEAR's fixed schedule; buy block =
-   the piece's charging hours and MWh, sell block = its selling hours and MWh. Open: how QRA's range
-   sets one limit for a block spanning several hours (volume-weighted percentile, as in today's
-   illustration, or something the literature names). Proposed check: the limits must describe a
-   profitable round (1.8 × sell − 2.22 × buy − 14.40 € ≥ 0), so no filled round can lose. Settle
-   under both rules; report strict as the headline. Anchor test: limits wide open reproduce the
-   fixed schedule's 45,992 € to the cent. Plant before claiming; leakage check in writing (limits
-   from QRA at 12:00 on D−1 only, fills from real prices only).
+1. **The limits, explained before code.** Settlement is built (`bid`, 23 October): it takes one
+   buy and one sell limit per round. Open: how QRA's range sets one limit for a block spanning
+   several hours (volume-weighted percentile, as in the 22 October illustration, or something the
+   literature names), and which percentiles. Proposed check: the limits must describe a profitable
+   round (1.8 × sell − 2.22 × buy − 14.40 € ≥ 0), so no filled round can lose. Then a command beside
+   `just backtest fixed`, strict as the headline, pair beside it. Plant before claiming; leakage
+   check in writing (limits from QRA's forecast made at 12:00 on D−1 only).
 2. **The block parameters sheet, word for word**, if the user has downloaded it: the cap on loop
    families for DE-LU (3 or 8). With at most 3 pieces a day on 2023, either suffices; check 2024–25
    only at the stage's end.
