@@ -146,6 +146,63 @@ def test_nothing_beats_the_ceiling_on_any_day():
     assert by_day(other).to_numpy() == pytest.approx([-15.98, 0.0], abs=1e-6)
 
 
+# ── Rounds and loops ──────────────────────────────────────────────────────────
+
+def by_hand(charge: list[float], discharge: list[float]) -> pd.DataFrame:
+    """A schedule written out hour by hour, its level following from 90 % each way."""
+    c, d = np.array(charge), np.array(discharge)
+    level = np.cumsum(0.9 * c - d / 0.9)
+    return pd.DataFrame({"charge": c, "discharge": d, "level": level},
+                        index=berlin_days([0.0] * len(c)).index)
+
+
+# Idle, then round 0: buy 1 at 10 and 0.5 at 30, sell 1 at 120 and the last 0.215 at 100.
+# Round 1: buy 1 at 10, sell 0.81 at 100.  Empty after hour 4 and after hour 6.
+TWO_ROUNDS = by_hand([0, 1, 0.5, 0, 0, 1, 0], [0, 0, 0, 1, 0.215, 0, 0.81])
+TWO_PRICES = berlin_days([50.0, 10.0, 30.0, 120.0, 100.0, 10.0, 100.0])
+
+
+def test_a_day_is_cut_into_rounds_where_the_battery_is_empty_again():
+    assert BT.rounds(TWO_ROUNDS).tolist() == [-1, 0, 0, 0, 0, 1, 1]
+    # Buy, sell half, buy again, sell the rest: never empty in between, so one round.
+    # Cut at the switch from selling to buying, the second half could fill alone and
+    # sell energy the first half never bought.
+    shared = by_hand([1, 0, 1, 0], [0, 0.405, 0, 1.215])
+    assert BT.rounds(shared).tolist() == [0, 0, 0, 0]
+
+
+def test_strict_needs_each_block_and_pair_needs_the_two_together():
+    # Round 0, buy limit 18: the buy block paid 16.67 a MWh weighted by volume
+    # (1 at 10, 0.5 at 30), so its surplus is 1 x 8 - 0.5 x 12 = +2 and it fills.  Its
+    # plain average, 20, or its dearest hour, 30, would both say no.  Sell limit 113
+    # the same way: 116.46 weighted (1 at 120, 0.215 at 100), surplus 7 - 2.795 = +4.2.
+    # Round 1, buy limit 5 at a real 10: -5, made up for by the sell side.
+    limits = pd.DataFrame({"buy": [18.0, 5.0], "sell": [113.0, -1e6]})
+    traded, earned = BT.bid(TWO_ROUNDS, TWO_PRICES, limits, rule="strict")
+    assert earned.to_numpy() == pytest.approx([0, -10, -15, 112, 19.78, 0, 0], abs=1e-6)
+    assert traded.iloc[5:].to_numpy() == pytest.approx(np.zeros((2, 3)))   # round 1 never happened
+    _, earned = BT.bid(TWO_ROUNDS, TWO_PRICES, limits, rule="pair")
+    assert earned.sum() == pytest.approx(106.78 - 10 + 74.52, abs=1e-6)
+
+
+def test_open_limits_fill_every_round_under_either_rule():
+    # Limits nobody could miss: the bids must earn exactly what the fixed schedule does.
+    rng = np.random.default_rng(2)
+    prices = berlin_days(*(list(rng.normal(80, 60, 24)) for _ in range(5)))
+    schedule = BT.walk(prices + rng.normal(0, 30, len(prices)))
+    n = BT.rounds(schedule).max() + 1
+    wide = pd.DataFrame({"buy": [1e6] * n, "sell": [-1e6] * n})
+    for rule in BT.RULES:
+        _, earned = BT.bid(schedule, prices, wide, rule)
+        pd.testing.assert_series_equal(earned, BT.settle(schedule, prices))
+
+
+def test_a_round_without_limits_is_refused():
+    # A missing limit compares as "no" under both rules, so the round would vanish quietly.
+    with pytest.raises(ValueError, match="no limits"):
+        BT.bid(TWO_ROUNDS, TWO_PRICES, pd.DataFrame({"buy": [18.0], "sell": [-1e6]}))
+
+
 # ── The command, to its last line ─────────────────────────────────────────────
 
 def test_the_ceiling_command_runs_on_2023_alone(monkeypatch, capsys):

@@ -155,3 +155,56 @@ def ceiling(actual: pd.Series, start_mwh: float = 0.0,
             battery: cfg.Battery = cfg.BATTERY) -> tuple[pd.DataFrame, pd.Series]:
     """The schedule planned on real prices, and what it earned at them."""
     return fixed(actual, actual, start_mwh, battery)
+
+
+# ── Cutting a schedule into rounds ────────────────────────────────────────────
+# A bid goes out as one loop block per buy-then-sell round (decided 22 October
+# 2026), so the schedule must first be cut into rounds.  The cut falls where the
+# battery is empty again, not at a time of day: two rounds that share energy then
+# stay one round by themselves, and every round starts and ends empty, so any mix
+# of filled and failed rounds is something a real battery could have done.
+
+TRADING = 1e-6                                                   # MWh below this is solver noise
+
+def rounds(schedule: pd.DataFrame) -> pd.Series:
+    """Each hour's round, numbered from 0 in order; -1 for an empty hour with no trade."""
+    trading = (schedule.charge > TRADING) | (schedule.discharge > TRADING)
+    empty = schedule.level < TRADING
+    closes = trading & empty                                     # this hour's trade empties it
+    label = closes.shift(fill_value=False).cumsum()              # rounds closed before this hour
+    return label.where(trading | ~empty, -1).rename("round")
+
+
+# ── A loop per round: filled or not, then paid ────────────────────────────────
+# Each round goes out as a loop: a buy block over its charging hours, a sell block
+# over its selling hours, each with one limit, filled whole or not at all.  The
+# exchange judges a block in euros, its *surplus*: how far the real prices beat
+# the limit, times the volume.  Which surpluses must hold is not settled for the
+# German day-ahead (EPEX writes the pair rule for its GB auction only), so both:
+# "strict", each block on its own, leads; "pair", the two together, sits beside it.
+#
+# Real prices decide the fill and the pay, and nothing here returns to a plan
+# (Contract 3).  Where the limits come from is the caller's: one row per round.
+
+RULES = ("strict", "pair")
+
+def bid(schedule: pd.DataFrame, actual: pd.Series, limits: pd.DataFrame,
+        rule: str = "strict", battery: cfg.Battery = cfg.BATTERY) -> tuple[pd.DataFrame, pd.Series]:
+    """The trades whose loop went through under `rule`, and what they earned at `actual`."""
+    if rule not in RULES:
+        raise ValueError(f"rule must be one of {RULES}, not {rule!r}")
+    label = rounds(schedule)
+    held = label[label >= 0]
+    unpriced = pd.Index(held.unique()).difference(limits.dropna().index)
+    if len(unpriced):                                            # NaN fails every test: a silent "no"
+        raise ValueError(f"{len(unpriced)} rounds have no limits, first round {unpriced[0]}")
+    settle(schedule, actual, battery)                            # refuses an unpriced hour first
+    price = actual.reindex(held.index)
+    hours = schedule.loc[held.index]
+    buy = (hours.charge * (limits.buy.reindex(held).to_numpy() - price)).groupby(held).sum()
+    sell = (hours.discharge * (price - limits.sell.reindex(held).to_numpy())).groupby(held).sum()
+    went = (buy >= 0) & (sell >= 0) if rule == "strict" else (buy + sell >= 0)
+    kept = label.isin(went.index[went])                          # hours of a filled round
+    traded = schedule.copy()
+    traded.loc[~kept, ["charge", "discharge", "level"]] = 0.0    # a failed round never happened
+    return traded, settle(traded, actual, battery)
