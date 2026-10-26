@@ -3807,6 +3807,14 @@ Leakage check: `bid` reads the schedule and limits (decision side) and real pric
 pay; nothing returns to a plan; nothing fitted. Where limits come from is checked when built. 285
 green. Not a plan milestone: no number measured.
 
+### 26 October 2026
+
+**Recap (all five):** 1 half right: the cut packages the plan, and sharing rounds sent apart flatter
+the result (direction missing); 2 right instinct, wrong cause (the ceiling can't misjudge prices, it
+can't see tomorrow); 3 not answered (strict drops, pair fills); 4 half right: the solar dip, not why
+LEAR lost (error as big as the gap); 5 half: a test sees a bug only if its inputs make it matter.
+EPEX *Block parameters* sheet not on disk (docs/, Downloads, Desktop, Documents): cap still unknown.
+
 ---
 
 ### Next — next session
