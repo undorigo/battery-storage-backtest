@@ -73,6 +73,8 @@ quantiles *windows:
 # Plans one day at a time, each day ending empty. A few seconds.
 # `just backtest fixed` plans on LEAR's stored 2023 forecasts (needs `just train daily`)
 # and the naive rule's, settles both at real prices: the capture rate.
+# `just backtest bids` sends that LEAR plan as one loop per round, limits from QRA's
+# stored range moved to break-even (needs `just quantiles 28 56 91 182` too).
 backtest what="ceiling":
     {{py}} -m scripts.backtest {{what}}
 

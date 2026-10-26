@@ -184,7 +184,7 @@ def rounds(schedule: pd.DataFrame) -> pd.Series:
 # "strict", each block on its own, leads; "pair", the two together, sits beside it.
 #
 # Real prices decide the fill and the pay, and nothing here returns to a plan
-# (Contract 3).  Where the limits come from is the caller's: one row per round.
+# (Contract 3).  Limits come in as one row per round, from `limits` below or a test.
 
 RULES = ("strict", "pair")
 
@@ -208,3 +208,29 @@ def bid(schedule: pd.DataFrame, actual: pd.Series, limits: pd.DataFrame,
     traded = schedule.copy()
     traded.loc[~kept, ["charge", "discharge", "level"]] = 0.0    # a failed round never happened
     return traded, settle(traded, actual, battery)
+
+
+# ── One buy and one sell limit per round ──────────────────────────────────────
+# Decision side only: the plan, and two hourly prices from the range (decided 26
+# October 2026).  The exchange compares a block's limit with the block's real prices
+# averaged by volume, so each side's limit is the range's prices averaged the same way.
+# Then both move by the same EUR/MWh until the round earns exactly 0 at its limits:
+# no filled round can lose, under either rule, and no safe limit lets more through.
+
+def limits(schedule: pd.DataFrame, buy_at: pd.Series, sell_at: pd.Series,
+           battery: cfg.Battery = cfg.BATTERY) -> pd.DataFrame:
+    """Per round, a buy and a sell limit at which the round would earn exactly 0."""
+    label = rounds(schedule)
+    held = label[label >= 0]
+    for name, at in (("buy_at", buy_at), ("sell_at", sell_at)):
+        missing = held.index.difference(at.dropna().index)
+        if len(missing):                                         # a skipped hour would bend the average
+            raise ValueError(f"{name} has no price for {len(missing)} traded hours, first {missing[0]}")
+    hours = schedule.loc[held.index]
+    bought = hours.charge.groupby(held).sum()
+    sold = hours.discharge.groupby(held).sum()
+    buy = (hours.charge * buy_at.reindex(held.index)).groupby(held).sum() / bought
+    sell = (hours.discharge * sell_at.reindex(held.index)).groupby(held).sum() / sold
+    margin = sold * sell - bought * buy - battery.cycle_cost_eur_per_mwh * sold   # earned at the limits
+    move = margin / (bought + sold)                              # shared out per MWh, both sides
+    return pd.DataFrame({"buy": buy + move, "sell": sell - move})

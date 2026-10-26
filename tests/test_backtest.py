@@ -203,6 +203,66 @@ def test_a_round_without_limits_is_refused():
         BT.bid(TWO_ROUNDS, TWO_PRICES, pd.DataFrame({"buy": [18.0], "sell": [-1e6]}))
 
 
+# ── Limits from a range ───────────────────────────────────────────────────────
+
+def test_limits_average_by_volume_then_meet_at_break_even():
+    # Round 0 buys 1 MWh where the range says 20 and 0.5 where it says 26: 22 by volume
+    # (23 plain).  It sells 1 at 110 and 0.215 at 100: 108.23 by volume (105 plain).
+    # At those limits it would earn 1.215 x 108.23 - 1.5 x 22 - 8 x 1.215 = 88.78 EUR,
+    # shared out over 2.715 MWh: both limits move 32.70 towards each other.
+    # Round 1: buy 1 at 20, sell 0.81 at 90, earns 46.42 at them; 1.81 MWh, 25.65 each.
+    buy_at = berlin_days([0.0, 20.0, 26.0, 0.0, 0.0, 20.0, 0.0])
+    sell_at = berlin_days([0.0, 0.0, 0.0, 110.0, 100.0, 0.0, 90.0])
+    got = BT.limits(TWO_ROUNDS, buy_at, sell_at)
+    assert got.buy.to_numpy() == pytest.approx([22 + 32.6998, 20 + 25.6464], abs=1e-3)
+    assert got.sell.to_numpy() == pytest.approx([108.2305 - 32.6998, 90 - 25.6464], abs=1e-3)
+
+
+def random_bids(seed: int):
+    """Five random days: a plan on a noisy forecast, a range around it, and the real prices."""
+    rng = np.random.default_rng(seed)
+    prices = berlin_days(*(list(rng.normal(80, 60, 24)) for _ in range(5)))
+    forecast = prices + rng.normal(0, 30, len(prices))
+    width = rng.uniform(5, 80, len(prices))                       # often wider than the gap traded
+    schedule = BT.walk(forecast)
+    return schedule, prices, BT.limits(schedule, forecast + width, forecast - width)
+
+
+def test_the_limits_promise_exactly_nothing():
+    for seed in range(5):
+        schedule, _, got = random_bids(seed)
+        label = BT.rounds(schedule)
+        held = label[label >= 0]
+        bought = schedule.charge[held.index].groupby(held).sum()
+        sold = schedule.discharge[held.index].groupby(held).sum()
+        promised = sold * got.sell - bought * got.buy - 8.0 * sold
+        assert promised.to_numpy() == pytest.approx(0, abs=1e-9)
+
+
+def test_no_filled_round_loses_under_either_rule():
+    # The guard: limits that promise 0 mean a round that goes through earned at least 0.
+    # Checked to bite: the wide ranges here would promise a loss on many rounds unmoved.
+    filled = failed = 0
+    for seed in range(5):
+        schedule, prices, got = random_bids(seed)
+        for rule in BT.RULES:
+            traded, earned = BT.bid(schedule, prices, got, rule)
+            label = BT.rounds(schedule)
+            per_round = earned.groupby(label).sum().drop(-1, errors="ignore")
+            kept = set(label[(traded.charge + traded.discharge) > BT.TRADING])
+            assert (per_round[list(kept)] >= -1e-9).all()
+            filled += len(kept)
+            failed += label.max() + 1 - len(kept)
+    assert filled > 0 and failed > 0                              # neither rule passed everything
+
+
+def test_a_traded_hour_without_a_range_price_is_refused():
+    # A missing price would drop out of the volume average and bend the limit quietly.
+    buy_at = berlin_days([0.0, 20.0, 26.0, 0.0, 0.0, 20.0, 0.0]).iloc[:-1]
+    with pytest.raises(ValueError, match="buy_at has no price for 1 traded hours"):
+        BT.limits(TWO_ROUNDS, buy_at, berlin_days([0.0] * 7))
+
+
 # ── The command, to its last line ─────────────────────────────────────────────
 
 def test_the_ceiling_command_runs_on_2023_alone(monkeypatch, capsys):
@@ -260,3 +320,57 @@ def test_the_fixed_command_names_the_run_it_needs(monkeypatch):
     monkeypatch.setattr(TR, "latest", lambda **where: None)
     with pytest.raises(LookupError, match="just train daily"):
         SB.forecasts(pd.DatetimeIndex([], tz="UTC"))
+
+
+def stand_in_run(monkeypatch, range_lear_shift: float = 0.0, backwards: bool = False):
+    """A stand-in 2023 cache, LEAR run and QRA range, LEAR's forecast exactly right
+    (or every price backwards).  The range's p75 and p25 sit on LEAR's forecast."""
+    from scripts import backtest as SB
+    from src import data, tracking as TR
+
+    rng = np.random.default_rng(4)
+    edges = [berlin_days(*(list(rng.normal(80, 60, 24)) for _ in range(3)), start=start)
+             for start in ("2022-12-31", "2023-12-30")]
+    cache = pd.concat(edges)
+    cache[BT.delivery_days(cache.index) == pd.Timestamp("2024-01-01", tz="Europe/Berlin")] = 5000.0
+    monkeypatch.setattr(data, "load", lambda key: cache.to_frame("day_ahead_price"))
+    slots = data.to_slots(SB.actual_prices().to_frame("actual"))["actual"]
+    lear = 160.0 - slots if backwards else slots
+    run = pd.DataFrame({"actual": slots, "lear": lear, "naive_field": 160.0 - slots})
+    band = pd.DataFrame({"lear": lear + range_lear_shift, 75: lear, 25: lear})
+    found = {"lear": "run", "qra": "range"}
+    monkeypatch.setattr(TR, "latest", lambda **where: found[where["model"]])
+    monkeypatch.setattr(TR, "read", lambda run_id: ({"commit": "abc1234"}, run))
+    monkeypatch.setattr(TR, "read_range", lambda run_id: ({"commit": "def5678"}, band))
+    return SB
+
+
+def test_the_bids_command_on_a_perfect_forecast_fills_every_round(monkeypatch, capsys):
+    # Right prices and a range of no width: each round's limits sit on its real averages,
+    # moved apart by its profit, so both blocks clear under either rule: the ceiling.
+    SB = stand_in_run(monkeypatch)
+    assert SB.main(["bids"]) == 0
+    assert "run at abc1234" in capsys.readouterr().out
+    _, range_commit, got = SB.bids(SB.actual_prices())
+    assert range_commit == "def5678"
+    for rule in BT.RULES:
+        assert got[rule]["filled"] == got[rule]["rounds"] > 0
+        assert got[rule]["earned"] == pytest.approx(got["ceiling"]["earned"], abs=1e-6)
+    assert got["ceiling"]["earned"] < 1000 * 4                    # 5,000 EUR never seen
+
+
+def test_the_bids_command_refuses_a_range_built_on_another_forecast(monkeypatch):
+    SB = stand_in_run(monkeypatch, range_lear_shift=0.5)
+    with pytest.raises(ValueError, match="another LEAR forecast"):
+        SB.bids(SB.actual_prices())
+
+
+def test_the_bids_command_counts_a_filled_round_that_lost(monkeypatch):
+    # The count is the alarm for a broken guard, so it must ring when rounds do lose:
+    # a backwards forecast sent with open limits fills every round, many at a loss.
+    SB = stand_in_run(monkeypatch, backwards=True)
+    monkeypatch.setattr(BT, "limits", lambda schedule, buy_at, sell_at: pd.DataFrame(
+        {"buy": 1e6, "sell": -1e6}, index=range(BT.rounds(schedule).max() + 1)))
+    _, _, got = SB.bids(SB.actual_prices())
+    for rule in BT.RULES:
+        assert got[rule]["lost"] > 0
