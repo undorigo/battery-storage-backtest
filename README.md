@@ -116,8 +116,31 @@ confirmed for Germany, and it fills only a subset of what the pair rule fills. O
 limits (QRA's 75th percentile to buy, 25th to sell) the two differ by about 14,000 € on 2023, more
 than the second round is worth, so both are reported. Rejected: one loop per day (both rounds stand
 or fall together); one round only (the papers' rule, 11 points given up, and a second planner to
-build). **Still open:** how the range sets one limit for a block spanning several hours, and the cap
-on loops per day, read word for word.
+build). **Still open:** the cap on loops per day, read word for word.
+
+**Decided 26 October: limits at break-even.** The exchange compares a block's limit with the block's
+real prices averaged by volume, so each limit is the range's prices averaged the same way: QRA's
+75th percentile to buy, 25th to sell (Nitka & Weron 2023's best band, not tuned here). On 2023 that
+average lets through 77.0 % of buy blocks, where one hour at p75 lets through 76.7 %. Then both limits
+move by the same amount until the round would earn exactly 0 at them. No round that goes through can
+lose money, under either rule, and no safe pair of limits lets more through. Rejected: the band as
+published, which promises a loss on 208 of 561 rounds (the range is wider than the gap the battery
+trades; on 31 January pair filled such a round and lost 67 €); dropping those rounds (49.8 % strict);
+picking the best band on 2023. Both papers bid single hours, so neither has a rule for a block.
+
+**The bids' first capture rate: 40,956 € on 2023, 81.0 % of the ceiling under the strict rule;
+46,600 €, 92.2 %, under the pair rule** (`just backtest bids`, a few seconds, reading the stored
+LEAR and QRA runs). Strict sends 366 of LEAR's 561 rounds, pair 519; none of them lost money. **What
+it shows:** limits can only stop trades LEAR's plan chose, never add one, so the most they can gain
+over the fixed schedule (91.0 %) is what its 42 losing rounds lost, 608 €. Under the pair rule,
+break-even limits stop exactly those, whatever the percentiles, so the range plays no part. Under
+the strict rule, many good rounds miss on one side by a few euros: 10 points below sending the plan
+without limits, and the range adds about 1 point over none (LEAR's own forecast moved to break-even,
+79.8 %). **So on 2023 stage 3's range is worth almost nothing as a limit on LEAR's hours.** Where a
+range could still pay is in choosing the hours, which is the stochastic program rejected on 15
+October. **Stated limits:** one year; the backtest fills every loop whose limits were beaten, while
+the exchange may also reject such a block (not checked for loops); which rule Germany applies is
+still unconfirmed, and it moves the answer by 11 points.
 
 **Decided 21 October: every run plans one delivery day at a time.** At 12:00 on D−1 LEAR forecasts day D only; nobody has a forecast for D+1, because the
 grid operators' wind, solar and load forecasts for it come out a day later. On 2023, with LEAR's
@@ -369,7 +392,9 @@ unfilled order is handled as a loop block, buy and sell together or not at all) 
 perfect-foresight ceiling. On 21 October each run was set to plan one day at a time and the
 first capture rate came in. On 22 October the exchange's rules were read from EPEX's own documents,
 each day was set to end empty (LEAR 91.0 %, the naive rule 79.5 %), and the bids' shape was decided:
-one loop per round, the strict fill rule leading. The bids themselves remain.
+one loop per round, the strict fill rule leading. On 26 October the limits were set from the range at
+break-even and the bids' first capture rate came in: 81.0 % strict, 92.2 % pair, against 91.0 % for
+the fixed schedule. A test of whether LEAR's lead over the naive rule is more than chance remains.
 **Stage 2 closed on 14 October**, about a week ahead of that estimate, after running longer than
 first planned: the 24-hour grid, MLflow and the significance test went in front of recalibration.
 The later stages keep their estimates and move forward with it. Stage 4 is the least certain,

@@ -3815,6 +3815,81 @@ can't see tomorrow); 3 not answered (strict drops, pair fills); 4 half right: th
 LEAR lost (error as big as the gap); 5 half: a test sees a bug only if its inputs make it matter.
 EPEX *Block parameters* sheet not on disk (docs/, Downloads, Desktop, Documents): cap still unknown.
 
+#### Step 1: the limits, read and measured before deciding
+
+**The field.** Read through arXiv's HTML pages (the PDFs would not convert here; formulas came
+through a summariser, so the reading of q is inferred). Nitka & Weron 2023: a buy limit at the
+(1−q)-quantile, a sell limit at the q-quantile, q = (1−α)/2 read from a garbled "q=1−α2" (only that
+reading fits their 80 % interval example), α from 0.5 to 0.9; their best model earned most at α 0.5,
+that is p75/p25; one hour per order. Hirsch & Ziel 2026: the same family as their benchmark (buy at
+the (1−α)-quantile, sell at the α-quantile, one hour each); its expected profit can be raised by a
+too-wide forecast, and it ignores how hours move together; their own method picks hours by a risk
+measure over simulated joint days (Gaussian copula), the stochastic program rejected 15 October.
+**Neither has a rule for a block over several hours.**
+
+**One limit for a block.** The exchange compares a block's limit with its real prices averaged by
+volume, so the limit is QRA's percentiles averaged by volume. On LEAR's 561 rounds of 2023 (stored
+range `78b90af8`, built on the identical LEAR forecast, max difference 0.0): at p75 77.0 % of buy
+blocks pass against 76.7 % of single buy hours; p90 91.3 % against 90.8 %. LEAR's hour-to-hour error
+correlation is 0.84, so the average barely narrows. Blocks: 503 rounds buy over 3 hours, 521 sell
+over 2.
+
+**Which percentiles, and the guard (scratch, before deciding).** The field's p75/p25 band promises
+a loss on 208 of 561 rounds (margin 1.8 × sell − 2.22 × buy − 14.40 € below zero). A sweep with that
+band (strict / pair): p50 19.4 / 62.0 %, p75 59.7 / 87.2 %, p90 78.0 / 90.7 %, p99 89.7 / 91.0 %;
+dropping rounds that fail the guard: p75 49.8 / 75.5 %. **Found:** the two surpluses add up to real
+earnings minus the margin, so the pair rule fills a round exactly when it earned at least the
+margin; and loosening limits to a margin of exactly 0 only adds rounds that earn ≥ 0, under either
+rule. Moved to break-even: strict 81.0 % (p75), 80.3 % (p90), 79.8 % (LEAR's own averages, no range);
+pair 92.2 % for every one. The fixed schedule's 42 losing rounds lost 608 €: the most any limits on
+its hours can add.
+
+**Decided with the user, one question each** (the second rephrased in plain words on request):
+1. **One limit per block: the range averaged by volume.** Rejected: QRA refitted on block averages
+   (a new walk per round shape, for a 0.3-point gap); one representative hour (not what the exchange
+   checks).
+2. **Limits at break-even, starting from p75/p25.** Rejected: the band as published (filled rounds
+   can lose; 31 January −67 €); dropping rounds that fail the guard (208 skipped, most of them good);
+   picking the best band on 2023. p90 was shown on 2023 before the choice and did slightly worse.
+
+#### Step 2: built (`27b25c0`)
+
+`backtest.limits(schedule, buy_at, sell_at)`: per round, both sides averaged by volume, then moved
+by the same EUR/MWh to a margin of 0; refuses a traded hour with no range price. `just backtest
+bids` reads the stored LEAR run and QRA range, refuses a range built on another LEAR forecast, and
+counts filled rounds that lost money (the guard's alarm).
+
+**Bids on 2023: strict 40,956 € (81.0 %), 366 of 561 rounds; pair 46,600 € (92.2 %), 519 rounds;
+0 lost money under either.** Ceiling 50,557 €, fixed LEAR 45,992 € (91.0 %), unchanged.
+
+| Planted bug | Caught by |
+|---|---|
+| limits not moved | hand case, margin-zero test, guard test |
+| moved the wrong way | hand case, margin-zero test, guard test |
+| wear left out of the margin | hand case, margin-zero test (**not** the guard test: only losses smaller than the wear slip through) |
+| plain average instead of by volume | hand case |
+| the whole move on the buy side | hand case (margin is still 0) |
+| move shared over MWh bought only | hand case, margin-zero test (limits too safe, so the guard test passes) |
+| no missing-price check | refusal test |
+| no same-forecast check | command refusal test |
+| bids planned on the naive forecast | perfect-forecast command test |
+| bids paid at a forecast | perfect-forecast command test |
+| losing rounds never counted | **survived at first**; caught after adding the backwards-forecast alarm test |
+| 2024 read too | ceiling command test (the bids test's flat 5,000 € day never trades) |
+| **band swapped (buy p25, sell p75)** | **survives**: moving to break-even undoes any band set a constant distance either side of the forecast, so stand-in data cannot see it; only the band's uneven shape reaches the limits |
+
+**Leakage check.** (1) The limits read the plan for D (LEAR's forecast for D) and QRA's p75/p25 for
+D, fitted on days strictly before D (`x.index < day`); D−1's prices were public at ~12:45 on D−2.
+(2) Nothing fitted here; the band is the paper's. (3) Real prices only in `bid`, to fill and pay;
+the command's check compares two forecasts. 292 green.
+
+**Stated limits:** one year; the backtest fills every loop whose limits were beaten, while EUPHEMIA
+may reject a block in the money (not checked for loops); the 11-point gap between the rules rests on
+a rule not confirmed for Germany.
+
+**Plan refreshed (milestone: the bids' first capture rate):** README (*Where this is going*, *Roughly
+when*), the plan page (version 22).
+
 ---
 
 ### Next — next session
