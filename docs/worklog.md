@@ -3890,41 +3890,70 @@ a rule not confirmed for Germany.
 **Plan refreshed (milestone: the bids' first capture rate):** README (*Where this is going*, *Roughly
 when*), the plan page (version 22).
 
+#### Step 3: LEAR's lead in euros, tested (`d7d5ddd`)
+
+Explained before code: the project's Diebold-Mariano test (`_dm_days`, 7-day allowance for runs of
+good and bad days) on each delivery day's earnings gap, rather than a sign test that ignores how
+much a day was won by. `evaluate.dm_earnings(first, second)` takes daily totals by Berlin day;
+`just backtest fixed` prints it. **LEAR earned more than the naive rule on 261 of 365 days, 15.89 €
+a day on average, one-sided p 1.4 × 10⁻¹⁷ (2.7 × 10⁻¹⁹ with no allowance); ahead in every month**
+(162 € in June to 916 € in October).
+
+| Planted bug | Caught by |
+|---|---|
+| gap sign flipped | hand case (p 0.00067), direction test, fixed command test |
+| days not lined up | the only-shared-days test |
+| allowance for runs switched off | **survived**; caught after adding a runs test |
+| command: arguments swapped | fixed command test |
+| command: days cut at UTC midnight | fixed command test |
+
+**The runs test was wrong at first:** runs of 5 good and 5 bad days make days 5–7 apart move in
+opposite directions, which *shrinks* the allowance (p 5.5 × 10⁻⁹ against 3.9 × 10⁻⁶ without it).
+Runs of 21 days, longer than the 7-day window, make it grow. The planted bug was re-run after the
+fix, because its first "catch" was the broken test failing on its own. 296 green.
+
+Leakage check: reads only settled earnings of two finished runs; nothing fitted; no decision path.
+
+**Plan refreshed (milestone: the open significance question closed):** README, plan page (version 23).
+
+**Asked mid-session, answered in plain words:** what "the first loop can fail" means (two loops
+cut at noon on a day whose evening sells night energy: the night loop fails, the evening loop still
+fills, and the backtest is paid for energy never bought); how 22 October's idea (the guard, both
+rules) leads to today's finding; and, rephrased again on request, what "strict leads" means and
+what the guard checks (11 September and 31 January walked through).
+
 ---
 
 ### Next — next session
 
-**Stage 4: build the bids under the decided rule.** Main after this entry's commit, 285 green.
-Ceiling 50,557 € on 2023 (`just backtest ceiling`); fixed schedule LEAR 91.0 %, naive 79.5 %
-(`just backtest fixed`); every run plans one day at a time, each day ending empty. Decided: one
-loop per buy-then-sell round, the day cut where the battery is empty again; the strict fill rule
-leads (each block's surplus in euros ≥ 0), the pair rule (the two together ≥ 0) beside it.
+**Stage 4: decide how it closes.** Main after this entry's commit, 296 green. On 2023: ceiling
+50,557 € (`just backtest ceiling`); fixed schedule LEAR 91.0 %, naive 79.5 %, LEAR's lead p 1.4 × 10⁻¹⁷
+on daily earnings (`just backtest fixed`); bids 81.0 % strict, 92.2 % pair (`just backtest bids`),
+limits from QRA p75/p25 averaged by volume and moved to break-even. Finding: limits only stop
+trades, so on LEAR's hours the range is worth almost nothing as a limit.
 
 #### Recap questions
 
-1. Why is a day cut "where the battery is empty again" rather than at noon, and what goes wrong, in
-   which direction, if two rounds that share energy go out as separate loops?
-2. Ending every day empty is an extra rule, yet it raised the ceiling by 14 €. How can a rule that
-   takes options away raise a total?
-3. 11 September: the buy missed its limit by 3.70 €/MWh, the sell beat its limit by 333 €. Which
-   rule fills it, and why does the other one lead anyway?
-4. Why is the second round worth almost nothing in winter, and why did LEAR's lose money there?
-5. Two tests passed with a planted bug in place: "nothing beats the ceiling" on random prices, and
-   the loop test while its sell limit was wide open. What did each fail to see, and what fixed it?
+1. Why can no choice of price limits lift the bids above 92.2 % on 2023, however good the range?
+2. Under the pair rule, why does it stop mattering which percentiles set the limits, once both are
+   moved to break-even?
+3. With break-even limits no filled round loses, yet the strict rule earns 10 points less than
+   sending the plan with no limits at all. How can a rule that never loses earn less?
+4. Swapping the band (buy at p25, sell at p75) survived every test. Why can't stand-in data see it,
+   and which part of the range does reach the limits?
+5. The runs test first failed with 5 good days, then 5 bad. Why did short runs make the test *less*
+   cautious, and what fixed it?
 
 #### Then, in order
 
-1. **The limits, explained before code.** Settlement is built (`bid`, 23 October): it takes one
-   buy and one sell limit per round. Open: how QRA's range sets one limit for a block spanning
-   several hours (volume-weighted percentile, as in the 22 October illustration, or something the
-   literature names), and which percentiles. Proposed check: the limits must describe a profitable
-   round (1.8 × sell − 2.22 × buy − 14.40 € ≥ 0), so no filled round can lose. Then a command beside
-   `just backtest fixed`, strict as the headline, pair beside it. Plant before claiming; leakage
-   check in writing (limits from QRA's forecast made at 12:00 on D−1 only).
-2. **The block parameters sheet, word for word**, if the user has downloaded it: the cap on loop
-   families for DE-LU (3 or 8). With at most 3 pieces a day on 2023, either suffices; check 2024–25
-   only at the stage's end.
-3. Whether LEAR's lead over the naive rule is more than chance: a test on daily earnings.
-4. Noted, not tasks: capture rate split by ordinary against extreme days; QRA's held-back bands run
-   slightly narrow (80 % held 0.789), which matters now that quantiles become limits; why LEAR's
-   held-back lead grows into 2025; the one-round planner exists only in scratch.
+1. **How stage 4 closes, decided with the user.** The held-back years 2024–25, read once: fixed
+   schedule and bids, strict and pair, against their own ceiling. Check first what is stored (QRA's
+   test range `d248116a` exists, LEAR from July 2023; LEAR's held-back forecasts from `just
+   final-score`) and how many loops a day 2024–25 needs (2023: at most 3).
+2. **CatBoost and Random Forest**, parked until stage 4: ranked by capture rate now, or stay parked?
+   One question, with the cost in hours.
+3. **The block parameters sheet, word for word**, if downloaded: the cap on loops per day (3 or 8).
+4. Noted, not tasks: the backtest fills every loop whose limits were beaten, while EUPHEMIA may
+   reject a block in the money (not checked for loops); the range could still pay in choosing hours
+   (the stochastic program rejected 15 October); capture rate on ordinary against extreme days;
+   QRA's held-back bands run slightly narrow (80 % held 0.789).

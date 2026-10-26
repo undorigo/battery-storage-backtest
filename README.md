@@ -184,8 +184,11 @@ room between the simplest rule and perfect knowledge is only about 20 points —
 most that. **Days above the ceiling:** none. While charge was carried over midnight the naive rule
 beat it on 4 days (113 €), each a day it started with different charge, repaid by the day before;
 on 25 December the ceiling, full from the day before, met a morning that paid buyers up to 13 € and
-had to sell at a loss first. That is what ending each day empty removed. **Stated limits:**
-one year, one fixed schedule, no significance test on the gap yet; the limit-price bids are next.
+had to sell at a loss first. That is what ending each day empty removed. **The lead is not
+chance** (26 October): LEAR earned more than the naive rule on 261 of 365 days, 15.89 € a day on
+average, one-sided p 1.4 × 10⁻¹⁷ by Diebold-Mariano on daily earnings, the test behind every
+p-value here (printed by `just backtest fixed`); it leads in every month. **Stated limits:** one
+year, one fixed schedule.
 
 Two warnings from the literature are carried in: the most accurate ranges did not earn the most
 (Nitka & Weron 2023), and simple quantile bidding rules can be gamed and ignore that a battery's
@@ -394,7 +397,8 @@ first capture rate came in. On 22 October the exchange's rules were read from EP
 each day was set to end empty (LEAR 91.0 %, the naive rule 79.5 %), and the bids' shape was decided:
 one loop per round, the strict fill rule leading. On 26 October the limits were set from the range at
 break-even and the bids' first capture rate came in: 81.0 % strict, 92.2 % pair, against 91.0 % for
-the fixed schedule. A test of whether LEAR's lead over the naive rule is more than chance remains.
+the fixed schedule. LEAR's lead over the naive rule in euros was then tested day by day and is not
+chance (p 1.4 × 10⁻¹⁷). What remains is how the stage closes: the years held back, read once.
 **Stage 2 closed on 14 October**, about a week ahead of that estimate, after running longer than
 first planned: the 24-hour grid, MLflow and the significance test went in front of recalibration.
 The later stages keep their estimates and move forward with it. Stage 4 is the least certain,
