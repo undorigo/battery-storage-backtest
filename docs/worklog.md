@@ -3977,6 +3977,10 @@ settlement unchanged. Found on 2023 and tried once, so the held-back years are i
 **Plan refreshed (decision changing scope):** README (*Where this is going*, *Parked on purpose*,
 *Roughly when*), CLAUDE.md (parked models), the plan page (version 24).
 
+**Asked at the close, answered in plain words:** what fixing the held-back list before looking
+means: why each item is on it, what 2024–25 can show (the average's lead, a sunnier market, the loop
+cap) and what it cannot (a ranking of the three single models), and that the result stands as read.
+
 ---
 
 ### Next — next session
