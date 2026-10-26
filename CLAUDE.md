@@ -81,9 +81,11 @@ refitting monthly rather than once moved the tree from 0.488 to 0.440 on validat
 gain than any choice of algorithm produced. Expanding beat rolling, so the lever is *refit more
 often*, not *forget the crisis*.
 
-**CatBoost and Random Forest are parked until stage 4**, not dropped. Both are reported to trade
-well despite worse error scores, so capture rate may not rank models the way rMAE does. Ranking
-more algorithms on the wrong metric is wasted effort; stage 4 settles whether the two agree.
+**CatBoost and Random Forest were closed on 26 October**, with stage 4's answer: capture rate does
+not rank models the way rMAE does (the straight line, worst by error, earned as much as LEAR on
+2023), but one year cannot separate models within about 1.5 points. What paid was averaging the
+three stored forecasts (93.9 % against 91.0 %), now a candidate beside LEAR. A neural net, the
+field's partner for LEAR, is the member to add if the average is ever extended, after stage 5.
 
 The full plan, with what stage 1 found and roughly when the rest lands, is in the README under
 **Where this is going** — that is the canonical version and this table follows it.

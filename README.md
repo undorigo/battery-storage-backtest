@@ -190,6 +190,25 @@ average, one-sided p 1.4 × 10⁻¹⁷ by Diebold-Mariano on daily earnings, the
 p-value here (printed by `just backtest fixed`); it leads in every month. **Stated limits:** one
 year, one fixed schedule.
 
+**Decided 26 October: money ranks the models, and the average of three is a candidate.** Planned on
+each stored 2023 forecast and paid at real prices (`just backtest fixed`): LEAR 91.0 %, the tree
+90.7 %, the straight line 91.6 %, though the line's error is clearly worst (rMAE 0.615 against 0.504).
+None of these gaps is more than chance (p 0.18 and 0.64 against LEAR): one year of daily earnings
+can only see gaps above about 1.5 points, and the line's 0.6 would need about 7 years. Why error and
+money disagree, tested directly: shifting LEAR's whole forecast by ±20 € moves its earnings by at
+most 0.4 points, and given the true daily level (a hindsight diagnostic) it gains nothing, while
+the true shape of each day takes every model to 99.5–99.8 %. The battery is paid for which hours are
+cheap and dear; the line's extra error is mostly in the level. The field reports the same split
+between error and profit (Spread THieF, arXiv 2609.23223; foundation models for arbitrage, arXiv
+2609.00089), without testing its profit gaps. **The average of the three, hour by hour, keeps 47,485 €,
+93.9 %** (ahead of LEAR on 207 days, behind on 105, p 1.9 × 10⁻⁹): the three miss the shape partly in
+different hours (correlation 0.71–0.78). Equal weights, the field's default, tried once on 2023, so
+the held-back years are its test. **Decided for that reading, before it:** LEAR, the average, the tree
+and the straight line, each as a fixed schedule; the bids on LEAR, strict and pair; the ceiling.
+Rejected: new algorithms in stage 4 (a neural net, CatBoost, Random Forest), because a new member's
+gain to the average would likely sit below what the data can detect, at the cost of a new dependency,
+tuning and daily walks.
+
 Two warnings from the literature are carried in: the most accurate ranges did not earn the most
 (Nitka & Weron 2023), and simple quantile bidding rules can be gamed and ignore that a battery's
 hours depend on each other (Hirsch & Ziel 2026).
@@ -373,7 +392,7 @@ Recorded so the reasoning survives, and so nobody re-opens them without new evid
 
 | Parked | Until | Why |
 |---|---|---|
-| **CatBoost, Random Forest** | stage 4 | Both are reported to trade well despite worse error scores — Random Forest for steadier margins, CatBoost in a week-ahead battery-arbitrage comparison. **Capture rate may not rank models the way rMAE does**, and ranking more algorithms on the wrong metric is wasted effort. Stage 4 settles whether the two agree |
+| **CatBoost, Random Forest** | **closed 26 Oct 2026** | Parked because capture rate may not rank models the way rMAE does. Stage 4 settled it: it does not (on 2023 the straight line, worst by error, earned as much as LEAR and the tree), but one year cannot tell models apart within about 1.5 points, so two more would land in the same unresolved band. They would matter only as members of the average, and as trees they would likely miss in the same hours as ours. A neural net, the field's partner for LEAR (Lago et al. 2021), is the candidate if the average is ever extended: after stage 5, not before |
 | **Experiment tracking (MLflow)** | **unparked 5 Oct 2026**, built 7 Oct 2026 | Parked because no run could be lost: each regenerates in seconds. Reopened by a different question, whether runs can be compared side by side. Stage 2 compares several refitting variants, and the significance test needs every hour's forecast, which the score file does not keep. `reports/scores.csv` stays the record, because it is in git; MLflow is where runs are compared. `just train` now also logs one run per forecast to a local `mlflow.db`, each stating its time convention and keeping the hourly forecasts its score came from (`src/tracking.py`). They live in `reports/mlflow/`, which git ignores: MLflow records this machine's full path inside. View them with `.venv/bin/mlflow ui --backend-store-uri sqlite:///reports/mlflow/mlflow.db --port 5001` and <http://localhost:5001>; on macOS the default port 5000 belongs to AirPlay, which answers 403 |
 | **A second data source for the 37 missing load-forecast days** | closed, not parked | Dropping *all* of 2018 moved the score by nothing, so 888 hours of it cannot matter |
 
@@ -398,7 +417,9 @@ each day was set to end empty (LEAR 91.0 %, the naive rule 79.5 %), and the bids
 one loop per round, the strict fill rule leading. On 26 October the limits were set from the range at
 break-even and the bids' first capture rate came in: 81.0 % strict, 92.2 % pair, against 91.0 % for
 the fixed schedule. LEAR's lead over the naive rule in euros was then tested day by day and is not
-chance (p 1.4 × 10⁻¹⁷). What remains is how the stage closes: the years held back, read once.
+chance (p 1.4 × 10⁻¹⁷). The same day the three stored models were planned side by side: money does
+not rank them as error does, and their average keeps 93.9 %. What remains is the years held back,
+read once, with what gets scored fixed beforehand.
 **Stage 2 closed on 14 October**, about a week ahead of that estimate, after running longer than
 first planned: the 24-hour grid, MLflow and the significance test went in front of recalibration.
 The later stages keep their estimates and move forward with it. Stage 4 is the least certain,

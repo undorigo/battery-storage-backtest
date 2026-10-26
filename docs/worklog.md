@@ -3922,38 +3922,93 @@ fills, and the backtest is paid for energy never bought); how 22 October's idea 
 rules) leads to today's finding; and, rephrased again on request, what "strict leads" means and
 what the guard checks (11 September and 31 January walked through).
 
+#### Step 4: the stored models ranked by money (`2f2f348`)
+
+Asked to continue; order changed first: a model choice must come before the held-back reading
+(Contract 2), so the CatBoost / Random Forest question went ahead of it. Its cheap first step:
+plan on the three stored 2023 forecasts (one `just train daily` batch, `9b2ed8d`). **LEAR 91.0 %,
+tree 90.7 %, straight line 91.6 %**, the line clearly worst by error (rMAE 0.615 against 0.504).
+
+**The user stopped the recommendation twice, rightly.** First: think calmly about why the line won,
+whether the reasons hold, and what could improve. Second, before deciding: why the line does not win
+in other papers, and whether the data is enough. What came out:
+
+- **No win.** Line over LEAR p 0.18 (ahead on 184 days, behind on 158; first stated as 207, ties
+  counted as wins); its 10 best and 10 worst days cancel (+517 / −514 €), months split 7 to 5.
+- **Data not enough to rank the three.** The smallest gap one year detects (80 %, one-sided 5 %):
+  1.4–1.7 points between models; observed 0.2–0.8. The line's +0.83 €/day would need about 7 years.
+  Enough for LEAR against naive (11.5 against 3.4) and for the average against LEAR (3.0 against 1.2).
+- **Level against shape, tested by intervening.** Shifting LEAR by −20 to +20 € moves earnings by
+  ≤ 0.4 points (cycles 584 to 527: losses of 19 % make a high forecast cautious, so the level is
+  cheap, not free; the first explanation said free). Hindsight diagnostics only: the true daily level
+  adds nothing to any model; the true shape takes each to 99.5–99.8 %. The line's extra error is
+  mostly level (13.86 against 10.16 €). The average shape error does not explain the order (the tree
+  has the best, 9.98, and earns least), and the order is noise, so no metric was fitted to it.
+- **The field.** Spread THieF (arXiv 2609.23223, DE and ES 2021–25): accuracy and profit rankings
+  differ, value lies in "the relative evolution of prices within the day"; foundation models for
+  arbitrage (arXiv 2609.00089): "lower statistical errors do not necessarily imply higher cumulative
+  profits". Neither tests its profit gaps. The straight line loses on accuracy there as here; nobody
+  claims it trades best. Not seen: whether ARX beat the plain neural net in Spread THieF.
+- **The average of the three, hour by hour: 47,485 €, 93.9 %**, ahead of LEAR on 207 days, behind on
+  105, p 1.9 × 10⁻⁹; shape errors correlate 0.71–0.78. Plans expected more than they earned: LEAR by
+  906 €, the line 2,227, the tree 3,723 (an optimiser picks hours where the forecast erred low).
+
+**Decided with the user:** (1) the average is a candidate, in `just backtest fixed` beside the three
+and the naive rule; the held-back reading scores, fixed now: LEAR, the average, the tree and the line
+as fixed schedules, the bids on LEAR under both rules, the ceiling. (2) No new algorithms in stage 4:
+a new member's gain to the average would likely sit below the 1.2 points one year detects. CatBoost
+and Random Forest closed; a neural net (the field's LEAR partner) after stage 5.
+
+Built: `forecasts()` reads the three runs of one batch and their mean; each lead tested day by day.
+
+| Planted bug | Caught by |
+|---|---|
+| average of LEAR and the tree only | fixed command test (LEAR and tree miss one way, the line twice as far the other, so only the true mean is exact) |
+| median instead of mean | same |
+| sum divided by 2 | same |
+| the tree read from LEAR's column | same |
+| runs read without the batch filter | same |
+| lead's p reversed | same |
+| ahead and behind swapped | **survived**: the assertion searched the rest of the output, where the tree's line satisfied it; caught once narrowed to the average's own line |
+
+Leakage check: the average is the mean of three forecasts each made at 12:00 on D−1; nothing fitted;
+settlement unchanged. Found on 2023 and tried once, so the held-back years are its test. 296 green.
+
+**Plan refreshed (decision changing scope):** README (*Where this is going*, *Parked on purpose*,
+*Roughly when*), CLAUDE.md (parked models), the plan page (version 24).
+
 ---
 
 ### Next — next session
 
-**Stage 4: decide how it closes.** Main after this entry's commit, 296 green. On 2023: ceiling
-50,557 € (`just backtest ceiling`); fixed schedule LEAR 91.0 %, naive 79.5 %, LEAR's lead p 1.4 × 10⁻¹⁷
-on daily earnings (`just backtest fixed`); bids 81.0 % strict, 92.2 % pair (`just backtest bids`),
-limits from QRA p75/p25 averaged by volume and moved to break-even. Finding: limits only stop
-trades, so on LEAR's hours the range is worth almost nothing as a limit.
+**Stage 4: read the held-back years once.** Main after this entry's commit, 296 green. On 2023
+(`just backtest fixed`, `just backtest bids`): ceiling 50,557 €; fixed schedules LEAR 91.0 %, tree
+90.7 %, straight line 91.6 % (tied), **average of the three 93.9 %** (p 1.9 × 10⁻⁹ over LEAR), naive
+79.5 %; bids on LEAR 81.0 % strict, 92.2 % pair, limits at break-even.
 
 #### Recap questions
 
 1. Why can no choice of price limits lift the bids above 92.2 % on 2023, however good the range?
-2. Under the pair rule, why does it stop mattering which percentiles set the limits, once both are
-   moved to break-even?
-3. With break-even limits no filled round loses, yet the strict rule earns 10 points less than
-   sending the plan with no limits at all. How can a rule that never loses earn less?
-4. Swapping the band (buy at p25, sell at p75) survived every test. Why can't stand-in data see it,
-   and which part of the range does reach the limits?
-5. The runs test first failed with 5 good days, then 5 bad. Why did short runs make the test *less*
-   cautious, and what fixed it?
+2. With break-even limits no filled round loses, yet the strict rule earns 10 points less than
+   sending the plan with no limits. How can a rule that never loses earn less?
+3. The straight line had the worst error and earned as much as LEAR. Which part of its error does
+   the battery hardly pay for, and why is that part not entirely free?
+4. Why does the average of three forecasts earn more than any one of them, and what would a fourth
+   model need to bring to help?
+5. "One year cannot tell the three models apart": what does that mean in euros, and why is the
+   held-back reading still worth doing, and what must be fixed before it?
 
 #### Then, in order
 
-1. **How stage 4 closes, decided with the user.** The held-back years 2024–25, read once: fixed
-   schedule and bids, strict and pair, against their own ceiling. Check first what is stored (QRA's
-   test range `d248116a` exists, LEAR from July 2023; LEAR's held-back forecasts from `just
-   final-score`) and how many loops a day 2024–25 needs (2023: at most 3).
-2. **CatBoost and Random Forest**, parked until stage 4: ranked by capture rate now, or stay parked?
-   One question, with the cost in hours.
-3. **The block parameters sheet, word for word**, if downloaded: the cap on loops per day (3 or 8).
-4. Noted, not tasks: the backtest fills every loop whose limits were beaten, while EUPHEMIA may
-   reject a block in the money (not checked for loops); the range could still pay in choosing hours
-   (the stochastic program rejected 15 October); capture rate on ordinary against extreme days;
-   QRA's held-back bands run slightly narrow (80 % held 0.789).
+1. **The held-back reading, built and run once.** Fixed on 26 October: LEAR, the average, the tree
+   and the straight line as fixed schedules; the bids on LEAR, strict and pair; the ceiling; on
+   2024–25, with each lead tested day by day. Check first what is stored: LEAR `393b88b1`, tree
+   `56ff405b`, line `9a3f131c`, naive `5c06e862` (all `9b2ed8d`), QRA range `d248116a` (`b4b9700`,
+   LEAR from July 2023: must match the plan's LEAR, as on 2023); how many loops a day 2024–25
+   needs (2023: at most 3). Explain before code, plant before claiming, leakage check, no commit
+   during the run, nothing changed after reading.
+2. **The block parameters sheet, word for word**, if downloaded: the cap on loops per day (3 or 8).
+3. Noted, not tasks: the backtest fills every loop whose limits were beaten, while EUPHEMIA may
+   reject a block in the money (not checked for loops); forecasting the day's shape directly
+   (Spread THieF) as a heavier route than averaging; plans expect more than they earn (LEAR by
+   906 €); QRA's held-back bands run slightly narrow (80 % held 0.789).
