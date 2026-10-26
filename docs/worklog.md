@@ -3826,8 +3826,8 @@ leads (each block's surplus in euros ≥ 0), the pair rule (the two together ≥
 3. 11 September: the buy missed its limit by 3.70 €/MWh, the sell beat its limit by 333 €. Which
    rule fills it, and why does the other one lead anyway?
 4. Why is the second round worth almost nothing in winter, and why did LEAR's lose money there?
-5. The test "nothing beats the ceiling" now holds on every day, not only on a day that starts empty.
-   Why, and what did its first version, on random prices, fail to catch?
+5. Two tests passed with a planted bug in place: "nothing beats the ceiling" on random prices, and
+   the loop test while its sell limit was wide open. What did each fail to see, and what fixed it?
 
 #### Then, in order
 
