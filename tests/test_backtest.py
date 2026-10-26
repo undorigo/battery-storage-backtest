@@ -285,10 +285,11 @@ def test_the_ceiling_command_runs_on_2023_alone(monkeypatch, capsys):
     assert SB.ceiling(SB.actual_prices())["best_day"] < 1000      # 5,000 EUR never seen
 
 
-def test_the_fixed_command_plans_on_the_stored_forecast_and_pays_real_prices(monkeypatch, capsys):
-    """Runs `just backtest fixed` on a stand-in cache and a stand-in stored run.
-    A forecast equal to the real prices must score exactly 100 %; one that gets
-    every price backwards must score less; and 1 January 2024 is never read."""
+def test_the_fixed_command_plans_on_the_stored_forecasts_and_pays_real_prices(monkeypatch, capsys):
+    """Runs `just backtest fixed` on a stand-in cache and stand-in stored runs.
+    LEAR and the tree miss the shape one way, the straight line twice as far the
+    other, so only their average is exactly right and must score 100 %; a backwards
+    naive forecast must score less; and 1 January 2024 is never read."""
     from scripts import backtest as SB
     from src import data, tracking as TR
 
@@ -299,19 +300,25 @@ def test_the_fixed_command_plans_on_the_stored_forecast_and_pays_real_prices(mon
     cache[BT.delivery_days(cache.index) == pd.Timestamp("2024-01-01", tz="Europe/Berlin")] = 5000.0
     monkeypatch.setattr(data, "load", lambda key: cache.to_frame("day_ahead_price"))
     slots = data.to_slots(SB.actual_prices().to_frame("actual"))["actual"]
+    miss = pd.Series(40 * np.sin(np.arange(len(slots)) * np.pi / 6), index=slots.index)
     table = pd.DataFrame({"actual": slots + 50.0,                     # wrong on purpose: never paid
-                          "lear": slots, "naive_field": 160.0 - slots})   # perfect, and backwards
-    monkeypatch.setattr(TR, "latest", lambda **where: "run" if where == SB.LEAR_RUN else None)
+                          "lear": slots + miss, "gbm": slots + miss, "linear": slots - 2 * miss,
+                          "naive_field": 160.0 - slots})               # backwards
+    monkeypatch.setattr(TR, "latest", lambda **where: where["model"]
+                        if where == {"model": where["model"], **SB.DAILY} else None)
     monkeypatch.setattr(TR, "read", lambda run: ({"commit": "abc1234"}, table))
 
     assert SB.main(["fixed"]) == 0
     out = capsys.readouterr().out
-    assert "run at abc1234" in out
-    lead = out.split("one-sided p ")[1].split(" ")[0]             # perfect against backwards
-    assert "ahead of the naive rule on 4 of 4 days" in out and float(lead) < 0.05
+    assert "runs at abc1234" in out
+    lead = out.split("LEAR against naive (field): ")[1].split(" p ")[1].split()[0]
+    assert float(lead) < 0.05                                     # a shape miss beats backwards
+    average = out.split("average against LEAR: ")[1].split("\n")[0]
+    assert average.startswith("ahead on 4 days, behind on 0,")      # right every day, LEAR never
     _, got = SB.capture(SB.actual_prices())
-    assert got["LEAR"]["earned"] == pytest.approx(got["ceiling"]["earned"], abs=1e-6)
-    assert got["naive (field)"]["earned"] < got["ceiling"]["earned"]
+    assert got["average"]["earned"] == pytest.approx(got["ceiling"]["earned"], abs=1e-6)
+    for name in ("LEAR", "tree", "straight line", "naive (field)"):
+        assert got[name]["earned"] < got["ceiling"]["earned"] - 1
     assert got["ceiling"]["earned"] < 1000 * 4                    # 5,000 EUR never seen
 
 
@@ -338,9 +345,10 @@ def stand_in_run(monkeypatch, range_lear_shift: float = 0.0, backwards: bool = F
     monkeypatch.setattr(data, "load", lambda key: cache.to_frame("day_ahead_price"))
     slots = data.to_slots(SB.actual_prices().to_frame("actual"))["actual"]
     lear = 160.0 - slots if backwards else slots
-    run = pd.DataFrame({"actual": slots, "lear": lear, "naive_field": 160.0 - slots})
+    run = pd.DataFrame({"actual": slots, "lear": lear, "gbm": slots, "linear": slots,
+                        "naive_field": 160.0 - slots})
     band = pd.DataFrame({"lear": lear + range_lear_shift, 75: lear, 25: lear})
-    found = {"lear": "run", "qra": "range"}
+    found = {"lear": "run", "gbm": "run", "linear": "run", "qra": "range"}
     monkeypatch.setattr(TR, "latest", lambda **where: found[where["model"]])
     monkeypatch.setattr(TR, "read", lambda run_id: ({"commit": "abc1234"}, run))
     monkeypatch.setattr(TR, "read_range", lambda run_id: ({"commit": "def5678"}, band))
@@ -352,7 +360,7 @@ def test_the_bids_command_on_a_perfect_forecast_fills_every_round(monkeypatch, c
     # moved apart by its profit, so both blocks clear under either rule: the ceiling.
     SB = stand_in_run(monkeypatch)
     assert SB.main(["bids"]) == 0
-    assert "run at abc1234" in capsys.readouterr().out
+    assert "runs at abc1234" in capsys.readouterr().out
     _, range_commit, got = SB.bids(SB.actual_prices())
     assert range_commit == "def5678"
     for rule in BT.RULES:

@@ -3,8 +3,9 @@
 `just backtest ceiling` plans the battery on the prices that actually cleared
 and settles it at the same prices: the most the battery could have earned under
 the project's convention, and the 100 % every capture rate divides by.
-`just backtest fixed` plans on LEAR's stored 2023 forecasts instead, the field's
-naive rule beside it, and settles both at real prices: the capture rate.
+`just backtest fixed` plans on the stored 2023 forecasts instead (LEAR, the tree,
+the straight line, their average, the field's naive rule) and settles each at
+real prices: the capture rate.
 `just backtest bids` sends LEAR's plan as one loop per round, with limits from
 QRA's stored range, and settles what went through under each fill rule.
 
@@ -59,28 +60,46 @@ def ceiling(actual: pd.Series) -> dict:
 
 
 # ── The forecasts a fixed schedule is planned on ──────────────────────────────
-# Read back from the stored run, not refitted: LEAR walked through 2023 one day at
-# a time, each forecast made from what was known at 12:00 the day before.  The run
-# keeps the field's naive forecast beside LEAR's, so both come from one file.  Its
-# `actual` column is not used: it sits on the 24-slot grid, where the two autumn
-# 02:00 prices are averaged, and the battery is paid the real ones.
+# Read back from the stored runs, not refitted: each model walked through 2023 one
+# day at a time, each forecast made from what was known at 12:00 the day before.
+# All three come from one `just train daily` batch.  LEAR's run keeps the field's
+# naive forecast beside its own.  The `actual` columns are not used: they sit on the
+# 24-slot grid, where the two autumn 02:00 prices are averaged, and the battery is
+# paid the real ones.
+#
+# The average of the three is a candidate since 26 October 2026: on 2023 it kept
+# 93.9 % against LEAR's 91.0 %, because the money is in the day's shape and the
+# three miss the shape partly in different hours.  Equal weights, as the field
+# averages (Lago et al. 2021), so nothing is tuned on the year it is scored on.
 
-LEAR_RUN = {"model": "lear", "refit": "daily", "lear_window": "1092", "split": "valid"}
-PLANNED_ON = {"LEAR": "lear", "naive (field)": "naive_field"}
+DAILY = {"refit": "daily", "lear_window": "1092", "split": "valid"}
+MODELS = {"LEAR": "lear", "tree": "gbm", "straight line": "linear"}
 
 
 def forecasts(hours: pd.DatetimeIndex) -> tuple[str, dict[str, pd.Series]]:
-    """The stored run's commit, and each forecast laid onto these real hours."""
-    run = TR.latest(**LEAR_RUN)
-    if run is None:
-        raise LookupError("no stored 2023 LEAR run: run `just train daily` first")
-    params, table = TR.read(run)
-    return params["commit"], {name: data.from_slots(table[col], hours)
-                              for name, col in PLANNED_ON.items()}
+    """The stored runs' commits, and each forecast laid onto these real hours."""
+    slots, commits = {}, set()
+    for name, model in MODELS.items():
+        run = TR.latest(model=model, **DAILY)
+        if run is None:
+            raise LookupError(f"no stored 2023 {name} run: run `just train daily` first")
+        params, table = TR.read(run)
+        slots[name] = table[model]
+        commits.add(params["commit"])
+        if model == "lear":
+            naive = table["naive_field"]                         # the benchmark rides in LEAR's run
+    slots["average"] = sum(slots[name] for name in MODELS) / len(MODELS)   # hour by hour
+    slots["naive (field)"] = naive
+    return ", ".join(sorted(commits)), {name: data.from_slots(f, hours) for name, f in slots.items()}
 
 
-# LEAR's lead over the naive rule is one year's total, so it is tested day by day:
-# Diebold-Mariano on daily earnings, the test behind every p-value on this project.
+# A lead is one year's total, so it is tested day by day: Diebold-Mariano on daily
+# earnings, the test behind every p-value on this project.  One year can only see
+# gaps above about 1.5 points between the models (26 October 2026), so a p-value
+# above 0.05 here reads "cannot tell", never "the same".
+
+LEADS = [("LEAR", "naive (field)"), ("average", "LEAR"),
+         ("tree", "LEAR"), ("straight line", "LEAR")]             # each: did the first earn more?
 
 def capture(actual: pd.Series) -> tuple[str, dict]:
     """Earnings per run, the ceiling first, the days a run beat it, and its daily totals."""
@@ -153,7 +172,7 @@ def main(argv: list[str] | None = None) -> int:
     if what == "bids":
         run_commit, range_commit, got = bids(actual_prices())
         ceiling_eur = got["ceiling"]["earned"]
-        print(f"Bids, 2023, at {git_commit()}: LEAR's plan from the run at {run_commit}, limits "
+        print(f"Bids, 2023, at {git_commit()}: LEAR's plan from the runs at {run_commit}, limits "
               f"from QRA p{BAND[0]}/p{BAND[1]} at {range_commit}, moved to break-even, "
               f"{time.time() - started:.1f} s")
         for name, row in got.items():
@@ -165,17 +184,18 @@ def main(argv: list[str] | None = None) -> int:
     if what == "fixed":
         run_commit, got = capture(actual_prices())
         ceiling_eur = got["ceiling"]["earned"]
-        print(f"Fixed schedule, 2023, at {git_commit()}: forecasts from the run at {run_commit}, "
+        print(f"Fixed schedule, 2023, at {git_commit()}: forecasts from the runs at {run_commit}, "
               f"settled at real prices, {time.time() - started:.1f} s")
         for name, row in got.items():
             print(f"  {name:<14} {row['earned']:>10,.0f} EUR  {row['earned'] / ceiling_eur:6.1%}"
                   + (f"   beat the ceiling on {row['days_above']} days, by {row['above_eur']:,.0f} EUR"
                      if name != "ceiling" else ""))
-        lear, naive = got["LEAR"]["per_day"], got["naive (field)"]["per_day"]
-        gap = lear - naive
-        print(f"  LEAR ahead of the naive rule on {(gap > 0).sum()} of {len(gap)} days, "
-              f"by {gap.mean():,.2f} EUR a day; one-sided p {E.dm_earnings(naive, lear):.2g} "
-              f"(Diebold-Mariano on daily earnings)")
+        print("  Day by day (Diebold-Mariano on daily earnings, one-sided p that the first earned more):")
+        for first, second in LEADS:
+            a, b = got[first]["per_day"], got[second]["per_day"]
+            gap = a - b
+            print(f"    {first} against {second}: ahead on {(gap > 1e-6).sum()} days, behind on "
+                  f"{(gap < -1e-6).sum()}, {gap.mean():+,.2f} EUR a day; p {E.dm_earnings(b, a):.2g}")
         return 0
 
     got = ceiling(actual_prices())
