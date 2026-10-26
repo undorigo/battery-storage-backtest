@@ -27,6 +27,7 @@ from scripts.train import git_commit
 from src import backtest as BT
 from src import config as cfg
 from src import data
+from src import evaluate as E
 from src import tracking as TR
 
 
@@ -78,8 +79,11 @@ def forecasts(hours: pd.DatetimeIndex) -> tuple[str, dict[str, pd.Series]]:
                               for name, col in PLANNED_ON.items()}
 
 
+# LEAR's lead over the naive rule is one year's total, so it is tested day by day:
+# Diebold-Mariano on daily earnings, the test behind every p-value on this project.
+
 def capture(actual: pd.Series) -> tuple[str, dict]:
-    """Earnings per run, the ceiling first, and the days a run beat it."""
+    """Earnings per run, the ceiling first, the days a run beat it, and its daily totals."""
     commit, planned = forecasts(actual.index)
     _, best = BT.ceiling(actual)
     best_day = best.groupby(BT.delivery_days(best.index)).sum()
@@ -88,7 +92,8 @@ def capture(actual: pd.Series) -> tuple[str, dict]:
         _, earned = BT.fixed(forecast, actual)
         gap = earned.groupby(BT.delivery_days(earned.index)).sum() - best_day
         above = gap[gap > 1e-6]                                  # days above the ceiling: a bug if any
-        got[name] = {"earned": earned.sum(), "days_above": len(above), "above_eur": above.sum()}
+        got[name] = {"earned": earned.sum(), "days_above": len(above), "above_eur": above.sum(),
+                     "per_day": earned.groupby(BT.delivery_days(earned.index)).sum()}
     return commit, got
 
 
@@ -166,6 +171,11 @@ def main(argv: list[str] | None = None) -> int:
             print(f"  {name:<14} {row['earned']:>10,.0f} EUR  {row['earned'] / ceiling_eur:6.1%}"
                   + (f"   beat the ceiling on {row['days_above']} days, by {row['above_eur']:,.0f} EUR"
                      if name != "ceiling" else ""))
+        lear, naive = got["LEAR"]["per_day"], got["naive (field)"]["per_day"]
+        gap = lear - naive
+        print(f"  LEAR ahead of the naive rule on {(gap > 0).sum()} of {len(gap)} days, "
+              f"by {gap.mean():,.2f} EUR a day; one-sided p {E.dm_earnings(naive, lear):.2g} "
+              f"(Diebold-Mariano on daily earnings)")
         return 0
 
     got = ceiling(actual_prices())

@@ -361,3 +361,39 @@ def test_dm_pinball_drops_an_hour_one_range_lacks_from_both():
     two.loc[gone] = np.nan
     p = E.dm_pinball(one, two, actual)
     assert p == E.dm_pinball(one.drop(gone), two.drop(gone), actual)
+
+
+# ── Diebold-Mariano on earnings ───────────────────────────────────────────────
+
+def earning_days(gap: list[float]) -> tuple[pd.Series, pd.Series]:
+    """Two runs' daily totals, Berlin days, the second ahead by `gap` each day."""
+    days = pd.date_range("2023-03-24", periods=len(gap), freq="D", tz="Europe/Berlin")
+    first = pd.Series(100.0, index=days)
+    return first, first + np.asarray(gap)
+
+
+def test_dm_earnings_is_dm_on_the_daily_gap():
+    # Worked as for point forecasts: gaps 1, 3, 2, 6 have mean 3 and plain spread
+    # 3.5, so the statistic is 3 / sqrt(3.5 / 4) = 3.2071 and p = 0.00067, one-sided.
+    first, second = earning_days([1, 3, 2, 6])
+    assert E.dm_earnings(first, second, lags=0) == pytest.approx(0.000670, abs=1e-6)
+
+
+def test_dm_earnings_says_which_run_earned_more():
+    rng = np.random.default_rng(5)
+    first, second = earning_days(list(5 + rng.normal(0, 20, 200)))
+    assert E.dm_earnings(first, second) < 0.05
+    assert E.dm_earnings(second, first) > 0.95
+
+
+def test_dm_earnings_compares_only_days_both_runs_have():
+    first, second = earning_days([1, 3, 2, 6])
+    padded = pd.concat([first, pd.Series([-1e6], index=[first.index[-1] + pd.Timedelta(days=1)])])
+    assert E.dm_earnings(padded, second, lags=0) == E.dm_earnings(first, second, lags=0)
+
+
+def test_dm_earnings_allows_for_runs_of_good_and_bad_days_by_default():
+    # Three weeks good, three bad, and again: each run looks like 21 days of evidence,
+    # when it is closer to one.  (Runs shorter than the 7-day window can cancel instead.)
+    first, second = earning_days(([12.0] * 21 + [-4.0] * 21) * 3)
+    assert E.dm_earnings(first, second) > E.dm_earnings(first, second, lags=0)

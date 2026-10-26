@@ -247,3 +247,15 @@ def dm_pinball(first: pd.DataFrame, second: pd.DataFrame, actual: pd.Series,
     hours = f.index.intersection(s.index)               # then the hours all three cover
     gap = _pinball_hours(f.loc[hours], a.loc[hours]) - _pinball_hours(s.loc[hours], a.loc[hours])
     return _dm_days(gap, lags)                          # positive where second scored lower
+
+
+# ── Is one schedule's lead in euros real? — Diebold-Mariano on earnings ───────
+# The same test on money: each delivery day's earnings under one forecast minus
+# the other's.  It takes daily totals, not hours, because a day's trades are one
+# decision and the Berlin day is the backtest's to define, not a UTC midnight's.
+# The allowance for runs of good and bad days stays: calm and wild weeks cluster.
+
+def dm_earnings(first: pd.Series, second: pd.Series, lags: int = 7) -> float:
+    """One-sided p-value that `second` earned more than `first`, from daily totals."""
+    f, s = aligned(first, second)                       # the days both cover
+    return _dm_days(s - f, lags)                        # positive where second earned more

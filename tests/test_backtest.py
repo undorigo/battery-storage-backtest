@@ -307,6 +307,8 @@ def test_the_fixed_command_plans_on_the_stored_forecast_and_pays_real_prices(mon
     assert SB.main(["fixed"]) == 0
     out = capsys.readouterr().out
     assert "run at abc1234" in out
+    lead = out.split("one-sided p ")[1].split(" ")[0]             # perfect against backwards
+    assert "ahead of the naive rule on 4 of 4 days" in out and float(lead) < 0.05
     _, got = SB.capture(SB.actual_prices())
     assert got["LEAR"]["earned"] == pytest.approx(got["ceiling"]["earned"], abs=1e-6)
     assert got["naive (field)"]["earned"] < got["ceiling"]["earned"]
