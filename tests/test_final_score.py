@@ -369,3 +369,89 @@ def test_the_ranges_reading_runs_to_its_last_line(tmp_path):
         assert run is not None
         _, kept = TR.read_range(run, db=db)
         assert len(kept) == 21 * 24
+
+
+# ── Stage 4's reading: the battery ────────────────────────────────────────────
+# A stand-in cache around both edges of the held-back years, with 5,000 EUR on the
+# last day before them and the first day after: neither may reach the reading.
+# Stand-in stored runs are found only when asked for by their held-back names, so a
+# reading that slipped back to 2023's runs or range finds nothing.  As in the 2023
+# command's test, LEAR and the tree miss one way and the line twice as far the
+# other, so only the true average plans the ceiling.
+
+def berlin_days(*days: list[float], start: str) -> pd.Series:
+    """Prices given per Berlin delivery day, stored in UTC as `data.load` returns them."""
+    hours = pd.date_range(start, periods=sum(map(len, days)), freq="h", tz="Europe/Berlin")
+    return pd.Series(np.concatenate(days), index=hours.tz_convert("UTC"))
+
+
+def stand_in_battery(monkeypatch, tmp_path):
+    from scripts import backtest as SB
+    from src import backtest as BT
+    from src import data, tracking as TR
+
+    rng = np.random.default_rng(5)
+    cache = pd.concat([berlin_days(*(list(rng.normal(80, 60, 24)) for _ in range(3)), start=start)
+                       for start in ("2023-12-30", "2025-12-30")])
+    day = BT.delivery_days(cache.index)
+    cache[day.isin(pd.DatetimeIndex(["2023-12-31", "2026-01-01"], tz="Europe/Berlin"))] = 5000.0
+    monkeypatch.setattr(data, "load", lambda key: cache.to_frame("day_ahead_price"))
+    held = cache[(day.year >= 2024) & (day.year <= 2025)]
+    slots = data.to_slots(held.to_frame("actual"))["actual"].dropna()
+    miss = pd.Series(40 * np.sin(np.arange(len(slots)) * np.pi / 6), index=slots.index)
+    run = pd.DataFrame({"actual": slots + 50.0,                       # wrong on purpose: never paid
+                        "lear daily": slots + miss, "gbm daily": slots + miss,
+                        "linear daily": slots - 2 * miss, "naive_field": 160.0 - slots})
+    band = pd.DataFrame({"lear": slots + miss, 75: slots + miss, 25: slots + miss})
+    daily = {**SB.DAILY, "split": "test"}
+    qra = {**SB.QRA_RUN, "split": "test"}
+
+    def latest(**where):
+        if where == qra:
+            return "range"
+        return "run" if where == {**daily, "model": where["model"]} and \
+            where["model"].endswith(" daily") else None
+    monkeypatch.setattr(TR, "latest", latest)
+    monkeypatch.setattr(TR, "read", lambda run_id: ({"commit": "abc1234"}, run))
+    monkeypatch.setattr(TR, "read_range", lambda run_id: ({"commit": "def5678"}, band))
+    monkeypatch.setattr(cfg, "CAPTURE_SCORES", tmp_path / "capture_scores.csv")
+    return SB
+
+
+def test_the_battery_reading_reads_2024_25_alone_and_records_what_it_printed(
+        monkeypatch, tmp_path, capsys):
+    SB = stand_in_battery(monkeypatch, tmp_path)
+    assert FS.main(["battery"]) == 0
+    out = capsys.readouterr().out
+    assert "The battery on 2024-25, 3 days" in out                # 1 Jan 2024, 30 and 31 Dec 2025
+    assert "runs at abc1234" in out and "at def5678" in out
+    assert "This is the first reading." in out
+
+    recorded = pd.read_csv(tmp_path / "capture_scores.csv")
+    assert recorded["run"].tolist() == ["ceiling", "LEAR", "tree", "straight line", "average",
+                                        "naive (field)", "bids strict", "bids pair"]
+    assert set(recorded["split"]) == {"test"}
+    assert set(recorded["days"]) == {3}
+    rows = recorded.set_index("run")
+    _, fixed = SB.capture(SB.actual_prices("test"), "test")
+    _, _, bid = SB.bids(SB.actual_prices("test"), "test")
+    for name, row in fixed.items():
+        assert rows.loc[name, "earned"] == pytest.approx(row["earned"])
+    for rule in ("strict", "pair"):
+        assert rows.loc[f"bids {rule}", "earned"] == pytest.approx(bid[rule]["earned"])
+        assert rows.loc[f"bids {rule}", "lost"] == 0
+    assert rows.loc["average", "capture"] == pytest.approx(1.0)   # the true shape: the ceiling
+    assert rows.loc["LEAR", "capture"] < 1.0
+    assert fixed["ceiling"]["earned"] < 1000 * 3                  # 5,000 EUR never seen
+
+
+def test_the_battery_reading_names_the_held_back_run_it_needs(monkeypatch):
+    from scripts import backtest as SB
+    from src import tracking as TR
+
+    monkeypatch.setattr(TR, "latest", lambda **where: None)
+    hours = pd.DatetimeIndex([], tz="UTC")
+    with pytest.raises(LookupError, match="no stored 2024-25 LEAR run: run `just final-score` first"):
+        SB.forecasts(hours, "test")
+    with pytest.raises(LookupError, match="2024-25 QRA range: run `just final-score ranges` first"):
+        SB.ranges(hours, pd.Series(dtype=float), "test")

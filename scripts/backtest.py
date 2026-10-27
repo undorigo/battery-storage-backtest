@@ -12,8 +12,10 @@ QRA's stored range, and settles what went through under each fill rule.
 Nothing here decides anything.  `backtest.py` holds the planner and settlement;
 this file puts them in order and prints what came out.
 
-**The test years are unreachable from here**: only 2023 is handed to the walk,
-and each day is planned on its own prices, so 31 December never reads 1 January 2024.
+**The test years are unreachable from this command**: only 2023 is handed to the
+walk, and each day is planned on its own prices, so 31 December never reads 1 January
+2024.  The functions take the split as an argument for one caller only: `just
+final-score battery`, stage 4's one reading of 2024-25, which runs this same code.
 """
 
 from __future__ import annotations
@@ -37,10 +39,13 @@ from src import tracking as TR
 # and 25.  Checked on 20 October 2026: no hour missing in any split, so the walk's
 # hour-after-hour balance never joins two hours that are not neighbours.
 
-def actual_prices() -> pd.Series:
-    """2023's day-ahead prices, EUR/MWh, on real hours in UTC."""
+PART = {"valid": 1, "test": 2}                                   # which of `cfg.split`'s three
+
+
+def actual_prices(split: str = "valid") -> pd.Series:
+    """One split's day-ahead prices, EUR/MWh, on real hours in UTC: 2023 by default."""
     price = data.load("day_ahead_price").iloc[:, 0]
-    return cfg.split(price)[1]                                   # validation year only
+    return cfg.split(price)[PART[split]]                         # that split only
 
 
 # ── The ceiling, and what to read off it ──────────────────────────────────────
@@ -71,20 +76,26 @@ def ceiling(actual: pd.Series) -> dict:
 # 93.9 % against LEAR's 91.0 %, because the money is in the day's shape and the
 # three miss the shape partly in different hours.  Equal weights, as the field
 # averages (Lago et al. 2021), so nothing is tuned on the year it is scored on.
+#
+# The held-back runs carry their recipe in the name (`lear daily`), because `just
+# final-score` stores a frozen tree and line beside the daily ones; 2023's do not.
 
 DAILY = {"refit": "daily", "lear_window": "1092", "split": "valid"}
 MODELS = {"LEAR": "lear", "tree": "gbm", "straight line": "linear"}
+NEEDS = {"valid": ("2023", "`just train daily`"), "test": ("2024-25", "`just final-score`")}
 
 
-def forecasts(hours: pd.DatetimeIndex) -> tuple[str, dict[str, pd.Series]]:
+def forecasts(hours: pd.DatetimeIndex, split: str = "valid") -> tuple[str, dict[str, pd.Series]]:
     """The stored runs' commits, and each forecast laid onto these real hours."""
     slots, commits = {}, set()
     for name, model in MODELS.items():
-        run = TR.latest(model=model, **DAILY)
+        stored = model if split == "valid" else f"{model} daily"   # the held-back run's name
+        run = TR.latest(model=stored, **{**DAILY, "split": split})
         if run is None:
-            raise LookupError(f"no stored 2023 {name} run: run `just train daily` first")
+            years, command = NEEDS[split]
+            raise LookupError(f"no stored {years} {name} run: run {command} first")
         params, table = TR.read(run)
-        slots[name] = table[model]
+        slots[name] = table[stored]
         commits.add(params["commit"])
         if model == "lear":
             naive = table["naive_field"]                         # the benchmark rides in LEAR's run
@@ -101,9 +112,9 @@ def forecasts(hours: pd.DatetimeIndex) -> tuple[str, dict[str, pd.Series]]:
 LEADS = [("LEAR", "naive (field)"), ("average", "LEAR"),
          ("tree", "LEAR"), ("straight line", "LEAR")]             # each: did the first earn more?
 
-def capture(actual: pd.Series) -> tuple[str, dict]:
+def capture(actual: pd.Series, split: str = "valid") -> tuple[str, dict]:
     """Earnings per run, the ceiling first, the days a run beat it, and its daily totals."""
-    commit, planned = forecasts(actual.index)
+    commit, planned = forecasts(actual.index, split)
     _, best = BT.ceiling(actual)
     best_day = best.groupby(BT.delivery_days(best.index)).sum()
     got = {"ceiling": {"earned": best.sum(), "days_above": 0, "above_eur": 0.0}}
@@ -125,14 +136,18 @@ def capture(actual: pd.Series) -> tuple[str, dict]:
 # to break-even, and under the pair rule the split makes no difference at all.
 
 QRA_RUN = {"model": "qra", "split": "valid", "window": "28+56+91+182"}
+QRA_NEEDS = {"valid": ("2023", "`just quantiles 28 56 91 182`"),
+             "test": ("2024-25", "`just final-score ranges`")}
 BAND = (75, 25)                                                  # buy below p75, sell above p25
 
 
-def ranges(hours: pd.DatetimeIndex, lear: pd.Series) -> tuple[str, pd.Series, pd.Series]:
+def ranges(hours: pd.DatetimeIndex, lear: pd.Series,
+           split: str = "valid") -> tuple[str, pd.Series, pd.Series]:
     """The range run's commit, and its buy and sell percentiles on these real hours."""
-    run = TR.latest(**QRA_RUN)
+    run = TR.latest(**{**QRA_RUN, "split": split})
     if run is None:
-        raise LookupError("no stored 2023 QRA range: run `just quantiles 28 56 91 182` first")
+        years, command = QRA_NEEDS[split]
+        raise LookupError(f"no stored {years} QRA range: run {command} first")
     params, table = TR.read_range(run)
     if not np.allclose(data.from_slots(table["lear"], hours), lear):
         raise ValueError("the stored range was built on another LEAR forecast than the plan's")
@@ -145,10 +160,10 @@ def ranges(hours: pd.DatetimeIndex, lear: pd.Series) -> tuple[str, pd.Series, pd
 # is what the limits did.  A round that went through and lost money is counted,
 # because the limits promise 0: any such round is a bug, as a day above the ceiling is.
 
-def bids(actual: pd.Series) -> tuple[str, str, dict]:
+def bids(actual: pd.Series, split: str = "valid") -> tuple[str, str, dict]:
     """Earnings of the ceiling, the fixed schedule and each fill rule, and what filled."""
-    commit, planned = forecasts(actual.index)
-    range_commit, buy_at, sell_at = ranges(actual.index, planned["LEAR"])
+    commit, planned = forecasts(actual.index, split)
+    range_commit, buy_at, sell_at = ranges(actual.index, planned["LEAR"], split)
     schedule, fixed_earned = BT.fixed(planned["LEAR"], actual)
     limits = BT.limits(schedule, buy_at, sell_at)
     label = BT.rounds(schedule)
@@ -163,6 +178,35 @@ def bids(actual: pd.Series) -> tuple[str, str, dict]:
     return commit, range_commit, got
 
 
+# ── Printing what came out ────────────────────────────────────────────────────
+# Shared with `just final-score battery`, so the held-back reading prints exactly
+# what the 2023 commands print, and nothing a reader could mistake for more.
+
+def show_fixed(got: dict) -> None:
+    """Each run's share of the ceiling, then each lead tested day by day."""
+    ceiling_eur = got["ceiling"]["earned"]
+    for name, row in got.items():
+        print(f"  {name:<14} {row['earned']:>10,.0f} EUR  {row['earned'] / ceiling_eur:6.1%}"
+              + (f"   beat the ceiling on {row['days_above']} days, by {row['above_eur']:,.0f} EUR"
+                 if name != "ceiling" else ""))
+    print("  Day by day (Diebold-Mariano on daily earnings, one-sided p that the first earned more):")
+    for first, second in LEADS:
+        a, b = got[first]["per_day"], got[second]["per_day"]
+        gap = a - b
+        print(f"    {first} against {second}: ahead on {(gap > 1e-6).sum()} days, behind on "
+              f"{(gap < -1e-6).sum()}, {gap.mean():+,.2f} EUR a day; p {E.dm_earnings(b, a):.2g}")
+
+
+def show_bids(got: dict) -> None:
+    """Each fill rule's share of the ceiling, the rounds that went through and lost."""
+    ceiling_eur = got["ceiling"]["earned"]
+    for name, row in got.items():
+        print(f"  {name:<14} {row['earned']:>10,.0f} EUR  {row['earned'] / ceiling_eur:6.1%}"
+              + (f"   {row['filled']} of {row['rounds']} rounds went through, "
+                 f"{row['lost']} lost money" if "filled" in row else "")
+              + ("   <- headline" if name == "strict" else ""))
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Plan, settle and score the battery on 2023.")
     parser.add_argument("what", choices=["ceiling", "fixed", "bids"])
@@ -171,31 +215,16 @@ def main(argv: list[str] | None = None) -> int:
     started = time.time()
     if what == "bids":
         run_commit, range_commit, got = bids(actual_prices())
-        ceiling_eur = got["ceiling"]["earned"]
         print(f"Bids, 2023, at {git_commit()}: LEAR's plan from the runs at {run_commit}, limits "
               f"from QRA p{BAND[0]}/p{BAND[1]} at {range_commit}, moved to break-even, "
               f"{time.time() - started:.1f} s")
-        for name, row in got.items():
-            print(f"  {name:<14} {row['earned']:>10,.0f} EUR  {row['earned'] / ceiling_eur:6.1%}"
-                  + (f"   {row['filled']} of {row['rounds']} rounds went through, "
-                     f"{row['lost']} lost money" if "filled" in row else "")
-                  + ("   <- headline" if name == "strict" else ""))
+        show_bids(got)
         return 0
     if what == "fixed":
         run_commit, got = capture(actual_prices())
-        ceiling_eur = got["ceiling"]["earned"]
         print(f"Fixed schedule, 2023, at {git_commit()}: forecasts from the runs at {run_commit}, "
               f"settled at real prices, {time.time() - started:.1f} s")
-        for name, row in got.items():
-            print(f"  {name:<14} {row['earned']:>10,.0f} EUR  {row['earned'] / ceiling_eur:6.1%}"
-                  + (f"   beat the ceiling on {row['days_above']} days, by {row['above_eur']:,.0f} EUR"
-                     if name != "ceiling" else ""))
-        print("  Day by day (Diebold-Mariano on daily earnings, one-sided p that the first earned more):")
-        for first, second in LEADS:
-            a, b = got[first]["per_day"], got[second]["per_day"]
-            gap = a - b
-            print(f"    {first} against {second}: ahead on {(gap > 1e-6).sum()} days, behind on "
-                  f"{(gap < -1e-6).sum()}, {gap.mean():+,.2f} EUR a day; p {E.dm_earnings(b, a):.2g}")
+        show_fixed(got)
         return 0
 
     got = ceiling(actual_prices())

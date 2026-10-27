@@ -22,7 +22,8 @@ A daily refit learns from held-back days once they are in the past, as a live ru
 on 5 March 2025 with 4 March in hand. What it never sees is the day it forecasts.
 
 **Stage 3's reading is `just final-score ranges`**, a separate run of this file so that
-reading the ranges does not read stage 2's forecasts a second time.
+reading the ranges does not read stage 2's forecasts a second time.  **Stage 4's is `just
+final-score battery`**: the battery planned on what those two readings stored.
 """
 
 from __future__ import annotations
@@ -32,8 +33,10 @@ import time
 
 import pandas as pd
 
+from scripts import backtest as SB                         # stage 4's battery, same code as on 2023
 from scripts import quantiles as Q                         # stage 3's ranges, same code as on 2023
 from scripts.train import git_commit, lear_days, record   # same stamping, same rules
+from src import backtest as BT
 from src import config as cfg
 from src import evaluate as E
 from src import features as F
@@ -185,15 +188,63 @@ def read_ranges() -> int:
     return 0
 
 
+# ── Stage 4: the battery, read once ───────────────────────────────────────────
+# The list was fixed on 26 October 2026, before looking: the ceiling; LEAR, the
+# average, the tree and the line as fixed schedules, naive beside them; the bids on
+# LEAR, strict the headline, pair beside it; each lead tested day by day.  Nothing
+# is refitted: the forecasts and the range are the ones stages 2 and 3 stored from
+# their own readings, and the code is `just backtest`'s, handed 2024-25.
+
+def capture_rows(fixed: dict, bid: dict, days: int) -> list[dict]:
+    """One row per run: what it earned and its share of the ceiling."""
+    ceiling_eur = fixed["ceiling"]["earned"]
+    rows = [{"run": name, "split": SPLIT, "days": days, "earned": row["earned"],
+             "capture": row["earned"] / ceiling_eur, "days_above": row["days_above"]}
+            for name, row in fixed.items()]
+    rows += [{"run": f"bids {rule}", "split": SPLIT, "days": days, "earned": bid[rule]["earned"],
+              "capture": bid[rule]["earned"] / ceiling_eur, "rounds": bid[rule]["rounds"],
+              "filled": bid[rule]["filled"], "lost": bid[rule]["lost"]}
+             for rule in BT.RULES]                    # the ceiling and fixed LEAR: once, above
+    return rows
+
+
+def read_battery() -> int:
+    try:
+        actual = SB.actual_prices(SPLIT)             # real hours, as the battery is paid
+    except FileNotFoundError as exc:
+        print(exc)
+        print("\nNo cached data. Run `just pull` first.")
+        return 2
+
+    started = time.perf_counter()
+    run_commit, fixed = SB.capture(actual, SPLIT)
+    _, range_commit, bid = SB.bids(actual, SPLIT)    # refuses a range on another LEAR forecast
+    days = BT.delivery_days(actual.index).nunique()
+    print(f"The battery on 2024-25, {days} days: forecasts from the runs at {run_commit}, limits "
+          f"from QRA p{SB.BAND[0]}/p{SB.BAND[1]} at {range_commit}, moved to break-even, "
+          f"{time.perf_counter() - started:.0f} s\n")
+    print("Fixed schedules, settled at real prices:")
+    SB.show_fixed(fixed)
+    print("\nBids on LEAR, one loop per round:")
+    SB.show_bids(bid)
+
+    rows = capture_rows(fixed, bid, days)
+    print("\n" + reading_note(record(rows, cfg.CAPTURE_SCORES), len(rows)))
+    return 0
+
+
 # ── Running it ────────────────────────────────────────────────────────────────
-# Two readings, one per stage that has closed: `points` is stage 2's forecasts, the
-# default because it came first; `ranges` is stage 3's.
+# Three readings, one per stage that has closed: `points` is stage 2's forecasts, the
+# default because it came first; `ranges` is stage 3's; `battery` is stage 4's.
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Read the held-back years, once per stage.")
-    parser.add_argument("what", nargs="?", choices=["points", "ranges"], default="points")
-    if parser.parse_args(argv).what == "ranges":
+    parser.add_argument("what", nargs="?", choices=["points", "ranges", "battery"], default="points")
+    what = parser.parse_args(argv).what
+    if what == "ranges":
         return read_ranges()
+    if what == "battery":
+        return read_battery()
 
     try:
         train, valid, holdout = data()
