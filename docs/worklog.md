@@ -4069,6 +4069,26 @@ table; the third early-warning sign now has its instrument).
 
 **Plan refreshed (milestones: the held-back reading, stage 4 closed):** README, the plan page (version 25).
 
+**Asked after the close, answered in plain words:** what the results mean in practice (per year: ceiling
+~67,000 €, fixed LEAR ~62,300, strict bids ~60,400, naive ~56,900; the forecasting work is worth ~5,400 €
+a year over the naive rule, the average ~1,000 more), whether they are reasonable, where the approach is
+simpler than reality (one market, hours not quarter-hours since 1 Oct 2025, price-taker, guessed exchange
+rules, simplified costs), whether it can forecast tomorrow (**no**, checked: the pull stops at
+`PULL_END` = 31 Dec 2025 and re-fetches everything; `complete_rows` drops tomorrow's priceless row; no
+single-day command), and a look back on the project. Then strict against no limits, on 2024–25 from
+the recorded totals: strict stopped losing rounds worth 1,376 € (pair − fixed) and winning rounds worth
+5,197 € (pair − strict), net −3,821 €; so under the strict rule sending the plan without limits pays more.
+
+**Decided with the user, one question each:** (1) three additions, in order: published German battery
+revenues against our euros; a one-page summary at the top of the README; in stage 5, a Streamlit page.
+Rejected: summary first (rewritten if the check finds something), stage 5 first. (2) The page shows past
+results first (a day's forecast, range, real price, plan, earnings; the capture rates), tomorrow's
+forecast once the daily run exists, from a small committed data file (MLflow is not in git). Rejected:
+tomorrow only (nothing to show yet), past results only.
+
+**Plan refreshed (decision changing scope and dates):** README (*Where this is going*, stage table,
+*Roughly when*), CLAUDE.md (stage table), the plan page (version 26).
+
 ---
 
 ### Next — next session
@@ -4093,11 +4113,21 @@ fixed LEAR 93.0 %, average 94.4 % (p 0.00013 over LEAR), naive 84.9 %; ceiling 1
 
 #### Then, in order
 
-1. **Stage 5's first decision: what a scheduled run sends each morning.** LEAR's plan with strict
-   bids (the headline; one daily refit, a range built for it) or the average (more money on both
-   readings; three daily refits, no range of its own). Explain both before asking; one question.
-2. **Stage 5's scope, planned before building**: drift monitoring and a scheduled run, headline
-   "reproducibility". Say what the number is, and what is the least that delivers it (Second Law).
-3. Noted, not tasks: the EPEX *Block parameters* sheet (cap not binding: ≤ 3 loops a day on both
+1. **Our euros against published German battery revenues.** Find figures for day-ahead arbitrage
+   alone, for 2024 and 2025, per MW of a 2-hour battery, and read each source's method before
+   comparing (all markets or day-ahead only, before or after fees, which battery). Our ceiling ~67,000 €
+   a year, fixed LEAR ~62,300, strict bids ~60,400 for 1 MW / 2 MWh. A gap is a finding to explain,
+   not a reason to change anything already read.
+2. **A one-page summary at the top of the README**, for a reader deciding whether to hire: the question,
+   the headline, what held and what did not, the limits, and how to reproduce, before the detail.
+3. **Stage 5's first decision: what a scheduled run sends each morning.** LEAR's plan (one daily refit,
+   a range built for it) or the average (more money on both readings; three daily refits, no range of
+   its own). Under the strict rule, sending without limits earned more on both readings: say so when
+   explaining. One question.
+4. **Stage 5 planned before building**: the daily run (a "tomorrow" command, an incremental pull, a
+   row without a price), drift monitoring, and the Streamlit page, past results first. Streamlit is a
+   new dependency, so `requirements.txt` in the same commit. Say what "reproducibility" measures.
+5. Noted, not tasks: the EPEX *Block parameters* sheet (cap not binding: ≤ 3 loops a day on both
    readings); EUPHEMIA may reject a block in the money; the ceiling solved to HiGHS's default 0.01 %
-   gap; QRA narrow in November–December 2024; why every share rose on 2024–25 (not tested).
+   gap; QRA narrow in November–December 2024; why every share rose on 2024–25 (not tested); the
+   market trades quarter-hours since 1 October 2025, the models hours.

@@ -56,7 +56,7 @@ so a claim can always be traced back to the run that produced it.
 | 2 | Recalibration, LEAR, holidays | **rMAE 0.485** *(0.405 last week)* | **done** 14 Oct 2026 |
 | 3 | Quantile forecasts: QRA on LEAR, conformal beside it | **pinball 4.655** *(QRA, four windows averaged)* | **done** 19 Oct 2026 |
 | 4 | Price-dependent bids and a MILP schedule, revenue | **capture rate 90.1 %** *(bids on LEAR, strict rule; 94.0 % pair)* | **done** 27 Oct 2026 |
-| 5 | Drift monitoring, scheduled run | reproducibility | |
+| 5 | Drift monitoring, scheduled run, a web page | reproducibility | next |
 
 **Read this before any number on this page: the yardstick changed on 15 October 2026, at the
 close of stage 2.** An rMAE is our error divided by a simple rule's error. Until then the rule was
@@ -443,6 +443,16 @@ LEAR's plan with strict bids (the headline, one daily refit, a range built for i
 (more money on both readings, but three daily refits and no range of its own yet). And the first
 thing to watch for drift is already known: QRA's bands ran narrow in the dearest months of 2024.
 
+**Decided 27 October: three additions, in this order.** First, **our euros against published revenue
+figures for German batteries.** Stage 4's numbers have not yet been compared with anything outside this
+project, and everything after builds on them. Second, **a one-page summary at the top of this README**,
+for a reader who wants the result before the detail. Third, in stage 5, **a small web page**
+(Streamlit). Past results come first: pick a day and see the forecast, its range, the real price, the
+battery's plan and what it earned. Tomorrow's forecast follows once the daily run exists. The page
+reads a small data file kept in git, because the stored runs are not, and a clean clone must show the
+same thing. Rejected: the summary first (it would need rewriting if the check finds something); a page
+with tomorrow's forecast only (nothing to show until the daily run is built).
+
 ### Parked on purpose
 
 Recorded so the reasoning survives, and so nobody re-opens them without new evidence.
@@ -478,7 +488,8 @@ chance (p 1.4 × 10⁻¹⁷). The same day the three stored models were planned 
 not rank them as error does, and their average keeps 93.9 %. What remains is the years held back,
 read once, with what gets scored fixed beforehand.
 **Stage 4 closed on 27 October**, the week before the estimate, with that reading: 90.1 % strict as
-the headline, and the average's lead held. Stage 5 keeps its estimate of about a week.
+the headline, and the average's lead held. Before stage 5, about a day: the revenue check and the
+one-page summary (decided 27 October). Stage 5 grows by its web page, to about a week and a half.
 **Stage 2 closed on 14 October**, about a week ahead of that estimate, after running longer than
 first planned: the 24-hour grid, MLflow and the significance test went in front of recalibration.
 The later stages keep their estimates and move forward with it. Stage 4 is the least certain,
@@ -490,7 +501,8 @@ rather than only committing one schedule.
 | 2 | done | 14 October 2026 |
 | 3 | done | 19 October 2026 |
 | 4 | done | 27 October 2026 |
-| 5 | ~1 week | week of 2 November 2026 |
+| 4½ | revenue check, summary: ~1 day | week of 2 November 2026 |
+| 5 | ~1½ weeks | week of 9 November 2026 |
 
 ## Setup
 
