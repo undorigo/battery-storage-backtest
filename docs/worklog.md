@@ -3981,38 +3981,123 @@ settlement unchanged. Found on 2023 and tried once, so the held-back years are i
 means: why each item is on it, what 2024–25 can show (the average's lead, a sunnier market, the loop
 cap) and what it cannot (a ranking of the three single models), and that the result stands as read.
 
+### 27 October 2026
+
+**Recap (all five):** 1 answered another question: spikes explain why the plan misses 100 %, not the
+92.2 % roof (limits can only refuse rounds in the plan; dropping its 42 losing rounds is the most);
+2 right, missing why strict refuses good rounds (each block judged alone); 3 half right: shape named,
+not "level", nor why it is not free (losses bought at the market price); 4 half, cut off: averaging
+cancels only the error the models do not share; 5 first part right, the bigger battery wrong (gaps
+and daily swings scale alike), why read 2024–25 and what to fix first missing. Corrected in writing:
+strict gives up about 5,600 € of gains, first said 5,000. EPEX *Block parameters* sheet not on disk
+(docs/, Downloads, Desktop): cap still unknown.
+
+#### Step 1: checked before any code (decision side only, no 2024–25 price read)
+
+Stored held-back runs, all at `9b2ed8d`: LEAR `393b88b1`, tree `56ff405b`, line `9a3f131c`, naive
+`5c06e862`; each 17,544 slots, no gaps; LEAR's run's naive column equals the naive run. QRA range
+`d248116a` (`b4b9700`): every slot, p75/p25 complete, **its LEAR differs from the plan's by 0.0**.
+LEAR's plan on 2024–25 cuts into 1,103 rounds, **at most 3 a day** (0: 4 days, 1: 355, 2: 368, 3: 4),
+inside either cap reading. No battery number on 2024–25 had been computed before.
+
+#### Decided with the user, one question each
+
+1. **`just final-score battery`**, beside stage 2's and 3's readings; `just backtest` keeps no path
+   to the held-back years. Rejected: `just backtest test` (gives the 2023 command that path).
+2. **A stamped record, `reports/capture_scores.csv`**, through `train.record`, with the first-reading
+   note. Rejected: print only (a second reading would leave no trace in git).
+
+What gets printed was not a choice: the list of 26 October and nothing else (no year or month split).
+
+#### Built (`21a87ba`)
+
+`scripts/backtest.py`: `actual_prices`, `forecasts`, `ranges`, `capture`, `bids` take the split
+(held-back runs are named `lear daily` etc.); printing moved into `show_fixed`, `show_bids`.
+`final_score.read_battery` runs them on `test` and records 8 rows. **2023 reproduced to the euro**
+(91.0 / 90.7 / 91.6 / 93.9 / 79.5 %, p 1.4e-17, bids 81.0 / 92.2 %). Two tests on a stand-in cache
+with 5,000 € on 31 Dec 2023 and 1 Jan 2026, runs found only by their held-back names. 298 green.
+
+| Planted bug | Caught by |
+|---|---|
+| prices read from 2023 | battery reading test |
+| forecasts or range ignore the split | battery reading test |
+| held-back run read by its 2023 name | battery reading test |
+| capture or bids not handed the split | battery reading test |
+| rows labelled valid | battery reading test |
+| share of fixed LEAR, not the ceiling | battery reading test |
+| bid rows carry fixed LEAR's euros | battery reading test |
+| days counted at UTC midnight | battery reading test |
+| missing-run message names 2023's command | names-the-run test |
+
+Leakage check: (1) the plan for D reads the stored forecast for D (daily refits on days before D);
+QRA's range for D learns from days strictly before D; limits read the plan and the range only. (2)
+Nothing fitted: equal weights, the paper's band, break-even from decision-side numbers. (3) Real
+prices only to settle; the stored `actual` column unused; the one forecast-to-forecast comparison
+is the same-LEAR check.
+
+#### The reading, once (run at `21a87ba`, 43 s; recorded `85540a0`)
+
+"8 held-back rows recorded. This is the first reading." 731 days.
+
+| Share of the ceiling | 2023 | 2024–25 |
+|---|---|---|
+| Ceiling | 50,557 € | 134,077 € |
+| **Bids, strict** (803 / 1,103 rounds, 0 lost) | 81.0 % | **90.1 %** |
+| Bids, pair (998 / 1,103, 0 lost) | 92.2 % | 94.0 % |
+| LEAR, fixed | 91.0 % | 93.0 % |
+| Average, fixed | 93.9 % | 94.4 % |
+| Line, fixed | 91.6 % | 92.8 % |
+| Tree, fixed | 90.7 % | 92.2 % |
+| Naive, fixed | 79.5 % | 84.9 % |
+
+Day by day: LEAR over naive 501 / 211 days, +14.78 €/day, p 1.3e-26; **average over LEAR 372 / 224,
++2.67 €/day, p 0.00013**; tree −1.41 €/day, p 0.94; line −0.29 €/day, p 0.63.
+
+**The alarm, explained, nothing changed.** Line and average each "beat the ceiling on 1 day, by 0
+EUR": 8 Apr 2024 by 1.3 cents, 5 Feb 2024 by 0.7 cents, same volume traded. HiGHS stops within its
+default relative gap (1e-4); re-solved with gap 0, the ceiling equals the line and sits 0.4 cents
+above the average. Stated limit: the ceiling may sit up to ~0.01 % low (≤ ~13 € over two years).
+
+**Found on the way:** `.gitignore`'s blanket `*.csv` swallowed the record; unignored like the two
+other score files, in the record's commit.
+
+#### Stage 4 closed (`ae41d0e`)
+
+Headline **capture rate 90.1 %** (bids on LEAR, strict; 94.0 % pair). README (status, stage table,
+*Where stage 4 landed* with what stage 5 starts from, *Roughly when*, structure), CLAUDE.md (stage
+table; the third early-warning sign now has its instrument).
+
+**Plan refreshed (milestones: the held-back reading, stage 4 closed):** README, the plan page (version 25).
+
 ---
 
 ### Next — next session
 
-**Stage 4: read the held-back years once.** Main after this entry's commit, 296 green. On 2023
-(`just backtest fixed`, `just backtest bids`): ceiling 50,557 €; fixed schedules LEAR 91.0 %, tree
-90.7 %, straight line 91.6 % (tied), **average of the three 93.9 %** (p 1.9 × 10⁻⁹ over LEAR), naive
-79.5 %; bids on LEAR 81.0 % strict, 92.2 % pair, limits at break-even.
+**Stage 5 starts.** Main after this entry's commit, 298 green. Stage 4 closed on the held-back years
+(`just final-score battery`, read once at `21a87ba`): strict bids on LEAR **90.1 %**, pair 94.0 %;
+fixed LEAR 93.0 %, average 94.4 % (p 0.00013 over LEAR), naive 84.9 %; ceiling 134,077 €.
 
 #### Recap questions
 
-1. Why can no choice of price limits lift the bids above 92.2 % on 2023, however good the range?
-2. With break-even limits no filled round loses, yet the strict rule earns 10 points less than
-   sending the plan with no limits. How can a rule that never loses earn less?
-3. The straight line had the worst error and earned as much as LEAR. Which part of its error does
-   the battery hardly pay for, and why is that part not entirely free?
-4. Why does the average of three forecasts earn more than any one of them, and what would a fourth
-   model need to bring to help?
-5. "One year cannot tell the three models apart": what does that mean in euros, and why is the
-   held-back reading still worth doing, and what must be fixed before it?
+1. Sending LEAR's plan without limits kept 93.0 % on 2024–25, the strict bids 90.1 %. On 2023 the gap
+   was 10 points, now 2.9. What does the strict rule do that costs money, and what would you check
+   first to learn why it cost less on these years?
+2. The line and the average "beat the ceiling" on one day each. Why was that not a leak, and how was
+   it shown rather than assumed?
+3. Why does the held-back reading live in `final_score.py` rather than `just backtest`, and what does
+   the stamped record protect against?
+4. The average's lead held on 2024–25; the line's 2023 lead over LEAR turned into a deficit. Why is
+   the first a finding and the second not a reversal?
+5. Before the reading, LEAR's plan on 2024–25 was cut into rounds to count loops per day. Why was
+   that safe to do before looking, when settling it was not?
 
 #### Then, in order
 
-1. **The held-back reading, built and run once.** Fixed on 26 October: LEAR, the average, the tree
-   and the straight line as fixed schedules; the bids on LEAR, strict and pair; the ceiling; on
-   2024–25, with each lead tested day by day. Check first what is stored: LEAR `393b88b1`, tree
-   `56ff405b`, line `9a3f131c`, naive `5c06e862` (all `9b2ed8d`), QRA range `d248116a` (`b4b9700`,
-   LEAR from July 2023: must match the plan's LEAR, as on 2023); how many loops a day 2024–25
-   needs (2023: at most 3). Explain before code, plant before claiming, leakage check, no commit
-   during the run, nothing changed after reading.
-2. **The block parameters sheet, word for word**, if downloaded: the cap on loops per day (3 or 8).
-3. Noted, not tasks: the backtest fills every loop whose limits were beaten, while EUPHEMIA may
-   reject a block in the money (not checked for loops); forecasting the day's shape directly
-   (Spread THieF) as a heavier route than averaging; plans expect more than they earn (LEAR by
-   906 €); QRA's held-back bands run slightly narrow (80 % held 0.789).
+1. **Stage 5's first decision: what a scheduled run sends each morning.** LEAR's plan with strict
+   bids (the headline; one daily refit, a range built for it) or the average (more money on both
+   readings; three daily refits, no range of its own). Explain both before asking; one question.
+2. **Stage 5's scope, planned before building**: drift monitoring and a scheduled run, headline
+   "reproducibility". Say what the number is, and what is the least that delivers it (Second Law).
+3. Noted, not tasks: the EPEX *Block parameters* sheet (cap not binding: ≤ 3 loops a day on both
+   readings); EUPHEMIA may reject a block in the money; the ceiling solved to HiGHS's default 0.01 %
+   gap; QRA narrow in November–December 2024; why every share rose on 2024–25 (not tested).
