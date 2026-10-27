@@ -62,7 +62,7 @@ held over midnight is a trade split across two auctions, which no loop block can
 | 1 | First model against naive benchmark | rMAE 0.532 *(last week)* | done 30 Sep 2026 |
 | 2 | Recalibration, LEAR, holidays | **rMAE 0.485** *(0.405 last week)* | done 14 Oct 2026 |
 | 3 | Quantile forecasts: QRA on LEAR, conformal beside it | **pinball 4.655** *(QRA, four windows averaged)* | done 19 Oct 2026 |
-| 4 | Price-dependent bids and MILP schedule, revenue | capture rate | |
+| 4 | Price-dependent bids and MILP schedule, revenue | **capture rate 90.1 %** *(bids on LEAR, strict; 94.0 % pair)* | done 27 Oct 2026 |
 
 **Every rMAE divides by the field's benchmark from the close of stage 2 (15 Oct)** — yesterday's
 price Tue–Fri, last week's Sat–Mon — with last week's beside it in `scores.csv` (`rmae`, while
@@ -358,10 +358,10 @@ check could fail — but it is exactly what a real leak looks like from the insi
 the validation year by 0.044 of rMAE, and on the held-back years the straight-line model beat
 it. The gap had been measured as a near coin toss two days earlier and was not acted on.
 
-The third sign is the one with no instrument yet. Until stage 4 exists there is no capture
-rate to compare an error improvement against — so a forecast that improves on paper cannot
-yet be shown to improve a decision. **That is a stated limit of every number before stage 4,
-not a detail.**
+The third sign has had an instrument since stage 4: the capture rate. It fired at once — on
+2023 the tree's error was clearly better than the straight line's, and it earned less — which is
+why models are now compared by money as well as error. **Every number dated before stage 4 still
+carries the old limit**: an error improvement there cannot be shown to improve a decision.
 
 ### Meta-Law — Conflict Resolution
 

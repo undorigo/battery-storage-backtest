@@ -3,12 +3,13 @@
 Forecasting German day-ahead electricity prices, and measuring what the forecast is
 actually worth to a battery.
 
-**Status:** stage 3 of 6 complete, 19 October 2026; stage 4 next. LEAR, the field's statistical
-benchmark, refitted every day, forecasts the held-back years at **rMAE 0.485** against the field's
-benchmark, 0.405 against a week-old lookup. Around it, a range of 99 percentiles (QRA, averaged over
-four windows) scores **pinball 4.655** on the same years, ahead of the simpler band (4.983,
-p < 0.0001). **The yardstick changed at the close of stage 2** — see the note under the stage table.
-Stage 4, where the forecast becomes a capture rate, is the one the rest exists for.
+**Status:** stage 4 of 6 complete, 27 October 2026; stage 5 next. On the held-back years 2024–25, a
+battery bidding LEAR's plan with price limits keeps **90.1 % of what perfect foresight earns** (the
+strict fill rule; 94.0 % under the looser pair rule). Sent without limits, LEAR's plan keeps 93.0 %,
+the field's naive rule 84.9 %, and **the average of three forecasts 94.4 %**, a lead chosen on 2023
+that held on untouched years (p 0.00013). LEAR forecasts those years at **rMAE 0.485** against the
+field's benchmark, and its range scores **pinball 4.655**. **The yardstick changed at the close of
+stage 2** — see the note under the stage table.
 
 ---
 
@@ -54,7 +55,7 @@ so a claim can always be traced back to the run that produced it.
 | 1 | First model against a naive benchmark | rMAE 0.532 *(last week)* | **done** 30 Sep 2026 |
 | 2 | Recalibration, LEAR, holidays | **rMAE 0.485** *(0.405 last week)* | **done** 14 Oct 2026 |
 | 3 | Quantile forecasts: QRA on LEAR, conformal beside it | **pinball 4.655** *(QRA, four windows averaged)* | **done** 19 Oct 2026 |
-| 4 | Price-dependent bids and a MILP schedule, revenue | **capture rate** | |
+| 4 | Price-dependent bids and a MILP schedule, revenue | **capture rate 90.1 %** *(bids on LEAR, strict rule; 94.0 % pair)* | **done** 27 Oct 2026 |
 | 5 | Drift monitoring, scheduled run | reproducibility | |
 
 **Read this before any number on this page: the yardstick changed on 15 October 2026, at the
@@ -116,7 +117,8 @@ confirmed for Germany, and it fills only a subset of what the pair rule fills. O
 limits (QRA's 75th percentile to buy, 25th to sell) the two differ by about 14,000 € on 2023, more
 than the second round is worth, so both are reported. Rejected: one loop per day (both rounds stand
 or fall together); one round only (the papers' rule, 11 points given up, and a second planner to
-build). **Still open:** the cap on loops per day, read word for word.
+build). **Still open:** the cap on loops per day, read word for word. It does not bind on these
+years: LEAR's plan needs at most 3 loops a day on 2024–25 too.
 
 **Decided 26 October: limits at break-even.** The exchange compares a block's limit with the block's
 real prices averaged by volume, so each limit is the range's prices averaged the same way: QRA's
@@ -386,6 +388,61 @@ earns anything is stage 4's question.
 laptop. A live forecast does one day: about 20–25 seconds for LEAR and the four windows, against
 about 8 for a single window (worked out from measured parts, not timed as one run).
 
+### Where stage 4 landed
+
+**Closed on 27 October 2026, with the held-back years read once** (`just final-score battery`, under a
+minute, reading the forecasts and range stages 2 and 3 stored; rows in `reports/capture_scores.csv`).
+Nothing was refitted, and what would be scored was fixed on 26 October, before looking.
+
+| Share of the ceiling | 2023, validation | 2024–25, held back |
+|---|---|---|
+| Ceiling: perfect foresight, wear included | 50,557 € | 134,077 € |
+| **Bids on LEAR, strict rule** | 81.0 % | **90.1 %** |
+| Bids on LEAR, pair rule | 92.2 % | 94.0 % |
+| LEAR, fixed schedule | 91.0 % | 93.0 % |
+| Average of the three, fixed schedule | 93.9 % | 94.4 % |
+| Straight line, fixed schedule | 91.6 % | 92.8 % |
+| Tree, fixed schedule | 90.7 % | 92.2 % |
+| Naive rule, fixed schedule | 79.5 % | 84.9 % |
+
+**The headline is the strict rule's 90.1 %**: LEAR's plan sent as one loop per round, limits from
+QRA's range moved to break-even, a loop filled only if each of its two orders beat its own limit.
+Strict leads because it can only understate what the battery would have made; the pair rule, stated
+by EPEX only for another auction, sits beside it. Under either rule no round that went through lost
+money (803 and 998 of 1,103 rounds).
+
+**What held.** LEAR beat the naive rule on 501 days and trailed on 211, 14.78 € a day (p 1.3 × 10⁻²⁶).
+**The average of the three beat LEAR on 372 days and trailed on 224**, 2.67 € a day (p 0.00013): found
+on 2023 and confirmed on years nobody had looked at, though smaller than 2023's 4.09 € a day. Limits
+did what 2023 showed: under the pair rule they remove the losing rounds and add 1 point; under the
+strict rule they cost 2.9 points against sending the plan without them (10 on 2023).
+
+**What one more look could not settle.** Neither the tree nor the line earned more than LEAR (p 0.94
+and 0.63). The line, ahead of LEAR on 2023, is behind on 2024–25, and neither gap was ever more than
+chance. Stated before the reading: these years can rank the average against LEAR, not the three
+single models against each other.
+
+**Every share is higher than on 2023**, and the room between the naive rule and perfect foresight
+shrank from 21 points to 15. The ceiling earned 183 € a day against 139 € in 2023. Why is not tested;
+one guess is that bigger, more regular swings within the day, with more solar, make the day's shape
+easier to find.
+
+**One alarm, explained.** The line and the average each beat the ceiling on one day, by 1.3 and 0.7
+cents. The solver stops once it is within 0.01 % of the best plan (its default), and re-solved
+exactly the ceiling is at or above both runs. Not a leak; nothing was changed.
+
+**Stated limits.** Which fill rule Germany applies is unconfirmed, and it moves the answer by 3.9
+points. The backtest fills every loop whose limits were beaten, while the exchange may also reject
+such a block. The bids ride on LEAR, not on the average, because the range was built around LEAR.
+Overnight trades are given up by design. One small battery, assumed too small to move the price.
+Gross trading margin only, as stated under *Honest framing*.
+
+**What stage 5 starts from.** A chain that runs end to end on stored forecasts, every number on this
+page regenerated by a command. Its first decision is what a scheduled run would send each morning:
+LEAR's plan with strict bids (the headline, one daily refit, a range built for it), or the average
+(more money on both readings, but three daily refits and no range of its own yet). And the first
+thing to watch for drift is already known: QRA's bands ran narrow in the dearest months of 2024.
+
 ### Parked on purpose
 
 Recorded so the reasoning survives, and so nobody re-opens them without new evidence.
@@ -420,6 +477,8 @@ the fixed schedule. LEAR's lead over the naive rule in euros was then tested day
 chance (p 1.4 × 10⁻¹⁷). The same day the three stored models were planned side by side: money does
 not rank them as error does, and their average keeps 93.9 %. What remains is the years held back,
 read once, with what gets scored fixed beforehand.
+**Stage 4 closed on 27 October**, the week before the estimate, with that reading: 90.1 % strict as
+the headline, and the average's lead held. Stage 5 keeps its estimate of about a week.
 **Stage 2 closed on 14 October**, about a week ahead of that estimate, after running longer than
 first planned: the 24-hour grid, MLflow and the significance test went in front of recalibration.
 The later stages keep their estimates and move forward with it. Stage 4 is the least certain,
@@ -430,8 +489,8 @@ rather than only committing one schedule.
 |---|---|---|
 | 2 | done | 14 October 2026 |
 | 3 | done | 19 October 2026 |
-| 4 | ~2 weeks | week of 2 November 2026 |
-| 5 | ~1 week | week of 9 November 2026 |
+| 4 | done | 27 October 2026 |
+| 5 | ~1 week | week of 2 November 2026 |
 
 ## Setup
 
@@ -699,11 +758,12 @@ BUILT
   scripts/explore.py         just explore     — headline numbers and the README figures
   scripts/train.py           just train       — score the validation year, as often as you like
   scripts/quantiles.py       just quantiles   — QRA and conformal ranges around LEAR, scored on 2023
-  scripts/final_score.py     just final-score — read the held-back years, once per stage (`ranges`: stage 3)
+  scripts/final_score.py     just final-score — read the held-back years, once per stage (`ranges`: stage 3; `battery`: stage 4)
   scripts/significance.py    just significance — every p-value the README states, from MLflow
   scripts/backtest.py        just backtest    — the battery on 2023 (`ceiling`: perfect foresight; `fixed`: LEAR and naive)
   reports/scores.csv         every scored run, appended, stamped with its commit
   reports/quantile_scores.csv the same for ranges: pinball, coverage, crossing, window
+  reports/capture_scores.csv the same for the battery: earnings and share of the ceiling, 2024-25
 ```
 
 Everything above `features.py` is transport: getting data from ENTSO-E onto disk without
@@ -748,8 +808,9 @@ is not the error metric — it is the point where better forecasts stop converti
 
 Stage 1 has already shown the first half of that. The tree beat the straight-line model on
 the validation year and lost to it on years nothing had been tuned against, which means a
-difference in error that looked real was not. Whether either difference moves a euro is
-stage 4's question.
+difference in error that looked real was not. Stage 4 found the second half: the straight line,
+worst by error, earned about as much as LEAR, because the battery is paid for the day's shape, not
+its level.
 
 ## References
 
