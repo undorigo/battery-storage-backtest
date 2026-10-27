@@ -35,9 +35,11 @@ data/**
 # record of what every run scored, stamped with the commit that produced it. Ignoring
 # it would mean a clean clone starts with no history, which is the opposite of what
 # the file is for. The blanket *.csv above still covers everything else.
-# `quantile_scores.csv` is the same record for stage 3's ranges.
+# `quantile_scores.csv` is the same record for stage 3's ranges, `capture_scores.csv`
+# for stage 4's battery.
 !reports/scores.csv
 !reports/quantile_scores.csv
+!reports/capture_scores.csv
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Model artefacts and experiment tracking
