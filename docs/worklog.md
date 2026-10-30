@@ -4157,6 +4157,22 @@ plain "what each stage found" in its place; every other section (the market, set
 scope, honest framing, references) stays in the README, restyled. The user asked that those sections
 stay; confirmed they would.
 
+#### Step 2b: the rest of the README in the same style
+
+**Decided with the user:** split. The dated record (*Where this is going* through *Roughly when*, 482
+lines) moved word for word to `docs/decisions.md`; the README keeps *How it works* (the chain, the
+three runs in plain words, why the battery and not just the forecast), the stage table, a short
+*What each stage found*, the plan page and *Roughly when*. Rejected: rewriting in place (still ~750
+lines). **The user asked that the lower sections stay** (market, setup, data, running it, structure,
+scope, honest framing, references); all kept, restyled: "plain linear model" for the straight line,
+terms after the plain words, *Setup* renamed *Market, split and battery*, a jump-to line under the
+title. README 952 → ~570 lines. CLAUDE.md: the plan pointer, the Third Law and the refresh order now
+name `docs/decisions.md`. No number changed; no code touched (`significance.py` still says "every
+p-value the README states", now also those in the record).
+
+**Plan refreshed (decision changing the documentation's shape):** README, CLAUDE.md, the plan page
+(version 29).
+
 ---
 
 ### Next — next session

@@ -87,8 +87,10 @@ not rank models the way rMAE does (the straight line, worst by error, earned as 
 three stored forecasts (93.9 % against 91.0 %), now a candidate beside LEAR. A neural net, the
 field's partner for LEAR, is the member to add if the average is ever extended, after stage 5.
 
-The full plan, with what stage 1 found and roughly when the rest lands, is in the README under
-**Where this is going** — that is the canonical version and this table follows it.
+The plan is in the README under **Where this is going** (the stage table, a short plain *What each
+stage found*, *Roughly when*) — that is the canonical version and this table follows it. Every
+decision with its rejected alternatives, and each stage's detailed results, is in `docs/decisions.md`
+(moved there word for word from the README on 30 October, so the README opens with the result).
 
 ---
 
@@ -130,8 +132,8 @@ config files, or dependencies unless the First Law cannot be satisfied without t
 
 ### Third Law — Reproducibility
 
-Any result stated in the README must be reproducible from a clean clone by running a
-documented command. If a number cannot be regenerated, it does not go in the README.
+Any result stated in the README or `docs/decisions.md` must be reproducible from a clean clone by
+running a documented command. If a number cannot be regenerated, it does not go in either.
 
 Data pulls are cached and timestamped. A cached pull is never silently overwritten —
 ENTSO-E revises history, and an overwrite would rewrite the training data underneath
@@ -291,7 +293,9 @@ A milestone is any of these:
 - a decision that changes the plan's order, scope or dates
 - a blocker appearing or clearing
 
-The order is fixed. First update the README's **Where this is going**, because it is canonical. Then
+The order is fixed. First record the decision or result in full in `docs/decisions.md`, then update
+the README's **Where this is going** in plain words (and *In short*, if the headline moves), because
+it is canonical. Then
 rebuild the plan page from it (<https://claude.ai/artifact/Mysse8XGB4exGFykeDcmYm>): the header
 date, the facts line, *Where things stand*, the stage table, the current stage's list and *Roughly
 when*. Then add one line to the work log. Mention the refresh when reporting the milestone.
