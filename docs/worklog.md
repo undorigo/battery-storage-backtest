@@ -4089,6 +4089,54 @@ tomorrow only (nothing to show yet), past results only.
 **Plan refreshed (decision changing scope and dates):** README (*Where this is going*, stage table,
 *Roughly when*), CLAUDE.md (stage table), the plan page (version 26).
 
+### 30 October 2026 (begun 28 October)
+
+**Recap (all five):** 2 right (the cent; missing how it was shown: re-solved at gap 0); 1 half right
+(insurance, yes; missing that strict judges each block alone, and that the first check is euros and
+rounds refused per year: 195 of 561 and ~5,600 € on 2023, 300 of 1,103 and ~2,600 € a year on
+2024–25, while the ceiling grew ~50,600 → ~67,000 € a year); 3 half right (final exam, yes; "wrong
+metrics" no: no path from daily work, and a second reading leaves rows in git); 4 wrong (not regimes:
+the average's lead is clear on two separate periods, the line's never was, p 0.18 and 0.63); 5 not
+understood, explained (the plan is decision-side, the score is not). Written to `docs/learnings.md`.
+
+#### Step 1: our euros against published German battery revenues
+
+Searched, then each source's method read before its number. Ours: day-ahead alone, hourly, 81 %
+round trip, 8 €/MWh wear charged (`backtest.settle`), before fees; ceiling ~67,000 € a year.
+
+| Source | Markets | Battery | Foresight | Costs | Period | Figure |
+|---|---|---|---|---|---|---|
+| PortfolioEnergy, "RTC-Tools (day-ahead only)" | day-ahead | 2 h, rest not stated | not stated | not stated | 2025 | 89 k€/MW/yr |
+| Aurora (solarserver, pv magazine, Feb 2025) | DA, ID, FCR, aFRR | 1 MW / 2 MWh | not stated | not stated | 2024 | 180,000 € |
+| Enervis index (ess-news) | ID, FCR, aFRR | 1 MW / 2 MWh, 87.5 % RT, 1.5 cyc/day | imperfect | not stated | 2024 | ~144 k€/MW/yr (2025 fc 134 k) |
+| enspired / ISEA | all five | 1.22 cyc/day avg | not stated | not stated | Apr–Dec 2024 | ~100–220 k€/MW/yr annualised |
+| Modo | DA, IDA, FCR, aFRR, ×0.80 | 88 % RT, 1.5 cyc/day | auctions perfect | no grid fees | from May 2026 | not our years |
+| Pexapark | DA "arbitrage opportunity" | 2 h | — | — | Jul–Aug 2024 | 274 €/MWh, undefined |
+
+Left out: hobby GitHub repos (their figures changed between two reads: 75.6 / 80.5 / 83.9 k);
+the 50Hertz study (10 MB PDF, no reader installed); a search summary turning "1 MW earned 180,000 €"
+into "90,000 per MW". Shares of a stack ("29 % energy trading", Phelas's "~10 %", Modo's 2026 DA slice)
+not usable: untraced, illustrative, or outside our years.
+
+**Comparable, and what it says.** (1) All-market figures are 2–3× our ceiling, most of it reserve: the
+finding, and a limit now in the README. (2) A day-ahead *share* of a stacked battery understates
+day-ahead alone (reserve holds part of the battery back), so the user's suggestion to read shares off
+the studies was checked and set aside for that reason. (3) One day-ahead-only figure, above our ceiling,
+every known difference pointing that way: a direction. (4) No published figure plans on a forecast.
+
+**ISEA, checked twice.** The user read it as FCR, aFRR and continuous intraday only: right for its
+headline "Cross-Market" ("For now we include FCR, aFRR and intraday continous trading"), but its
+monthly chart also scores DA alone (ENTSO-E, DE-LU, hourly, 90.25 % RT, 1 or 2 cycles, day closed,
+deliberately simple). Its settings pull both ways, so it is a candidate only if our ceiling is re-run
+on them over the overlapping months (from late 2024). Its chart data could not be fetched: calling the
+page's data feed directly was refused as circumventing the site, and not retried.
+
+**Decided with the user:** record as a direction (README *Where stage 4 landed*, *Honest framing*,
+*Roughly when*). Rejected: splitting the ceiling by year now (a new reading of 2024–25, too little
+to reconcile against); building the ISEA check (new code, a second look at 2024–25 prices).
+
+**Plan refreshed (milestone: the revenue check):** README, the plan page (version 27).
+
 ---
 
 ### Next — next session
