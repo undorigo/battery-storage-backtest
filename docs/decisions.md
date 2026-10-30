@@ -489,3 +489,18 @@ rather than only committing one schedule.
 | 4 | done | 27 October 2026 |
 | 4½ | revenue check, summary done 30 Oct; README rewrite ~½ day | week of 2 November 2026 |
 | 5 | ~1½ weeks | week of 9 November 2026 |
+
+### Decided 30 October: what the daily run sends
+
+**The average of the three forecasts, as a fixed plan without limits; LEAR's plan if any of the three
+fails.** Read from numbers already measured, nothing new computed: on 2024–25 the average kept 94.4 %
+of the ceiling, LEAR's plan sent without limits 93.0 %, LEAR's strict bids 90.1 % (94.0 % pair). The
+average's lead over LEAR was found on 2023 and confirmed on 2024–25 (p 0.00013). Under the strict rule,
+limits cost more than they save on both readings: on 2024–25 they avoided 1,376 € of losses and gave
+up 5,197 € of good rounds. The average has no range of its own, so it can only go without limits.
+LEAR's QRA range is still computed each day, for the drift checks, not to set bids. Rejected: LEAR
+with strict bids (the headline, but about 4 points below the average); LEAR without limits (one model
+instead of three, 1.4 points below). **What it changes:** the daily run sends something other than the
+headline configuration; the headline stays as read on 27 October, because it is what was fixed before
+the reading. **Stated limits:** unlimited orders accept any price, so some rounds lose money (already
+inside the 94.4 %); three models are three things that can fail before noon, hence the fallback.

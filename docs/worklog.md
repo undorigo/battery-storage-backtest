@@ -4173,45 +4173,55 @@ p-value the README states", now also those in the record).
 **Plan refreshed (decision changing the documentation's shape):** README, CLAUDE.md, the plan page
 (version 29).
 
+#### Step 3: stage 5's first decision
+
+Explained from numbers already read (no computation): average without limits 94.4 %, LEAR without
+limits 93.0 %, LEAR strict bids 90.1 % (pair 94.0 %); limits under strict cost 5,197 € of good rounds
+to avoid 1,376 € of losses on 2024–25, the same direction on 2023. **Decided with the user: the daily
+run sends the average of the three, without limits, LEAR's plan if any model fails;** LEAR's range
+still computed each day for drift checks. Rejected: LEAR with strict bids (the headline, ~4 points
+below); LEAR without limits (1.4 points below, one model instead of three). The headline stays the
+90.1 % fixed before the reading. Recorded in `docs/decisions.md`, README, plan page.
+
+**Plan refreshed (decision changing stage 5's scope):** README, `docs/decisions.md`, the plan page
+(version 30). Nothing built for stage 5. No code changed today; 298 green.
+
 ---
 
 ### Next — next session
 
-**Stage 5 starts.** Main after this entry's commit, 298 green. Stage 4 closed on the held-back years
-(`just final-score battery`, read once at `21a87ba`): strict bids on LEAR **90.1 %**, pair 94.0 %;
-fixed LEAR 93.0 %, average 94.4 % (p 0.00013 over LEAR), naive 84.9 %; ceiling 134,077 €.
+**Stage 5 starts, its first decision made.** Main after this entry's commit, 298 green. Stage 4 closed
+on 2024–25: strict bids on LEAR **90.1 %** (headline), pair 94.0 %; fixed LEAR 93.0 %, average 94.4 %,
+naive 84.9 %; ceiling 134,077 €. The README now opens with *In short*; the dated record lives in
+`docs/decisions.md`, and the refresh protocol (CLAUDE.md) writes there first.
 
 #### Recap questions
 
-1. Sending LEAR's plan without limits kept 93.0 % on 2024–25, the strict bids 90.1 %. On 2023 the gap
-   was 10 points, now 2.9. What does the strict rule do that costs money, and what would you check
-   first to learn why it cost less on these years?
-2. The line and the average "beat the ceiling" on one day each. Why was that not a leak, and how was
-   it shown rather than assumed?
-3. Why does the held-back reading live in `final_score.py` rather than `just backtest`, and what does
-   the stamped record protect against?
-4. The average's lead held on 2024–25; the line's 2023 lead over LEAR turned into a deficit. Why is
-   the first a finding and the second not a reversal?
-5. Before the reading, LEAR's plan on 2024–25 was cut into rounds to count loops per day. Why was
-   that safe to do before looking, when settling it was not?
+1. Published 2024 figures for a German 2-hour battery run two to three times our perfect-foresight
+   ceiling. Why does that not mean our ceiling is wrong, and why would the day-ahead *share* of such a
+   battery's revenue still not be a fair yardstick for it?
+2. The one day-ahead-only figure (89 k€ per MW, 2025) sits above our ceiling. Name two differences in
+   method that push it up, and say why that makes it a direction rather than a check.
+3. The ISEA index (RWTH Aachen): which part of it leaves the day-ahead out, which part scores it alone,
+   and what would turn it into a real check of our ceiling?
+4. The daily run will send the average without limits, yet the headline stays LEAR's strict bids at
+   90.1 %. Why not move the headline to 94.4 %?
+5. The summary says one day's forecast should take 20–25 seconds, while `just final-score ranges` takes
+   about 4.5 hours. What does the long run do that a daily forecast does not, and why is the 20–25 s
+   an estimate rather than a measurement?
 
 #### Then, in order
 
-1. **Our euros against published German battery revenues.** Find figures for day-ahead arbitrage
-   alone, for 2024 and 2025, per MW of a 2-hour battery, and read each source's method before
-   comparing (all markets or day-ahead only, before or after fees, which battery). Our ceiling ~67,000 €
-   a year, fixed LEAR ~62,300, strict bids ~60,400 for 1 MW / 2 MWh. A gap is a finding to explain,
-   not a reason to change anything already read.
-2. **A one-page summary at the top of the README**, for a reader deciding whether to hire: the question,
-   the headline, what held and what did not, the limits, and how to reproduce, before the detail.
-3. **Stage 5's first decision: what a scheduled run sends each morning.** LEAR's plan (one daily refit,
-   a range built for it) or the average (more money on both readings; three daily refits, no range of
-   its own). Under the strict rule, sending without limits earned more on both readings: say so when
-   explaining. One question.
-4. **Stage 5 planned before building**: the daily run (a "tomorrow" command, an incremental pull, a
-   row without a price), drift monitoring, and the Streamlit page, past results first. Streamlit is a
-   new dependency, so `requirements.txt` in the same commit. Say what "reproducibility" measures.
-5. Noted, not tasks: the EPEX *Block parameters* sheet (cap not binding: ≤ 3 loops a day on both
-   readings); EUPHEMIA may reject a block in the money; the ceiling solved to HiGHS's default 0.01 %
-   gap; QRA narrow in November–December 2024; why every share rose on 2024–25 (not tested); the
-   market trades quarter-hours since 1 October 2025, the models hours.
+1. **Stage 5 planned before building**, one question per decision: the daily run (a "tomorrow" command,
+   an incremental pull, a row without a price yet; it sends the average without limits, LEAR's plan as
+   fallback), drift monitoring (first known signal: QRA's bands narrow in the dearest months), and the
+   Streamlit page, past results first, from a small committed data file. Streamlit is a new dependency:
+   `requirements.txt` in the same commit. Say what "reproducibility" measures, including the full rerun
+   from a fresh clone with a fresh pull (in the README's *Next steps*; ENTSO-E revises history).
+2. Then build in the order decided, smallest piece first.
+3. Noted, not tasks: the ISEA like-for-like ceiling check (our ceiling at 90.25 %, no wear, 2 cycles,
+   over the overlapping months; a second look at 2024–25 prices, so a decision); the 50Hertz battery
+   study (10 MB PDF, unread, no PDF reader installed); the EPEX *Block parameters* sheet (cap not
+   binding: ≤ 3 loops a day); EUPHEMIA may reject a block in the money; the ceiling solved to HiGHS's
+   default 0.01 % gap; why every share rose on 2024–25 (not tested); the market trades quarter-hours
+   since 1 October 2025, the models hours.

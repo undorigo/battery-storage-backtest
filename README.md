@@ -81,7 +81,8 @@ command is still to be built.
 ### Next steps
 
 - **Run it every day.** It can't forecast tomorrow yet: there is no daily data pull and no "tomorrow"
-  command.
+  command. Decided: each morning it sends the average of the three forecasts, without price limits,
+  because that earned the most on both readings; LEAR's plan if one model fails.
 - **Rerun from scratch.** Regenerate these numbers from a fresh copy with freshly pulled data. ENTSO-E
   revises old data, so small differences are possible.
 - **Watch for drift.** Flag when forecasts or ranges start missing more than usual.
@@ -195,6 +196,9 @@ What it found, beyond the headline:
   reserve. No published figure plans on a forecast, so the 90.1 % has no outside counterpart.
 - **One alarm, explained.** Two runs beat the best possible on one day each, by about a cent. That is
   the solver's tolerance; solved exactly, the best possible is never beaten.
+
+**Stage 5, decided so far.** The daily run will send the average of the three forecasts, without
+limits, with LEAR's plan as the fallback. The headline stays the 90.1 % fixed before the reading.
 
 **Reproduce** stage 4 with `just final-score battery`; the 2023 runs with `just backtest ceiling`,
 `fixed` and `bids`; every p-value with `just significance`.
