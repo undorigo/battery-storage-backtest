@@ -3,13 +3,86 @@
 Forecasting German day-ahead electricity prices, and measuring what the forecast is
 actually worth to a battery.
 
-**Status:** stage 4 of 6 complete, 27 October 2026; stage 5 next. On the held-back years 2024–25, a
-battery bidding LEAR's plan with price limits keeps **90.1 % of what perfect foresight earns** (the
-strict fill rule; 94.0 % under the looser pair rule). Sent without limits, LEAR's plan keeps 93.0 %,
-the field's naive rule 84.9 %, and **the average of three forecasts 94.4 %**, a lead chosen on 2023
-that held on untouched years (p 0.00013). LEAR forecasts those years at **rMAE 0.485** against the
-field's benchmark, and its range scores **pinball 4.655**. **The yardstick changed at the close of
-stage 2** — see the note under the stage table.
+## In short
+
+**The question.** A battery must commit tomorrow's charging plan by noon today, before tomorrow's
+prices are known. How much of the possible money does a price forecast actually earn?
+
+**The answer: 90.1 %** of what the battery could have earned if tomorrow's prices had been known.
+Tested on 2024–25, two years kept aside until the end and checked once.
+
+| 1 MW / 2 MWh battery, per year | Earned | Share of the best possible |
+|---|---|---|
+| Best possible: tomorrow's prices known in advance | 67,000 € | 100 % |
+| Average of three forecasts, plan sent as is | 63,300 € | 94.4 % |
+| Main forecast, plan sent as is | 62,300 € | 93.0 % |
+| **Main forecast, plan sent with price limits** | **60,400 €** | **90.1 %** |
+| No forecast: assume tomorrow repeats yesterday | 56,900 € | 84.9 % |
+
+The main forecast is the field's standard method (*LEAR*): one linear model for each hour of the
+day. It squashes price spikes so a few extreme hours can't steer it, and drops the inputs that don't
+help (*LASSO*).
+
+### What held
+
+- **Forecasting pays: about 5,400 € a year** more than assuming tomorrow repeats yesterday. It earned
+  more on 501 days and less on 211, far too many to be luck (p < 10⁻²⁵).
+- **Averaging three forecasts pays about 1,000 € more.** Found on 2023, then confirmed on 2024–25
+  (p 0.0001).
+- **No hindsight.** Every input was public before the auction closed. Code enforces this, and tests
+  were shown to catch leaks planted on purpose. Nothing was tuned after looking at the test years.
+
+### What did not
+
+- **The winner on the practice year lost the final test.** A tree-based model (*gradient boosting*)
+  beat a plain linear model on 2023 and lost to it on 2024–25. Since then, every comparison must pass
+  a significance test.
+- **Smaller error did not mean more money.** The plain linear model, clearly worst by error, earned
+  about as much as the best. A battery is paid for knowing *which hours* are cheap and dear, not how
+  high prices are overall. This was tested directly.
+- **Price limits cost money.** They stop losing trades, but good ones too. Sending the plan without
+  limits earned 93.0 %, against 90.1 % with them.
+
+### Limits
+
+- **One market only: the day-ahead auction.** Across all markets, German batteries earned two to three
+  times our best case in 2024, mostly from grid reserve.
+- **One exchange rule is guessed.** Nobody has confirmed whether the exchange checks each order of a
+  buy-and-sell pair alone or the pair together. Together gives 94.0 %, and we report the cautious 90.1 %.
+- **Hourly prices.** The market moved to 15-minute prices in October 2025.
+- **Simplified money.** A small battery that doesn't move prices. Earnings are before fees, with wear
+  charged at 8 € per MWh.
+- **Two test years.** Enough to rank the average above the main forecast, not to rank the single models
+  against each other.
+
+### Reproduce it
+
+Python 3.11 and a free ENTSO-E account, which provides the data token. Step-by-step setup is under
+[Running it](#running-it).
+
+```bash
+python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
+.venv/bin/python -m pytest tests/ -q     # 298 tests, offline, ~2 min
+just pull                                # the data, ~20 min
+just final-score                         # forecasts for 2024–25, ~40 min
+just final-score ranges                  # their price ranges, ~4.5 h
+just final-score battery                 # the table above, under a minute
+```
+
+**The long runs are a one-off check, not what forecasting costs.** `just final-score` and
+`just final-score ranges` replay two whole years, refitting every day, to regenerate the results.
+Forecasting a single day should take about 20–25 seconds, worked out from measured parts; the daily
+command is still to be built.
+
+### Next steps
+
+- **Run it every day.** It can't forecast tomorrow yet: there is no daily data pull and no "tomorrow"
+  command.
+- **Rerun from scratch.** Regenerate these numbers from a fresh copy with freshly pulled data. ENTSO-E
+  revises old data, so small differences are possible.
+- **Watch for drift.** Flag when forecasts or ranges start missing more than usual.
+- **A web page.** Pick a past day and see the forecast, the real price, the battery's plan and what it
+  earned.
 
 ---
 
@@ -510,8 +583,9 @@ read once, with what gets scored fixed beforehand.
 **Stage 4 closed on 27 October**, the week before the estimate, with that reading: 90.1 % strict as
 the headline, and the average's lead held. Before stage 5, about a day: the revenue check and the
 one-page summary (decided 27 October). The revenue check was done on 30 October, recorded as a
-direction: published figures cover more markets or state too little to reconcile. Stage 5 grows by
-its web page, to about a week and a half.
+direction: published figures cover more markets or state too little to reconcile. The summary at the
+top followed the same day; the rest of this README is to be rewritten in its plain style. Stage 5
+grows by its web page, to about a week and a half.
 **Stage 2 closed on 14 October**, about a week ahead of that estimate, after running longer than
 first planned: the 24-hour grid, MLflow and the significance test went in front of recalibration.
 The later stages keep their estimates and move forward with it. Stage 4 is the least certain,
@@ -523,7 +597,7 @@ rather than only committing one schedule.
 | 2 | done | 14 October 2026 |
 | 3 | done | 19 October 2026 |
 | 4 | done | 27 October 2026 |
-| 4½ | revenue check done 30 Oct; summary ~½ day | week of 2 November 2026 |
+| 4½ | revenue check, summary done 30 Oct; README rewrite ~½ day | week of 2 November 2026 |
 | 5 | ~1½ weeks | week of 9 November 2026 |
 
 ## Setup
@@ -713,14 +787,14 @@ git clone <this repo> && cd battery-storage-backtest
 
 python3 -m venv .venv                              # a project-local environment
 .venv/bin/pip install -r requirements.txt          # once, not per terminal session
-.venv/bin/python -m pytest tests/ -q               # 210 tests, offline, no token
+.venv/bin/python -m pytest tests/ -q               # 298 tests, offline, no token
 ```
 
 That's the whole setup. `pip install` writes into `.venv/` on disk, so it persists — you
 never repeat it unless `requirements.txt` changes, and you never need to "activate"
 anything, because every command below names the interpreter explicitly.
 
-Expect `210 passed`, in a little over a minute.
+Expect `298 passed`, in about two minutes.
 
 ### See it work, without a token
 

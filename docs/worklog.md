@@ -4137,6 +4137,26 @@ to reconcile against); building the ISEA check (new code, a second look at 2024�
 
 **Plan refreshed (milestone: the revenue check):** README, the plan page (version 27).
 
+#### Step 2: the one-page summary
+
+Drafted for a reader deciding whether to hire; shown twice before committing. **The user's changes,
+all taken:** no project jargon unexplained (LEAR said in one line: one linear model per hour, spikes
+squashed, unhelpful inputs dropped; corrected in passing: spikes are squashed by asinh on a median
+ruler, not removed), "plain linear model" for the straight line, Redish sentences, shorter, no stage
+status up front, Krug headings to guide the eye (What held / What did not / Limits / Reproduce it /
+Next steps), "Not yet done" turned into next steps, a link to *Running it*, and a note that the two
+long `final-score` runs are a one-off check, not what a daily forecast costs (one day ~20–25 s,
+estimated from measured parts). Replaces the *Status* paragraph. Found on the way: *Running it* still
+said 210 tests; 298 pass in 1:38 (run today).
+
+**Plan refreshed (milestone: the summary):** README, the plan page (version 28).
+
+**Asked, not yet decided:** the rest of the README in the same style. Proposed: move the dated
+decision diary (*Where this is going*, lines ~47–505) word for word to `docs/decisions.md`, a short
+plain "what each stage found" in its place; every other section (the market, setup, data, structure,
+scope, honest framing, references) stays in the README, restyled. The user asked that those sections
+stay; confirmed they would.
+
 ---
 
 ### Next — next session
