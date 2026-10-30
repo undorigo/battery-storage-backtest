@@ -4186,6 +4186,17 @@ below); LEAR without limits (1.4 points below, one model instead of three). The 
 **Plan refreshed (decision changing stage 5's scope):** README, `docs/decisions.md`, the plan page
 (version 30). Nothing built for stage 5. No code changed today; 298 green.
 
+### 30 October 2026, second session
+
+**Recap (all five):** 1 half right (other markets, yes; missing that reserve holds part of the battery
+back, so its day-ahead slice is biased low); 2 half right (81 % is our round trip, the source states
+none; missing that unstated settings cannot be rebuilt and a figure every difference pushes up cannot
+disagree); 3 half right (the headline also includes continuous intraday; missing the monthly
+day-ahead-only chart and the month-by-month re-run on its settings); 4 not known (90.1 % fixed before
+the reading, the average chosen after); 5 partly right (not "trained once": the replay refits LEAR on
+each of ~913 days; estimate because the parts were timed apart; line and tree not in it). Written to
+`docs/learnings.md`.
+
 ---
 
 ### Next — next session
