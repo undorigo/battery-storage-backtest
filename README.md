@@ -82,7 +82,8 @@ command is still to be built.
 
 - **Run it every day.** It can't forecast tomorrow yet: there is no daily data pull and no "tomorrow"
   command. Decided: each morning it sends the average of the three forecasts, without price limits,
-  because that earned the most on both readings; LEAR's plan if one model fails.
+  because that earned the most on both readings; LEAR's plan if one model fails. First, 2026 so far
+  is replayed and scored once; then a four-week trial runs it each morning.
 - **Rerun from scratch.** Regenerate these numbers from a fresh copy with freshly pulled data. ENTSO-E
   revises old data, so small differences are possible.
 - **Watch for drift.** Flag when forecasts or ranges start missing more than usual.
@@ -131,7 +132,7 @@ claim traces back to the run that produced it.
 | 2 | Retraining every day; LEAR; public holidays | **error 0.485** *(rMAE)* | **done** 14 Oct 2026 |
 | 3 | A price range around each forecast | **pinball 4.655** | **done** 19 Oct 2026 |
 | 4 | The battery: a plan, bids with price limits, earnings | **90.1 % of the best possible** | **done** 27 Oct 2026 |
-| 5 | A daily run, drift checks, a web page | reproducibility | next |
+| 5 | A web page, a daily run, drift checks, a rerun from scratch | reproducibility | **planned** 31 Oct 2026 |
 
 **How forecast error is scored.** Our average miss divided by a simple rule's average miss (*rMAE*):
 below 1 beats the rule. Until 15 October the rule was "same hour last week". Since then it is the
@@ -197,8 +198,27 @@ What it found, beyond the headline:
 - **One alarm, explained.** Two runs beat the best possible on one day each, by about a cent. That is
   the solver's tolerance; solved exactly, the best possible is never beaten.
 
-**Stage 5, decided so far.** The daily run will send the average of the three forecasts, without
-limits, with LEAR's plan as the fallback. The headline stays the 90.1 % fixed before the reading.
+**Stage 5, planned on 31 October.** The daily run will send the average of the three forecasts,
+without limits, with LEAR's plan as the fallback. The headline stays the 90.1 % fixed before the
+reading. The order:
+
+1. **A web page on past results**, published online: pick a day and see the forecasts, the range,
+   the real price, the battery's plan and what it earned. It reads one small file kept in git.
+2. **The data reaches today.** The cache stops at the end of 2025, so ten months of 2026 have been
+   seen by nothing in this project. They are replayed once and scored once, on the same list as
+   stage 4, fixed before looking.
+3. **`just tomorrow`**: each run first fills in yesterday's real prices and earnings, then forecasts
+   tomorrow. The replay and the daily run use the same one-day code, so the replay tests it.
+4. **Drift checks**: a flag when, over 28 days, too few prices land inside the 80 % range, or the
+   error drifts above its usual margin over the simple rule. Thresholds set on 2023 alone.
+5. **A rerun from scratch**, a fresh copy with freshly pulled data, and a command that says how far
+   each number moved. That distance is stage 5's headline (*reproducibility*).
+6. **A four-week trial**: GitHub runs `just tomorrow` each morning before the auction closes, then
+   stops by itself. Each forecast is committed before the price exists, which anyone can check.
+   Four weeks tests the machinery, not the models.
+
+Nothing runs in between: the page sleeps without visitors, the trial has an end date. The full
+record, with what was rejected, is in [docs/decisions.md](docs/decisions.md).
 
 **Reproduce** stage 4 with `just final-score battery`; the 2023 runs with `just backtest ceiling`,
 `fixed` and `bids`; every p-value with `just significance`.
@@ -214,7 +234,7 @@ snapshot. [docs/worklog.md](docs/worklog.md) records both links.
 
 Stages 2 to 4 each closed in the week estimated or earlier. Stage 4 closed on 27 October. On 30
 October the euros were compared with published figures and this README was rewritten in plain
-words. Stage 5 is next.
+words. Stage 5 was planned on 31 October; the page and the 2026 replay add about half a week.
 
 | Stage | Estimate | Ends around |
 |---|---|---|
@@ -222,7 +242,7 @@ words. Stage 5 is next.
 | 3 | done | 19 October 2026 |
 | 4 | done | 27 October 2026 |
 | 4½ | revenue check, summary, README: done 30 Oct | — |
-| 5 | ~1½ weeks | week of 9 November 2026 |
+| 5 | ~2 weeks, then the four-week trial | around 13 November 2026; trial to mid-December |
 
 ## Market, split and battery
 

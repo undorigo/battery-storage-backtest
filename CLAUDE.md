@@ -74,7 +74,7 @@ bids. An unfilled order is settled as a loop block (decided 20 Oct): buy and sel
 together or not at all. One loop per buy-then-sell round, the day cut where the battery is empty
 again; the strict rule leads (each block's surplus in euros at least zero), the pair rule (the two
 together) beside it, because EPEX confirms the pair rule only for another auction (decided 22 Oct).
-| 5 | Drift monitoring, scheduled run, a web page | reproducibility | |
+| 5 | Web page, daily run with a four-week trial, drift checks, rerun from scratch | reproducibility | planned 31 Oct 2026 |
 
 Stage 2 led with "model craft" until 30 September. It now leads with **recalibration**, because
 refitting monthly rather than once moved the tree from 0.488 to 0.440 on validation — a larger

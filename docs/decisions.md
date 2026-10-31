@@ -19,7 +19,7 @@ so a claim can always be traced back to the run that produced it.
 | 2 | Recalibration, LEAR, holidays | **rMAE 0.485** *(0.405 last week)* | **done** 14 Oct 2026 |
 | 3 | Quantile forecasts: QRA on LEAR, conformal beside it | **pinball 4.655** *(QRA, four windows averaged)* | **done** 19 Oct 2026 |
 | 4 | Price-dependent bids and a MILP schedule, revenue | **capture rate 90.1 %** *(bids on LEAR, strict rule; 94.0 % pair)* | **done** 27 Oct 2026 |
-| 5 | Drift monitoring, scheduled run, a web page | reproducibility | next |
+| 5 | A web page, a daily run with a four-week trial, drift checks, a rerun from scratch | reproducibility | **planned** 31 Oct 2026 |
 
 **Read this before any number on this page: the yardstick changed on 15 October 2026, at the
 close of stage 2.** An rMAE is our error divided by a simple rule's error. Until then the rule was
@@ -488,7 +488,7 @@ rather than only committing one schedule.
 | 3 | done | 19 October 2026 |
 | 4 | done | 27 October 2026 |
 | 4½ | revenue check, summary done 30 Oct; README rewrite ~½ day | week of 2 November 2026 |
-| 5 | ~1½ weeks | week of 9 November 2026 |
+| 5 | ~2 weeks, then the four-week trial | around 13 November 2026; trial to mid-December |
 
 ### Decided 30 October: what the daily run sends
 
@@ -504,3 +504,57 @@ instead of three, 1.4 points below). **What it changes:** the daily run sends so
 headline configuration; the headline stays as read on 27 October, because it is what was fixed before
 the reading. **Stated limits:** unlimited orders accept any price, so some rounds lose money (already
 inside the 94.4 %); three models are three things that can fail before noon, hence the fallback.
+
+### Decided 31 October: how stage 5 is built
+
+**The page comes first, then the daily run, then drift checks, then the rerun from scratch.** The page
+is what a visitor sees, and past results are enough to fill it. Ten decisions, each taken with the
+user, alternatives rejected beside them.
+
+**What is already there, found before planning.** The cache ends on 31 December 2025: the pull always
+fetches the whole history to a fixed end, on purpose, so a revision anywhere shows up. So ten months
+of 2026 have been seen by no model and no decision. `features.build()` already gives tomorrow a row
+with forecasts and no price. The repository is public, so a forecast committed before the auction
+closes carries a timestamp anyone can check.
+
+**One rule across every piece: one function forecasts one day.** The 2026 replay and the daily command
+both call it, so ten months of replay are also the test of the daily code.
+
+| Decision | Chosen | Rejected |
+|---|---|---|
+| Order | the page on past results (2023, 2024–25), published; the daily run and drift feed a second version | the daily run first |
+| Where the page lives | Streamlit Community Cloud, from the public repository; it sleeps after 24–72 h without visitors and costs nothing between | local only |
+| Charts | Altair, pinned: it layers price, forecasts, range and the battery's hours in one chart | Plotly (one more library); Streamlit's quick charts (cannot layer) |
+| What the page reads | one ~1 MB parquet for 2023–25 from `just page-data`, committed, its totals tested against `reports/capture_scores.csv` | CSV (~5 MB); 2023 only |
+| How the daily run runs | `just tomorrow` by hand, then a **four-week trial** on a GitHub schedule with its end date inside the job | on demand only (no proof made before noon); scheduled without end (uses resources whether anyone looks) |
+| 2026 | replayed once, 1 January to the last cleared day, **scored once** on stage 4's list, fixed here before looking | warm-up only; left alone |
+| Its data | `just pull recent`: the last two weeks to tomorrow, appended; the full `just pull` still checks all history | the full pull every morning (~20 min) |
+| Drift signals | the share of prices inside the 80 % band, and rMAE against the field's rule, both over 28 days, thresholds set on 2023 alone | money over 28 days (a month cannot separate gaps under ~1.5 points a year cannot) |
+| When one fires | a flag, on the page and in the command's output; nothing switches | falling back to LEAR or naive (the models already refit daily) |
+| The rerun from scratch | a fresh clone and pull in a separate folder, the README's *Reproduce it* list, a committed command that reports how far each number and the raw data moved | compared by hand (cannot be regenerated); Docker now (no sign yet that the operating system matters) |
+
+**What the 2026 replay scores, fixed before it runs:** stage 4's list unchanged. The ceiling; the
+average, LEAR, the tree, the line and naive as fixed plans; LEAR's bids under the strict and the pair
+rule; each lead tested day by day. Read once, by `just final-score 2026`, its rows marked as the first
+reading. A new constant `LIVE_START = "2026-01-01"` in `config.py`; the split dates do not change, so
+every published number stays valid, and a test shows the 2018–2025 frames unchanged once the cache
+reaches 2026.
+
+**Each morning settles before it forecasts.** The auction for day T clears at about 12:45 on T−1, so on
+the morning of T, when tomorrow is forecast, T's prices are out. `just tomorrow` downloads the recent
+end, fills in the price, the error, whether the price fell inside the band and what the plan earned
+for the rows that now have one, then writes tomorrow's row. The trial asks: does the live run behave
+like the replay? It cannot rank models: four weeks is one window of the drift signals. Each run also
+records whether tomorrow's wind and solar forecast was already published (open item 12, on real
+mornings).
+
+**What "reproducibility" measures**, stage 5's headline. Whether a stranger following the README from
+scratch gets our numbers, at three levels: the same machine and data give the same numbers; a fresh
+clone with a fresh pull lands within a stated distance (ENTSO-E revises old data, so the answer is a
+size, not yes or no); every forecast the daily run sent traces to the commit and the data it was made
+from. The rerun counts as a second look at 2024–25, so it writes only inside its own folder.
+
+**Stated limits.** The 2026 replay uses forecasts as published now, not as they stood each morning;
+the trial's rows are the first that record what was known at the time. Stage 5 closes when the trial
+is switched on; its four weeks are reported when it ends. The estimate grows by the page and the
+replay, from about 1½ to about 2 weeks.

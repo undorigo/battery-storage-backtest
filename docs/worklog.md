@@ -4197,6 +4197,12 @@ the reading, the average chosen after); 5 partly right (not "trained once": the 
 each of ~913 days; estimate because the parts were timed apart; line and tree not in it). Written to
 `docs/learnings.md`.
 
+**Stage 5 planned, nothing built** (ten decisions with the user, in `docs/decisions.md` *Decided 31
+October*): the page first on 2023–25, then 2026 replayed and scored once, `just tomorrow` (settles
+yesterday, then forecasts), two drift flags, a rerun from scratch, a four-week trial. **Plan refreshed
+(milestone: stage 5's scope and dates):** `docs/decisions.md`, README, CLAUDE.md, the plan page
+(version 31).
+
 ---
 
 ### Next — next session
