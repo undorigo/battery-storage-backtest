@@ -102,6 +102,10 @@ final-score what="points":
 page-data:
     {{py}} -m scripts.page_data
 
+# The web page, on this machine: opens in the browser. Reads only reports/page.parquet.
+page:
+    {{py}} -m streamlit run streamlit_app.py
+
 # Clear caches and compiled files. Leaves data and the venv alone.
 clean:
     -find . -path ./.venv -prune -o -name '__pycache__' -type d -exec rm -rf {} + 2>/dev/null

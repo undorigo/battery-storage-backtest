@@ -66,7 +66,8 @@ Each file answers exactly one question. If you can't say which, it is doing too 
 | | `src/features.py` | What does the model get to look at? | **built** |
 | | `src/models.py` | What will tomorrow's prices be? | built |
 | | `src/evaluate.py` | How good was it? | built |
-| | `src/backtest.py` | What should the battery do, and what did that earn? | planned |
+| | `src/backtest.py` | What should the battery do, and what did that earn? | built |
+| | `src/tracking.py` | Which run produced this forecast, and where is it kept? | built |
 | **Buttons** | `scripts/pull.py` | Go and get the data. | built |
 | | `scripts/verify_forecast_series.py` | Are these series really forecasts? | built |
 | | `scripts/explore.py` | What does the record actually contain? | built |
@@ -74,8 +75,11 @@ Each file answers exactly one question. If you can't say which, it is doing too 
 | | `scripts/quantiles.py` | How far from LEAR's forecast might the price land? | built |
 | | `scripts/final_score.py` | How did it do on the years nobody has touched? | built |
 | | `scripts/significance.py` | Is each gap the README claims bigger than luck? | built |
+| | `scripts/backtest.py` | What did the battery earn on 2023? | built |
+| | `scripts/page_data.py` | What does the web page need, from what was stored? | built |
+| **Page** | `streamlit_app.py` | What is the forecast worth, shown to a visitor? | built |
 
-Eleven of twelve exist. `backtest.py` is a name and an intention, nothing more.
+All exist. The page reads one committed file and imports nothing from `src/` but the settings, so it runs where the stored runs and the data cache do not.
 
 **Why the last two are separate files rather than one with a flag.** Contract 2 allows the
 held-back years to be scored once per stage, and a promise in a docstring would not survive a
