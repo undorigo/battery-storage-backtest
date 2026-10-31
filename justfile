@@ -96,6 +96,12 @@ significance:
 final-score what="points":
     {{py}} -m scripts.final_score {{what}}
 
+# The web page's data: every hour of 2023-25 with its forecasts, range, plans and
+# earnings, rebuilt from the stored runs into reports/page.parquet. Offline, about a minute.
+# Needs the runs `just backtest bids` and `just final-score battery` read.
+page-data:
+    {{py}} -m scripts.page_data
+
 # Clear caches and compiled files. Leaves data and the venv alone.
 clean:
     -find . -path ./.venv -prune -o -name '__pycache__' -type d -exec rm -rf {} + 2>/dev/null

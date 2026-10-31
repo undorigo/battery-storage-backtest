@@ -141,8 +141,8 @@ QRA_NEEDS = {"valid": ("2023", "`just quantiles 28 56 91 182`"),
 BAND = (75, 25)                                                  # buy below p75, sell above p25
 
 
-def ranges(hours: pd.DatetimeIndex, lear: pd.Series,
-           split: str = "valid") -> tuple[str, pd.Series, pd.Series]:
+def ranges(hours: pd.DatetimeIndex, lear: pd.Series, split: str = "valid",
+           band: tuple[int, int] = BAND) -> tuple[str, pd.Series, pd.Series]:
     """The range run's commit, and its buy and sell percentiles on these real hours."""
     run = TR.latest(**{**QRA_RUN, "split": split})
     if run is None:
@@ -151,7 +151,7 @@ def ranges(hours: pd.DatetimeIndex, lear: pd.Series,
     params, table = TR.read_range(run)
     if not np.allclose(data.from_slots(table["lear"], hours), lear):
         raise ValueError("the stored range was built on another LEAR forecast than the plan's")
-    buy, sell = BAND
+    buy, sell = band                                             # the web page asks for 90 / 10
     return params["commit"], data.from_slots(table[buy], hours), data.from_slots(table[sell], hours)
 
 

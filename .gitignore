@@ -36,10 +36,12 @@ data/**
 # it would mean a clean clone starts with no history, which is the opposite of what
 # the file is for. The blanket *.csv above still covers everything else.
 # `quantile_scores.csv` is the same record for stage 3's ranges, `capture_scores.csv`
-# for stage 4's battery.
+# for stage 4's battery. `page.parquet` is what the web page shows: MLflow stays local,
+# so without it a clean clone, and the hosted page, would have nothing to draw.
 !reports/scores.csv
 !reports/quantile_scores.csv
 !reports/capture_scores.csv
+!reports/page.parquet
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Model artefacts and experiment tracking
