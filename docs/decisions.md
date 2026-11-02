@@ -600,3 +600,5 @@ forecast" and the other names now carry a plain explanation behind a "?", and a 
 forecasts work*. **Rejected:** a chart of the money left to win (decided text only: the page states
 the ~3,700 € a year between the average and the maximum in words); charts of other markets'
 published figures (different methods, units and years).
+**Open:** the user is not yet sure about the two charts side by side; revisited at the start of
+the next session.

@@ -4211,42 +4211,60 @@ without context (money first, *the maximum*, the 94 % in its own box, all-days e
 day); an empty battery chart that only a real browser showed, now pinned by a test. **Plan refreshed
 (milestone: the page published):** `docs/decisions.md`, README, the plan page (version 32). 307 green.
 
+**The page revised a second time** (`7c2eb07`), after the user read it again. *Our forecast* and the
+other names now carry a plain explanation behind a "?", plus a panel *How our forecasts work*. One
+claim in it was checked first: the average ranked a day's hours better than LEAR alone on 62 % of
+days (2024–25) and 68 % (2023). Part 2's four equal bars (a chart cannot show "nothing changes")
+became two dot charts side by side on one scale: days sorted by how far off the prices were (flat,
+~97 %) and by how well the hours were ranked (90 → 99 %). The two example days are drawn in place,
+chosen by the order measure (3 September 2024: off by 47 €, kept 100 %; 22 February 2025: off by 9 €,
+kept 78 %), because the buttons had changed a day out of sight and looked broken. *Three averaged*
+renamed in full; two labels the browser cut off fixed. **Decided with the user:** what comes next stays
+text only (other markets' published figures differ in method, units and years); the ~3,700 € a year
+between the average and the maximum is stated in words. **Open: the user is not yet sure about the two
+charts side by side in Part 2.** Revisited first thing next session. Two new page tests, each failed
+by a planted bug; 308 green. Every page change is now captured in a real browser before reporting
+(Playwright in the scratchpad, not in the project).
+
 ---
 
 ### Next — next session
 
-**Stage 5 starts, its first decision made.** Main after this entry's commit, 298 green. Stage 4 closed
-on 2024–25: strict bids on LEAR **90.1 %** (headline), pair 94.0 %; fixed LEAR 93.0 %, average 94.4 %,
-naive 84.9 %; ceiling 134,077 €. The README now opens with *In short*; the dated record lives in
-`docs/decisions.md`, and the refresh protocol (CLAUDE.md) writes there first.
+**Stage 5 under way: steps 1–3 done, the page live** at <https://battery-storage-backtest-aqevrymuvf2pb9jrjpmxc9.streamlit.app/>. Main after this entry's commit, 308
+green. Headline unchanged: strict bids on LEAR **90.1 %** on 2024–25 (about 60,400 € of a 67,000 €
+maximum a year); the average without limits 94.4 %, what the daily run will send. Nothing built yet
+for the daily run, drift or the rerun.
 
 #### Recap questions
 
-1. Published 2024 figures for a German 2-hour battery run two to three times our perfect-foresight
-   ceiling. Why does that not mean our ceiling is wrong, and why would the day-ahead *share* of such a
-   battery's revenue still not be a fair yardstick for it?
-2. The one day-ahead-only figure (89 k€ per MW, 2025) sits above our ceiling. Name two differences in
-   method that push it up, and say why that makes it a direction rather than a check.
-3. The ISEA index (RWTH Aachen): which part of it leaves the day-ahead out, which part scores it alone,
-   and what would turn it into a real check of our ceiling?
-4. The daily run will send the average without limits, yet the headline stays LEAR's strict bids at
-   90.1 %. Why not move the headline to 94.4 %?
-5. The summary says one day's forecast should take 20–25 seconds, while `just final-score ranges` takes
-   about 4.5 hours. What does the long run do that a daily forecast does not, and why is the 20–25 s
-   an estimate rather than a measurement?
+1. The page reads one committed file built from the stored runs. Why rebuild the plans from the
+   stored forecasts instead of storing them, why does that not count as a second reading of 2024–25,
+   and what did the planted bug (plans paid at their own forecast) show in the shares?
+2. On the morning of day T, before noon: which day's real prices are already known, which row
+   written yesterday gets filled in, which day is forecast, and why are the wind and solar numbers
+   still forecasts rather than measurements?
+3. "Reproducibility" is stage 5's headline. Name its three levels, say why the answer from a fresh
+   clone with a fresh pull is a distance rather than yes or no, and why that rerun must write only
+   inside its own folder.
+4. The battery chart was empty on the hosted page while every test passed and the first pictures
+   showed bars. Why did neither catch it, and what does the new height test check, and not check?
+5. Days sorted by how far off the prices were keep about the same money; days sorted by how well
+   the hours were ranked do not. In plain words, what does "ranked well" measure on one day, and
+   why can a forecast off by 47 € per MWh keep 100 % of the maximum?
 
 #### Then, in order
 
-1. **Stage 5 planned before building**, one question per decision: the daily run (a "tomorrow" command,
-   an incremental pull, a row without a price yet; it sends the average without limits, LEAR's plan as
-   fallback), drift monitoring (first known signal: QRA's bands narrow in the dearest months), and the
-   Streamlit page, past results first, from a small committed data file. Streamlit is a new dependency:
-   `requirements.txt` in the same commit. Say what "reproducibility" measures, including the full rerun
-   from a fresh clone with a fresh pull (in the README's *Next steps*; ENTSO-E revises history).
-2. Then build in the order decided, smallest piece first.
-3. Noted, not tasks: the ISEA like-for-like ceiling check (our ceiling at 90.25 %, no wear, 2 cycles,
-   over the overlapping months; a second look at 2024–25 prices, so a decision); the 50Hertz battery
-   study (10 MB PDF, unread, no PDF reader installed); the EPEX *Block parameters* sheet (cap not
-   binding: ≤ 3 loops a day); EUPHEMIA may reject a block in the money; the ceiling solved to HiGHS's
-   default 0.01 % gap; why every share rose on 2024–25 (not tested); the market trades quarter-hours
-   since 1 October 2025, the models hours.
+1. **Revisit Part 2 of the page first** (*What earns the money*): the user is not yet sure about the
+   two dot charts side by side. Start from what a reader should take away; alternatives to weigh
+   include the ranking chart alone with the flat one as a sentence, and one chart that shows both.
+   Look at it in a real browser before and after (the scratchpad is per session, so Playwright and
+   Chromium are installed again into it).
+2. **Stage 5, step 4: the data reaches today.** A test first that the 2018–2025 frames come out
+   identical once the cache holds 2026 rows; then the pull's end moves to tomorrow and `just pull
+   recent` fetches the last two weeks. Contracts 2 and 5: state the four Transparency points first.
+3. Then steps 5–11 as planned (`docs/decisions.md`, *Decided 31 October*): one day's forecast, the
+   2026 replay scored once on stage 4's list, `just tomorrow`, drift flags, the page's second
+   version, the rerun from scratch, the four-week trial.
+4. Noted, not tasks: the ISEA like-for-like ceiling check; the 50Hertz battery study (unread); the
+   EPEX *Block parameters* sheet; the market trades quarter-hours since 1 October 2025, the models
+   hours. The work log's contents table stops at 13 October.
