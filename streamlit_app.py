@@ -24,9 +24,11 @@ from src import config as cfg
 st.set_page_config(page_title="Battery day-ahead backtest", page_icon="🔋", layout="centered")
 
 
-# ── Names and colours ─────────────────────────────────────────────────────────
+# ── Names, explanations and colours ───────────────────────────────────────────
 # Plain names for the record's run labels, the technical name kept for the full
-# table.  Colour follows the entity, never its rank: our forecast (LEAR) is orange
+# table.  Each name a visitor meets carries an explanation behind a "?", because a
+# reader who has forgotten what "our forecast" is should not have to scroll back.
+# Colour follows the entity, never its rank: our forecast (LEAR) is orange
 # everywhere, the three averaged blue, the maximum dark ink and dashed, no forecast
 # grey.  Blue and orange pass the colour-vision checks in both themes (31 Oct).
 
@@ -44,8 +46,23 @@ TECHNICAL = {"ceiling": "perfect-foresight ceiling", "bids strict": "LEAR, loop 
              "average": "mean of LEAR, tree and line", "naive (field)": "naive benchmark (Lago et al.)",
              "bids pair": "LEAR, loop bids, pair fill", "LEAR": "LEAR, fixed schedule",
              "straight line": "linear regression", "tree": "gradient-boosted trees"}
-SHORT = {"ceiling": "The maximum", "bids strict": "Our forecast", "average": "Three averaged",
+SHORT = {"ceiling": "The maximum", "bids strict": "Our forecast", "average": "Three forecasts averaged",
          "naive (field)": "No forecast"}
+
+HELP = {
+    "ceiling": "The battery planned on the real prices, as if it had known them in advance. "
+               "No forecast can do better. Every share on this page is measured against it.",
+    "bids strict": "A standard method from electricity-price research (LEAR). Every day it "
+                   "learns from the last three years and fits its own straight-line formula for "
+                   "each hour of tomorrow. It uses recent prices, the grid operators' forecasts "
+                   "of demand, wind and solar for tomorrow, the weekday and public holidays. It "
+                   "is sent with price limits: the battery only buys below, and sells above, a "
+                   "price set from the forecast's likely range.",
+    "average": "Our forecast plus two others, a plain straight-line model and a decision-tree "
+               "model, averaged hour by hour. Sent without price limits.",
+    "naive (field)": "Assumes tomorrow's prices repeat yesterday's (last week's for Saturday to "
+                     "Monday). The standard yardstick in this field.",
+}
 
 LIGHT = {"ink": "#0b0b0b", "soft": "#52514e", "muted": "#898781", "average": "#2a78d6",
          "lear": "#eb6834"}
@@ -75,11 +92,13 @@ def load() -> pd.DataFrame:
 
 @st.cache_data
 def days(page: pd.DataFrame) -> pd.DataFrame:
-    """One row per delivery day: euros per run, the average's miss, its share kept."""
+    """One row per delivery day: euros per run, and how the average forecast did."""
     per_day = page.filter(like="earned:").groupby(page.day).sum()
     per_day.columns = per_day.columns.str.removeprefix("earned:")
     miss = (page["forecast:average"] - page.price).abs()
     per_day["miss"] = miss.groupby(page.day).mean()             # EUR/MWh, hour by hour
+    per_day["order"] = page.groupby("day")[["forecast:average", "price"]].apply(
+        lambda d: d["forecast:average"].corr(d.price, method="spearman"))   # hours ranked alike?
     per_day["share"] = per_day.average / per_day.ceiling
     per_day["split"] = page.split.groupby(page.day).first()
     return per_day
@@ -95,16 +114,29 @@ def per_year(split: str) -> pd.Series:
     return period[list(NAMES)].sum() / period.index.year.nunique()
 
 
+def one_day(day: pd.Timestamp) -> pd.DataFrame:
+    """One delivery day's hours.  A 25-hour day repeats 02:00; the second gets a mark."""
+    hours = page.loc[page.day == day].copy()
+    hours["slot"] = hours.clock.where(~hours.clock.duplicated(), hours.clock + "′")
+    return hours
+
+
 def eur(x: float) -> str:
     return f"{x:,.0f} €"
 
 
-def date_text(day: pd.Timestamp, short: bool = False) -> str:
-    return f"{day.day} {day.strftime('%b %Y' if short else '%B %Y')}"   # "9 July 2024", no zero
-
-
 def hundreds(x: float) -> str:
     return f"{round(x, -2):,.0f} €"                             # for prose: "about 60,400 €"
+
+
+def span(low: float, high: float) -> str:
+    """'about 97%', or 'from 96% to 97%': never the same number twice."""
+    low_text, high_text = f"{low:.0%}", f"{high:.0%}"
+    return f"about {low_text}" if low_text == high_text else f"from {low_text} to {high_text}"
+
+
+def date_text(day: pd.Timestamp, short: bool = False) -> str:
+    return f"{day.day} {day.strftime('%b %Y' if short else '%B %Y')}"   # "9 July 2024", no zero
 
 
 # ── Opening ───────────────────────────────────────────────────────────────────
@@ -140,8 +172,26 @@ for col, key, note in zip(tiles, ["ceiling", "bids strict", "naive (field)"],
                           ["a year, prices known in advance",
                            f"a year · {kept['bids strict']:.1%} of the maximum",
                            f"a year · {kept['naive (field)']:.1%} of the maximum"]):
-    col.metric(SHORT[key], eur(test[key]))
+    col.metric(SHORT[key], eur(test[key]), help=HELP[key])
     col.caption(note)
+
+with st.expander("How our forecasts work"):
+    st.markdown(
+        "**Our forecast** is a standard method from electricity-price research (*LEAR*). Every "
+        "day it learns from the last three years and fits its own straight-line formula for "
+        "each hour of tomorrow. It looks at recent prices, the grid operators' forecasts of "
+        "demand, wind and solar for tomorrow, the weekday and public holidays. It leaves out "
+        "inputs that do not help, and softens extreme price spikes so a few wild hours cannot "
+        "steer it.\n\n"
+        "**With price limits** means the battery only buys below, and only sells above, a "
+        "price set from the range the forecast expects. Limits stop some losing trades, but "
+        "also some good ones.\n\n"
+        "**Three forecasts averaged** adds two other models, a plain straight-line model and a "
+        "decision-tree model (*gradient boosting*), and averages the three hour by hour. Each "
+        "misses in partly different hours. Together they ranked the hours of a day better than "
+        "our forecast alone on about two days in three.\n\n"
+        "**No hindsight.** Every forecast uses only what was published before noon the day "
+        "before: the same information a real battery operator had.")
 
 with st.container(border=True):
     st.markdown(f"**Why {kept['bids strict']:.0%} and not {kept['average']:.0%}?**")
@@ -204,7 +254,7 @@ prices_all = page.loc[page.split == split, "price"]
 month = page.loc[(page.split == split) & (page.day.dt.to_period("M") == worst), "price"]
 st.subheader("Money adding up, day by day")
 st.markdown(f"The dashed line is the maximum. The space between it and a coloured line is money "
-            f"that way left on the table. The three averaged left most in "
+            f"that way left on the table. The three forecasts averaged left most in "
             f"**{worst.strftime('%B %Y')}** ({lost.max():,.0f} €). Prices that month averaged "
             f"{month.mean():.0f} € per MWh, against {prices_all.mean():.0f} over the whole period.")
 
@@ -231,16 +281,17 @@ chart2 = alt.layer(
     alt.Chart(running.loc[running.day == running.day.max()]).mark_text(align="left", dx=6).encode(
         x="day:T", y="euros:Q", text="way:N",
         color=alt.Color("way:N", sort=order, legend=None, scale=colours)),
-).properties(height=380, padding={"left": 5, "top": 5, "bottom": 5, "right": 100})
+).properties(height=380, padding={"left": 5, "top": 5, "bottom": 5, "right": 160})
 st.altair_chart(chart2, width="stretch")
 
 
 # ── Part 2: what earns the money ──────────────────────────────────────────────
-# The project's main finding, shown on every day at once.  Days are cut into four
-# equal groups by how far off the forecast was, and each bar is the typical day of
-# its group (the median), the thin line the middle half.  Medians, because a few
-# days with a loss would drag an average around.  The two example days are found
-# by rule, so they stay true if the file is rebuilt.
+# The project's main finding, shown on every day at once, as a contrast: grouped by
+# how far off the price was, the money stays flat; grouped by how well the hours
+# were ranked, it climbs.  Both on one scale, side by side.  A dot is the typical
+# day of a quarter (the median), the line the middle half; dots need no zero
+# baseline, so the scale can show the differences.  The two example days are found
+# by rule and drawn right here, so they stay true if the file is rebuilt.
 
 st.header("2 · What earns the money")
 st.markdown("**The battery does not need the exact price.** It needs to know which hours will "
@@ -248,71 +299,109 @@ st.markdown("**The battery does not need the exact price.** It needs to know whi
             "forecast can be wrong about every price and still right about their order.")
 
 sized = period.loc[period.ceiling >= MIN_CEILING].copy()
-sized["group"] = pd.qcut(sized.miss, 4)
-edges = sized.group.cat.categories
-names = [f"{c.left:.0f}–{c.right:.0f} €" for c in edges]
-names[0], names[-1] = f"least off\n{names[0]}", f"most off\n{names[-1]}"
-groups = sized.groupby("group", observed=True).share.agg(
-    typical="median", low=lambda s: s.quantile(0.25), high=lambda s: s.quantile(0.75),
-    count="size").reset_index(drop=True)
-groups["group"] = names
 
-low, high = f"{groups.typical.min():.0%}", f"{groups.typical.max():.0%}"
-spread = f"about {low}" if low == high else f"between {low} and {high}"
-st.markdown("Here every day is sorted by how far off the forecast was, then cut into four "
-            "groups of equal size. Each bar shows how much of that day's maximum the battery "
-            f"kept on a typical day of the group. **The bars are almost the same height:** a "
-            f"typical day kept {spread} in every group, however far off the forecast was.")
+
+def quarters(by: str, first: str, last: str, euros: bool) -> pd.DataFrame:
+    """The typical share kept in each quarter of days, sorted by one measure."""
+    cut = pd.qcut(sized[by], 4)
+    names = [f"{c.left:.0f}–{c.right:.0f} €" for c in cut.cat.categories] if euros \
+        else ["2nd quarter", "3rd quarter"]
+    names = ([f"{first}\n{names[0]}", names[1], names[2], f"{last}\n{names[3]}"] if euros
+             else [first, *names, last])
+    stats = sized.groupby(cut, observed=True).share.agg(
+        typical="median", low=lambda s: s.quantile(0.25), high=lambda s: s.quantile(0.75))
+    return stats.reset_index(drop=True).assign(group=names)
+
+
+by_miss = quarters("miss", "least off", "most off", euros=True)
+by_order = quarters("order", "order\nleast right", "order\nmost right", euros=False)
+floor = min(by_miss.low.min(), by_order.low.min())
+scale = alt.Scale(domain=[max(0.0, (floor * 20 // 1) / 20 - 0.05), 1.0], nice=False)
+
+
+def dots(groups: pd.DataFrame, title: str, colour: str, axis: bool) -> alt.LayerChart:
+    g = alt.Chart(groups).encode(
+        x=alt.X("group:N", sort=list(groups.group), title=None,
+                axis=alt.Axis(labelAngle=0, labelExpr="split(datum.label, '\\n')")),
+        tooltip=[alt.Tooltip("group:N", title="days"),
+                 alt.Tooltip("typical:Q", title="typical day kept", format=".1%"),
+                 alt.Tooltip("low:Q", title="middle half from", format=".1%"),
+                 alt.Tooltip("high:Q", title="to", format=".1%")])
+    y = alt.Y("typical:Q", scale=scale, axis=alt.Axis(format="%", labels=axis, ticks=axis),
+              title="money kept, typical day" if axis else None)
+    return alt.layer(
+        g.mark_rule(strokeWidth=2, color=colour, opacity=0.45).encode(
+            y=alt.Y("low:Q", scale=scale, title=None), y2="high:Q"),   # the middle half
+        g.mark_point(filled=True, size=110, color=colour, opacity=1).encode(y=y),
+        g.mark_text(dx=16, align="left", color=C["ink"]).encode(
+            y=y, text=alt.Text("typical:Q", format=".0%")),
+    ).properties(height=280, title=title)
+
+
+st.markdown(
+    f"Every day was sorted twice and cut into four quarters each time. **Left:** sorted by how "
+    f"far off the forecast's prices were. A typical day kept "
+    f"{span(by_miss.typical.min(), by_miss.typical.max())}, whether the forecast was off "
+    f"by a little or a lot. **Right:** sorted by how well the forecast put the day's hours in "
+    f"order, cheapest to dearest. Here the money climbs, from {by_order.typical.iloc[0]:.0%} on "
+    f"the days with the order least right to {by_order.typical.iloc[-1]:.0%} on the days with "
+    f"it most right.")
+left, right = st.columns(2)
+left.altair_chart(dots(by_miss, "Sorted by how far off the prices were", C["muted"], True),
+                  width="stretch")
+right.altair_chart(dots(by_order, "Sorted by how well the hours were ranked", C["average"], True),
+                   width="stretch")
 st.caption("Forecast: the three averaged, the way the daily run uses them. How far off: the "
-           "average gap between forecast and real price over the day's hours. Thin line: where "
-           f"the middle half of the group's days fell. Left out: {len(period) - len(sized)} days "
-           f"when even the maximum was under {MIN_CEILING:.0f} €, where a share means little.")
+           "average gap between forecast and real price over the day's hours, in € per MWh. "
+           "Ranked well: how closely the forecast's order of the hours matched the real order "
+           "(*rank correlation*). Dot: the typical day of a quarter (*median*); line: where the "
+           f"middle half of its days fell. Left out: {len(period) - len(sized)} days when even "
+           f"the maximum was under {MIN_CEILING:.0f} €, where a share means little.")
 
-g = alt.Chart(groups).encode(
-    x=alt.X("group:N", sort=names, title="How far off the forecast was (€ per MWh)",
-            axis=alt.Axis(labelAngle=0, labelExpr="split(datum.label, '\\n')")),
-    tooltip=[alt.Tooltip("group:N", title="off by"),
-             alt.Tooltip("typical:Q", title="typical day", format=".1%"),
-             alt.Tooltip("low:Q", title="middle half from", format=".1%"),
-             alt.Tooltip("high:Q", title="to", format=".1%"), alt.Tooltip("count:Q", title="days")])
-chart3 = alt.layer(
-    g.mark_bar(cornerRadiusEnd=4, width=56, color=C["average"]).encode(
-        y=alt.Y("typical:Q", title="money kept on a typical day", axis=alt.Axis(format="%"),
-                scale=alt.Scale(domain=[0, 1]))),
-    g.mark_rule(strokeWidth=1.5, color=C["ink"]).encode(y="low:Q", y2="high:Q"),
-    g.mark_text(dy=-10, color=C["ink"]).encode(y="high:Q", text=alt.Text("typical:Q", format=".0%")),
-).properties(height=300)
-st.altair_chart(chart3, width="stretch")
-
-# Two real days make the point concrete: a large miss that kept everything, and a
-# small miss that kept least.  Only days worth at least 100 EUR, so neither is a
-# day with nothing to earn.
+# Two real days, chosen by rule: a large miss with the order right, and a small miss
+# with the order less right.  Only days worth at least 100 EUR, so neither is a day
+# with nothing to earn.
 
 worth = sized.loc[sized.ceiling >= 100]
-big = worth.loc[worth.share >= 0.99].miss.idxmax()
-small = worth.loc[worth.miss <= edges[0].right].share.idxmin()
-beaten = int((sized.miss < sized.miss[big]).mean() * 100)   # floored: never "100 in 100"
+big = worth.loc[(worth.share >= 0.99) & (worth.order >= worth.order.quantile(0.75))].miss.idxmax()
+small_pool = worth.loc[(worth.miss <= worth.miss.quantile(0.25))
+                       & (worth.order <= worth.order.quantile(0.25))]
+small = (small_pool if len(small_pool) else worth.loc[worth.miss <= worth.miss.median()]).share.idxmin()
+
+st.markdown("**Two real days.** Black is the real price, blue the forecast.")
 
 
-def show(day: pd.Timestamp) -> None:
-    st.session_state.day = day.date()                           # Part 3 opens on this day
-    st.session_state.start = None
+def mini(day: pd.Timestamp) -> alt.Chart:
+    hours = one_day(day)
+    curves = hours.melt(id_vars="slot", value_vars=["price", "forecast:average"],
+                        var_name="what", value_name="eur")
+    curves["what"] = curves.what.map({"price": "Real price", "forecast:average": "Forecast"})
+    return alt.Chart(curves).mark_line(point=alt.OverlayMarkDef(size=14)).encode(
+        x=alt.X("slot:N", sort=list(hours.slot), title=None,
+                axis=alt.Axis(labelAngle=0, values=[s for s in hours.slot if s.endswith(("00:00", "06:00", "12:00", "18:00"))])),
+        y=alt.Y("eur:Q", title="€ per MWh"),
+        color=alt.Color("what:N", sort=["Real price", "Forecast"], title=None,
+                        legend=alt.Legend(orient="top"),
+                        scale=alt.Scale(domain=["Real price", "Forecast"], range=[C["ink"], C["average"]])),
+        tooltip=[alt.Tooltip("slot:N", title="hour"), alt.Tooltip("what:N", title=" "),
+                 alt.Tooltip("eur:Q", title="€ per MWh", format=".1f")],
+    ).properties(height=260)
 
 
-st.markdown(f"**Two real days.** On {date_text(big)} the forecast was off by "
-            f"{sized.miss[big]:.0f} € per MWh, more than on {beaten} days in 100, and the "
-            f"battery still kept {sized.share[big]:.0%} ({eur(sized.average[big])}). On "
-            f"{date_text(small)} it was off by only {sized.miss[small]:.1f} € and "
-            f"kept {sized.share[small]:.0%}. Open either one below.")
-pick = st.columns(2)
-pick[0].button(f"Big miss, kept {sized.share[big]:.0%}: {date_text(big, short=True)}",
-               on_click=show, args=(big,), width="stretch")
-pick[1].button(f"Small miss, kept {sized.share[small]:.0%}: {date_text(small, short=True)}",
-               on_click=show, args=(small,), width="stretch")
+for col, day, text in zip(
+        st.columns(2), [big, small],
+        [f"**{date_text(big)}.** Off by **{sized.miss[big]:.0f} €** per MWh, more than on "
+         f"{int((sized.miss < sized.miss[big]).mean() * 100)} days in 100. But the cheap and dear "
+         f"hours were in the right places: it kept **{sized.share[big]:.0%}**.",
+         f"**{date_text(small)}.** Off by only **{sized.miss[small]:.0f} €** per MWh. But the "
+         f"order of the hours was less right: it kept **{sized.share[small]:.0%}**."]):
+    col.markdown(text)
+    col.altair_chart(mini(day), width="stretch")
+st.caption("Both days are in the list under *Explore a day* below, to see the battery's hours.")
 
 with st.expander("Show every day as a dot"):
-    dots = sized.reset_index()[["day", "miss", "share", "average", "ceiling"]]
-    st.altair_chart(alt.Chart(dots).mark_circle(size=34, opacity=0.45, color=C["average"]).encode(
+    every = sized.reset_index()[["day", "miss", "share", "average", "ceiling"]]
+    st.altair_chart(alt.Chart(every).mark_circle(size=34, opacity=0.45, color=C["average"]).encode(
         x=alt.X("miss:Q", title="How far off the forecast was (€ per MWh)"),
         y=alt.Y("share:Q", title="money kept that day", axis=alt.Axis(format="%"),
                 scale=alt.Scale(domainMax=1.02, nice=False)),
@@ -327,9 +416,9 @@ with st.expander("Show every day as a dot"):
 
 
 # ── Part 3: explore a day ─────────────────────────────────────────────────────
-# The playground.  The chosen day lives in session state, so the buttons above and
-# the examples here can both set it; a day outside the chosen period is reset to an
-# ordinary one, because the date box refuses a value outside its range.
+# The playground.  The chosen day lives in session state, so the examples can set
+# it; a day outside the chosen period is reset to an ordinary one, because the date
+# box refuses a value outside its range.
 
 st.header("3 · Explore a day")
 st.markdown("Pick a day. Compare the hours the battery bought and sold in with the hours it "
@@ -338,7 +427,8 @@ st.markdown("Pick a day. Compare the hours the battery bought and sold in with t
 prices = page.loc[page.split == split]
 EXAMPLES = {
     "An ordinary day": (sized.share - sized.share.median()).abs().idxmin(),
-    "The forecast's best day": sized.share.idxmax(),
+    "Big miss, order right": big,
+    "Small miss, order less right": small,
     "Its costliest day": (period.ceiling - period.average).idxmax(),
     "Prices below zero": prices.day[prices.price.idxmin()],
 }
@@ -357,14 +447,12 @@ st.segmented_control("Start from", list(EXAMPLES), key="start", on_change=start_
 day = pd.Timestamp(st.date_input("or pick any day", min_value=first, max_value=last,
                                  key="day", format="DD.MM.YYYY"))
 
-one = page.loc[page.day == day].copy()
+one = one_day(day)
 row = daily.loc[day]
-# A 25-hour day repeats 02:00; the second one is marked so the axis keeps both.
-one["slot"] = one.clock.where(~one.clock.duplicated(), one.clock + "′")
 
-money = st.columns(4)
+money = [*st.columns(2), *st.columns(2)]                        # two by two: names stay whole
 for col, key in zip(money, ["ceiling", "average", "bids strict", "naive (field)"]):
-    col.metric(SHORT[key], eur(row[key]))
+    col.metric(SHORT[key], eur(row[key]), help=HELP[key])
     if key != "ceiling" and row.ceiling >= MIN_CEILING:
         col.caption(f"{row[key] / row.ceiling:.0%} of the maximum")
 
@@ -374,10 +462,10 @@ best_buy, best_sell = charge("ceiling"), sell("ceiling")
 same_buy, same_sell = len(best_buy & charge("average")), len(best_sell & sell("average"))
 kept_text = (f"kept **{row.share:.0%}** of the maximum" if row.ceiling >= MIN_CEILING
              else f"earned {eur(row.average)} of a maximum of {eur(row.ceiling)}")
-st.markdown(f"On **{day.strftime('%A')} {date_text(day)}** the three averaged were off by "
-            f"**{row.miss:.0f} € per MWh** on average and {kept_text}. The battery bought in "
-            f"{same_buy} of the {len(best_buy)} hours the best plan bought in, and sold in "
-            f"{same_sell} of its {len(best_sell)}.")
+st.markdown(f"On **{day.strftime('%A')} {date_text(day)}** the three forecasts averaged were "
+            f"off by **{row.miss:.0f} € per MWh** on average and {kept_text}. The battery "
+            f"bought in {same_buy} of the {len(best_buy)} hours the best plan bought in, and "
+            f"sold in {same_sell} of its {len(best_sell)}.")
 
 # Two charts on one clock, never one chart with two scales: prices above, the
 # battery's hours below.  Heights leave room for title and legend, which Streamlit
@@ -386,9 +474,11 @@ st.markdown(f"On **{day.strftime('%A')} {date_text(day)}** the three averaged we
 
 x = alt.X("slot:N", sort=list(one.slot), title=None, axis=alt.Axis(labelAngle=0, labelOverlap=True))
 y_axis = dict(minExtent=56, maxExtent=56)                       # same width, so the clocks line up
-extra = st.toggle("Also show our forecast (LEAR) and the range it expects prices to fall in")
+extra = st.toggle("Also show our forecast and the range it expects prices to fall in",
+                  help=HELP["bids strict"])
 shown = ["price", "forecast:average"] + (["forecast:LEAR"] if extra else [])
-kinds = {"price": "Real price", "forecast:average": "Three averaged", "forecast:LEAR": "Our forecast"}
+kinds = {"price": "Real price", "forecast:average": "Three forecasts averaged",
+         "forecast:LEAR": "Our forecast"}
 curves = one.melt(id_vars="slot", value_vars=shown, var_name="what", value_name="eur")
 curves["what"] = curves.what.map(kinds)
 order = [kinds[k] for k in shown]
@@ -412,7 +502,7 @@ st.altair_chart(alt.layer(*layers).properties(height=320), width="stretch")
 
 plans = one.melt(id_vars="slot", value_vars=["net:ceiling", "net:average"],
                  var_name="plan", value_name="mw")
-plan_kinds = ["Best plan (prices known)", "Plan on the three averaged"]
+plan_kinds = ["Best plan (prices known)", "Plan on the three forecasts averaged"]
 plans["plan"] = plans.plan.map(dict(zip(["net:ceiling", "net:average"], plan_kinds)))
 st.markdown("**The battery's hours.** Bars above the line: the battery sells. Below: it buys "
             "(charges). Where the two colours sit in the same hours, the forecast got the order "
@@ -421,20 +511,33 @@ st.altair_chart(alt.Chart(plans).mark_bar(cornerRadius=2).encode(
     x=x, xOffset=alt.XOffset("plan:N", sort=plan_kinds),
     y=alt.Y("mw:Q", title="MW · sell ↑ buy ↓", scale=alt.Scale(domain=[-1.1, 1.1]),
             axis=alt.Axis(**y_axis)),
-    color=alt.Color("plan:N", sort=plan_kinds, title=None, legend=alt.Legend(orient="top"),
+    color=alt.Color("plan:N", sort=plan_kinds, title=None,
+                    legend=alt.Legend(orient="top", labelLimit=320),
                     scale=alt.Scale(domain=plan_kinds, range=[C["soft"], C["average"]])),
     tooltip=[alt.Tooltip("slot:N", title="hour"), alt.Tooltip("plan:N", title=" "),
              alt.Tooltip("mw:Q", title="MW", format=".2f")]
 ).properties(height=280), width="stretch")
 
 
-# ── Close ─────────────────────────────────────────────────────────────────────
+# ── Close: limits, and what could come next ───────────────────────────────────
+# Text, not charts: no market but this one was tested, and published figures for
+# the others differ in method, units and years, so a chart would lend them a
+# precision they do not have.  The one number given is our own: what is left
+# between the three averaged and the maximum.
 
-st.header("What this does not show")
+left_over = test.ceiling - test.average
+st.header("What this does not show, and what could come next")
 st.markdown(
-    "- **One market only.** Batteries in Germany also earn by standing ready to balance the "
-    "grid (*reserve markets*). Published figures for 2024 across every market are two to three "
-    "times this maximum.\n"
+    "- **More markets.** Batteries in Germany also earn by standing ready to balance the grid "
+    "(*reserve markets*) and by trading closer to delivery (*intraday*). Published figures for "
+    "2024 across every market are two to three times this maximum. We have not tested those "
+    "markets, so we show no numbers of our own for them.\n"
+    f"- **A better forecast pays little more here.** Even a perfect forecast could add only about "
+    f"{hundreds(left_over)} a year to the three forecasts averaged in this market. One input "
+    "tried so far, public holidays, changed nothing. Weather is already inside the grid "
+    "operators' wind and solar forecasts.\n"
+    "- **Quarter-hours.** Since October 2025 the auction trades 15-minute periods. We still plan "
+    "by the hour.\n"
     "- **Money before costs.** Before grid fees, taxes and the price of the battery.\n"
     "- **A replay.** Every forecast here was made as if at noon the day before, from data "
     "published by then, but it was computed later. A daily live run is being built next.\n\n"

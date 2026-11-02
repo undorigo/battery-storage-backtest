@@ -14,6 +14,7 @@ height test is a stand-in for looking; the page is still checked in a browser.
 from __future__ import annotations
 
 import json
+import re
 from datetime import date
 
 import pandas as pd
@@ -75,18 +76,22 @@ def test_page_draws_every_hour_of_a_clock_change_day(day, hours):
     page = _run(day)
     assert f"{day.day} {day.strftime('%B %Y')}" in _text(page)
     axes = [axis for spec in _specs(page) for axis in _hour_axes(spec)]
-    assert len(axes) >= 2                                       # prices above, battery below
-    assert all(len(set(axis)) == len(axis) == hours for axis in axes)
+    assert all(len(set(axis)) == len(axis) for axis in axes)    # no hour drawn over another
+    assert sum(len(axis) == hours for axis in axes) >= 2        # the day's prices and battery
 
 
 # ── What a visitor can do and see ─────────────────────────────────────────────
 
-def test_a_real_day_button_opens_that_day():
+def test_the_example_days_open_in_explore_a_day():
     page = _run()
-    label = page.button[0].label                                # "Big miss, kept 100%: 11 Dec 2024"
-    page.button[0].click().run()
+    named = next(m.value for m in page.markdown if "Off by" in m.value and "right places" in m.value)
+    page.get("button_group")[1].set_value("Big miss, order right").run()
     shown = pd.Timestamp(page.date_input[0].value)
-    assert shown.strftime("%b %Y") in label and f"{shown.day} " in label.split(": ")[1]
+    assert f"{shown.day} {shown.strftime('%B %Y')}" in named          # the day Part 2 describes
+
+
+def test_no_sentence_names_the_same_share_twice():
+    assert not re.search(r"(\d+%) (?:to|and) \1", _text(_run()))    # "97% to 97%"
 
 
 def test_every_chart_with_a_legend_has_room_to_draw():

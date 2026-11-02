@@ -586,3 +586,17 @@ pictures checked before had come from a separate renderer that drew the bars. Ev
 looked at in a real browser before it is reported, and a test pins the height of every chart with a
 legend (planted back at 150 pixels, it failed). A test also catches the repeated 02:00 hour on a
 25-hour day, after a first version of it let that bug through.
+
+**Revised 2 November, after a second reading by the user.** The equal bars said "nothing changes",
+which a chart cannot show well, and the buttons below them changed a day out of sight. Part 2 now
+sets two pictures side by side on one scale: days sorted by how far off the prices were (flat, about
+97 % kept on 2024–25) and days sorted by how well the forecast ranked the day's hours, cheapest to
+dearest (rank correlation within the day): a typical day kept 90 %, 96 %, 98 %, 99 % from the
+quarter ranked worst to the quarter ranked best (93 %, 95 %, 96 %, 98 % on 2023). Two days drawn
+in place, chosen by rule: 3 September 2024, off by 47 € per MWh with the order right, kept 100 %;
+22 February 2025, off by 9 € with the order less right, kept 78 %. The average ranked the hours
+better than LEAR alone on 62 % of days on 2024–25 and 68 % on 2023, which the page states. "Our
+forecast" and the other names now carry a plain explanation behind a "?", and a panel *How our
+forecasts work*. **Rejected:** a chart of the money left to win (decided text only: the page states
+the ~3,700 € a year between the average and the maximum in words); charts of other markets'
+published figures (different methods, units and years).
