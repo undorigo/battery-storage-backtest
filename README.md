@@ -15,6 +15,9 @@ prices are known. How much of the possible money does a price forecast actually 
 **The answer: 90.1 %** of what the battery could have earned if tomorrow's prices had been known.
 Tested on 2024–25, two years kept aside until the end and checked once.
 
+**See it on a page:** <https://battery-storage-backtest-aqevrymuvf2pb9jrjpmxc9.streamlit.app/>. Pick any day of 2023–25 and see what the battery bought and sold,
+against the best it could have done.
+
 | 1 MW / 2 MWh battery, per year | Earned | Share of the best possible |
 |---|---|---|
 | Best possible: tomorrow's prices known in advance | 67,000 € | 100 % |
@@ -87,8 +90,8 @@ command is still to be built.
 - **Rerun from scratch.** Regenerate these numbers from a fresh copy with freshly pulled data. ENTSO-E
   revises old data, so small differences are possible.
 - **Watch for drift.** Flag when forecasts or ranges start missing more than usual.
-- **A web page.** Pick a past day and see the forecast, the real price, the battery's plan and what it
-  earned.
+- **A web page.** Done 2 November: <https://battery-storage-backtest-aqevrymuvf2pb9jrjpmxc9.streamlit.app/>. Next it gains tomorrow's forecast and the daily
+  record.
 
 ---
 
@@ -204,6 +207,7 @@ reading. The order:
 
 1. **A web page on past results**, published online: pick a day and see the forecasts, the range,
    the real price, the battery's plan and what it earned. It reads one small file kept in git.
+   **Done 2 November:** <https://battery-storage-backtest-aqevrymuvf2pb9jrjpmxc9.streamlit.app/>.
 2. **The data reaches today.** The cache stops at the end of 2025, so ten months of 2026 have been
    seen by nothing in this project. They are replayed once and scored once, on the same list as
    stage 4, fixed before looking.

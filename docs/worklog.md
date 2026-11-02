@@ -4203,6 +4203,14 @@ yesterday, then forecasts), two drift flags, a rerun from scratch, a four-week t
 (milestone: stage 5's scope and dates):** `docs/decisions.md`, README, CLAUDE.md, the plan page
 (version 31).
 
+### 2 November 2026
+
+**The web page is live** (stage 5 steps 1–3, `8b10522`, `be20ade`, `4fca792`): the data file held to
+the record to the cent; the first version rewritten in plain words after the user could not read it
+without context (money first, *the maximum*, the 94 % in its own box, all-days evidence before one
+day); an empty battery chart that only a real browser showed, now pinned by a test. **Plan refreshed
+(milestone: the page published):** `docs/decisions.md`, README, the plan page (version 32). 307 green.
+
 ---
 
 ### Next — next session

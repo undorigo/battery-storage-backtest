@@ -558,3 +558,31 @@ from. The rerun counts as a second look at 2024–25, so it writes only inside i
 the trial's rows are the first that record what was known at the time. Stage 5 closes when the trial
 is switched on; its four weeks are reported when it ends. The estimate grows by the page and the
 replay, from about 1½ to about 2 weeks.
+
+### Built 31 October – 2 November: the web page, published
+
+**Live at <https://battery-storage-backtest-aqevrymuvf2pb9jrjpmxc9.streamlit.app/>**, built from the public repository by Streamlit Community Cloud. It reads one
+committed file, `reports/page.parquet` (`just page-data`, 26,304 hours, 2.6 MB, not the ~1 MB
+estimated), rebuilt from the stored runs by the same functions stage 4's reading used. A test holds
+its 2024–25 totals to `reports/capture_scores.csv` to the cent and its 2023 shares to this record;
+settling plans at their own forecast, planted on purpose, failed it (and showed naive at 105.8 %).
+
+**Decided with the user, after a first version they could not read without context:** money first,
+in euros (*about 60,400 € a year, 90 % of the maximum*); one plain term, *the maximum*, defined once;
+the 94.4 % in its own box, *Why 90 % and not 94 %*, read rather than hovered over; then *what earns
+the money* across all days; then one day to explore, last. Rejected: two equal headline numbers;
+the 94.4 % only further down; the day view before the all-days evidence; the dots as the main chart.
+
+**Found while building it, all from data already scored.** How far the average forecast missed on a
+day says almost nothing about the share of the maximum it kept: rank correlation −0.02 on 2023 and
+on 2024–25 (days whose maximum was under 25 € left out: 22 and 58). Cut into four equal groups by
+miss, a typical day kept about 97 % in every group on 2024–25, and about 96 % on 2023. On 11 December 2024
+the forecast was off by 100 € per MWh and kept 100 %; on 9 July 2024 off by 8.5 € and kept 75 %.
+The day view's shaded range is LEAR's, so it is drawn only beside LEAR's own line, behind a switch.
+
+**A bug the tests could not see.** On the hosted page the battery chart drew nothing: Streamlit fits a
+chart's title and legend inside the height it is given, and 150 pixels left no drawing area. The
+pictures checked before had come from a separate renderer that drew the bars. Every page change is now
+looked at in a real browser before it is reported, and a test pins the height of every chart with a
+legend (planted back at 150 pixels, it failed). A test also catches the repeated 02:00 hour on a
+25-hour day, after a first version of it let that bug through.
