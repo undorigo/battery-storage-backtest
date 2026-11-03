@@ -387,3 +387,51 @@ def test_a_missing_day_leaves_tomorrows_yesterday_blank(monkeypatch):
     table = F.day_table()
     yesterday = [c for c in table.columns if c.startswith("price_d1_")]
     assert table.loc[pd.Timestamp("2024-02-11"), yesterday].isna().all()
+
+
+# ── The cache reaching 2026 changes nothing before it ─────────────────────────
+# Stage 5 extends the cache past the test years.  Every published number was built
+# from frames ending in 2025, so those rows must come out identical once 2026 is
+# there: a statistic over the whole history, or a calendar read off its last year,
+# would move them and nothing would error.  The fixture is the cache's own shape at
+# the turn of the year: quarter-hours since October 2025, the autumn clock change,
+# the nationwide holidays of October and December, and the one stray price
+# quarter-hour past 2025 that today's cache holds (00:00 on 1 January, Berlin).
+
+TURN = pd.Timestamp("2026-01-01", tz=cfg.TZ_MARKET).tz_convert("UTC")   # 2025-12-31 23:00 UTC
+
+
+def _turn_of_the_year() -> dict[str, pd.DataFrame]:
+    idx = pd.date_range(pd.Timestamp("2025-10-01", tz=cfg.TZ_MARKET).tz_convert("UTC"),
+                        pd.Timestamp("2026-02-15", tz=cfg.TZ_MARKET).tz_convert("UTC"),
+                        freq="15min", inclusive="left")
+    n = np.arange(len(idx), dtype=float)
+    return {
+        "day_ahead_price": pd.DataFrame({"price": n % 997 + 10 * np.sin(n / 96 * 2 * np.pi)}, index=idx),
+        "load_forecast": pd.DataFrame({"load": 40000 + n % 389}, index=idx),
+        "wind_solar_forecast": pd.DataFrame(
+            {"Wind Onshore": 5000 + n % 211, "Wind Offshore": 1000 + n % 97, "Solar": 2000 + n % 53},
+            index=idx),
+    }
+
+
+def _as_cached_today(src: dict[str, pd.DataFrame]) -> dict[str, pd.DataFrame]:
+    """The cache as pulled on 17 September 2026: forecasts to 2025, prices one quarter-hour more."""
+    return {key: frame.loc[frame.index <= TURN] if key == "day_ahead_price"
+            else frame.loc[frame.index < TURN] for key, frame in src.items()}
+
+
+@pytest.mark.parametrize("builder", [F.build, F.day_table], ids=["hourly frame", "day table"])
+def test_the_cache_reaching_2026_changes_nothing_up_to_2025(monkeypatch, builder):
+    src = _turn_of_the_year()
+    today = _as_cached_today(src)
+    monkeypatch.setattr(F, "data_load", lambda key: today[key])
+    before = builder()
+    monkeypatch.setattr(F, "data_load", lambda key: src[key])
+    after = builder()
+
+    upto = lambda frame: frame.loc[frame.index.normalize() <= pd.Timestamp(cfg.TEST_END)]
+    assert after.index.max() > pd.Timestamp("2026-02-01")          # 2026 really is in it
+    pd.testing.assert_frame_equal(upto(after), upto(before))       # every row, every column
+    for b, a in zip(cfg.split(before), cfg.split(after)):          # and so every split
+        pd.testing.assert_frame_equal(a, b)
