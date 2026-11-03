@@ -98,3 +98,20 @@ def test_every_chart_with_a_legend_has_room_to_draw():
     for spec in _specs(_run()):
         if '"orient": "top"' in json.dumps(spec):
             assert spec.get("height", 0) >= LEGEND_ROOM, spec.get("height")
+
+
+# ── Part 2's claim, held to the data ──────────────────────────────────────────
+# Part 2 opens with a fixed sentence: the order of the hours moves the money, the
+# size of the miss barely does.  The four numbers under it are recomputed from the
+# file, so this keeps the sentence true if the file is ever rebuilt.
+
+@pytest.mark.parametrize("period", ["2024–25: the test years", "2023: the practice year"])
+def test_the_order_moves_the_money_and_the_miss_does_not(period):
+    page = _run()
+    page.get("button_group")[0].set_value(period).run()
+    table = next(m.value for m in page.markdown if m.value.startswith("| |"))
+    (a, b), (c, d) = [[int(v) for v in re.findall(r"\*\*(\d+)%\*\*", line)]
+                      for line in table.splitlines()[2:]]              # rows: in order, less
+    by_order = (a + b) / 2 - (c + d) / 2                               # down a column
+    by_miss = abs((a + c) / 2 - (b + d) / 2)                           # across a row
+    assert by_order > 0 and by_order > 2 * by_miss, (a, b, c, d)
