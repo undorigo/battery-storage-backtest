@@ -479,4 +479,15 @@ def test_path_resolves_through_the_catalog(tmp_path):
 def test_pull_window_covers_the_whole_project_history():
     assert str(data.PULL_START.date()) == cfg.HISTORY_START
     last_hour = pd.Timestamp("2025-12-31 22:00", tz="UTC")   # 23:00 Berlin, the final delivery hour
-    assert data.PULL_END > last_hour                  # exclusive upper bound, past the last hour
+    assert data.pull_end() > last_hour                # exclusive upper bound, past the last hour
+
+
+@pytest.mark.parametrize("now, end", [
+    ("2026-11-03 07:00", "2026-11-05 00:00"),         # an ordinary morning: tomorrow is the 4th
+    ("2026-11-03 23:30", "2026-11-05 00:00"),         # late evening: still the same tomorrow
+    ("2026-03-28 07:00", "2026-03-30 00:00"),         # tomorrow is the 23-hour day
+    ("2026-10-24 07:00", "2026-10-26 00:00"),         # tomorrow is the 25-hour day
+])
+def test_the_pull_reaches_the_end_of_tomorrow_on_the_berlin_clock(now, end):
+    got = data.pull_end(pd.Timestamp(now, tz=cfg.TZ_MARKET).tz_convert("UTC"))   # asked in UTC
+    assert got == pd.Timestamp(end, tz=cfg.TZ_MARKET)

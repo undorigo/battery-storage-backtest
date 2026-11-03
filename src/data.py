@@ -66,9 +66,20 @@ def manifest_path(root: Path | None = None) -> Path:
 # makes a revision visible at all: a pull that fetched only new days could never
 # notice that 2023 had been rewritten underneath it.  The cost is about 35 requests
 # against a published limit of 400 per minute.
+#
+# The end is tomorrow, not the end of the test years: the daily run forecasts
+# tomorrow from forecasts already published for it.  Worked out when asked, so a
+# scheduled run on any morning reaches its own tomorrow.  Rows past 2025 change no
+# published number, because every script reads the years through `cfg.split`.
 
 PULL_START = pd.Timestamp(cfg.HISTORY_START, tz=cfg.TZ_MARKET)
-PULL_END = pd.Timestamp(cfg.TEST_END, tz=cfg.TZ_MARKET) + pd.DateOffset(days=1)
+
+
+def pull_end(now: pd.Timestamp | None = None) -> pd.Timestamp:
+    """The end of tomorrow on the Berlin clock: an exclusive bound, midnight after it."""
+    today = (pd.Timestamp.now(tz=cfg.TZ_MARKET) if now is None
+             else now.tz_convert(cfg.TZ_MARKET)).normalize()
+    return today + pd.DateOffset(days=2)                # calendar days: right across a clock change
 
 
 # ── Talking to ENTSO-E ────────────────────────────────────────────────────────
@@ -107,7 +118,7 @@ def fetch(
     out = getattr(client, item.query)(
         cfg.BIDDING_ZONE,
         start=PULL_START if start is None else start,
-        end=PULL_END if end is None else end,
+        end=pull_end() if end is None else end,
     )
     return out.to_frame(item.key) if isinstance(out, pd.Series) else out
 
@@ -285,7 +296,7 @@ def edge_windows(
     step = step.iloc[0]
 
     lo = (PULL_START if start is None else start).tz_convert(cfg.TZ_STORAGE)
-    hi = (PULL_END if end is None else end).tz_convert(cfg.TZ_STORAGE)
+    hi = (pull_end() if end is None else end).tz_convert(cfg.TZ_STORAGE)
 
     out = []
     if df.index.min() - lo >= step:                 # begins late
