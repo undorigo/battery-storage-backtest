@@ -4237,18 +4237,13 @@ for the daily run, drift or the rerun.
 
 #### Recap questions
 
-1. The page reads one committed file built from the stored runs. Why rebuild the plans from the
-   stored forecasts instead of storing them, why does that not count as a second reading of 2024–25,
-   and what did the planted bug (plans paid at their own forecast) show in the shares?
-2. On the morning of day T, before noon: which day's real prices are already known, which row
+1. On the morning of day T, before noon: which day's real prices are already known, which row
    written yesterday gets filled in, which day is forecast, and why are the wind and solar numbers
    still forecasts rather than measurements?
-3. "Reproducibility" is stage 5's headline. Name its three levels, say why the answer from a fresh
+2. "Reproducibility" is stage 5's headline. Name its three levels, say why the answer from a fresh
    clone with a fresh pull is a distance rather than yes or no, and why that rerun must write only
    inside its own folder.
-4. The battery chart was empty on the hosted page while every test passed and the first pictures
-   showed bars. Why did neither catch it, and what does the new height test check, and not check?
-5. Days sorted by how far off the prices were keep about the same money; days sorted by how well
+3. Days sorted by how far off the prices were keep about the same money; days sorted by how well
    the hours were ranked do not. In plain words, what does "ranked well" measure on one day, and
    why can a forecast off by 47 € per MWh keep 100 % of the maximum?
 
