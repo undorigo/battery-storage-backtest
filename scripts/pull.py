@@ -1,6 +1,7 @@
 """Download every series in the catalog and cache it.
 
-Run:  just pull
+Run:  just pull          the whole history, to the end of tomorrow
+      just pull recent   the last two weeks (or from where the cache ends), for the daily run
 
 Fetches the whole history each time, compares against what is already on disk, and
 moves the old copy aside if any published value has been rewritten.  Running it
@@ -22,9 +23,17 @@ from src import data
 FLAG = {"revised": "  <-- CHECK", "created": "", "unchanged": "", "extended": ""}
 
 
-def main() -> int:
-    print("Pulling the full history for every series in the catalog.")
-    print("Roughly twenty minutes, most of it in actual generation.\n")
+def main(argv: list[str] | None = None) -> int:
+    what = (sys.argv[1:] if argv is None else argv) or ["all"]
+    if what not in (["all"], ["recent"]):
+        print("Usage: just pull [recent]")
+        return 2
+    recent = what == ["recent"]
+    if recent:
+        print("Pulling the last two weeks, or from where the cache ends, to tomorrow.\n")
+    else:
+        print("Pulling the full history for every series in the catalog.")
+        print("Roughly twenty minutes, most of it in actual generation.\n")
 
     # Each line is written in two halves: the series name when its fetch starts,
     # the verdict when it lands.  A carriage return would look neater live and
@@ -36,7 +45,7 @@ def main() -> int:
         print(f"{r.outcome:<11}{r.detail}{FLAG[r.outcome]}", flush=True)
 
     try:
-        results = data.pull(on_start=starting, on_done=finished)
+        results = data.pull(on_start=starting, on_done=finished, recent=recent)
     except RuntimeError as exc:                     # no token: cannot start, not a failure
         print(exc)
         return 2

@@ -75,11 +75,29 @@ def manifest_path(root: Path | None = None) -> Path:
 PULL_START = pd.Timestamp(cfg.HISTORY_START, tz=cfg.TZ_MARKET)
 
 
+def _today(now: pd.Timestamp | None = None) -> pd.Timestamp:
+    """Midnight at the start of today, Berlin."""
+    return (pd.Timestamp.now(tz=cfg.TZ_MARKET) if now is None
+            else now.tz_convert(cfg.TZ_MARKET)).normalize()
+
+
 def pull_end(now: pd.Timestamp | None = None) -> pd.Timestamp:
     """The end of tomorrow on the Berlin clock: an exclusive bound, midnight after it."""
-    today = (pd.Timestamp.now(tz=cfg.TZ_MARKET) if now is None
-             else now.tz_convert(cfg.TZ_MARKET)).normalize()
-    return today + pd.DateOffset(days=2)                # calendar days: right across a clock change
+    return _today(now) + pd.DateOffset(days=2)          # calendar days: right across a clock change
+
+
+# The daily run cannot wait twenty minutes for the whole history, so `just pull
+# recent` fetches only the latest stretch: two weeks back, where a late correction
+# would still show, or from where the cache ends if that is earlier, so a run after
+# a pause fills the hole instead of leaving one.  The full pull stays the check on
+# every older year.
+
+RECENT_DAYS = 14
+
+
+def recent_start(cached_end: pd.Timestamp, now: pd.Timestamp | None = None) -> pd.Timestamp:
+    """Where a recent pull begins: a fortnight back, or the cache's last row if earlier."""
+    return min(_today(now) - pd.DateOffset(days=RECENT_DAYS), cached_end.tz_convert(cfg.TZ_MARKET))
 
 
 # ── Talking to ENTSO-E ────────────────────────────────────────────────────────
@@ -491,12 +509,18 @@ def pull(
     root: Path | None = None,
     on_start=None,
     on_done=None,
+    recent: bool = False,
 ) -> list[SaveResult]:
     """Fetch every catalog item and cache it.  One result per series, in order.
 
     Two callbacks rather than a return value alone, because a full pull takes about
     twenty minutes and a caller that can only report at the end leaves the operator
     watching a blank screen.  Printing still belongs to the caller.
+
+    With `recent`, a series already cached is fetched from `recent_start` only.  The
+    fetched stretch replaces the cache's rows from its first timestamp on, and the
+    result goes through `save` like any pull, so a value rewritten inside the
+    stretch is still caught and the old copy kept.
     """
     keys = list(cat.CATALOG) if keys is None else keys
     api = client()                                  # fails here if the token is missing
@@ -505,8 +529,12 @@ def pull(
     for key in keys:
         if on_start:
             on_start(key)
-        frame = normalise(fetch(api, key))
-        frame, recovered = backfill(api, key, frame)    # repair what the chunking dropped
+        cached = load_raw(key, root) if recent and path_for(key, root).exists() else None
+        start = None if cached is None else recent_start(cached.index.max())
+        frame = normalise(fetch(api, key, start=start))
+        frame, recovered = backfill(api, key, frame, start=start)   # repair what the chunking dropped
+        if cached is not None:                      # older rows as cached, the stretch as fetched
+            frame = pd.concat([cached.loc[cached.index < frame.index.min()], frame])
         result = save(frame, key, root)
         if recovered:
             result = replace(

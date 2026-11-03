@@ -491,3 +491,66 @@ def test_pull_window_covers_the_whole_project_history():
 def test_the_pull_reaches_the_end_of_tomorrow_on_the_berlin_clock(now, end):
     got = data.pull_end(pd.Timestamp(now, tz=cfg.TZ_MARKET).tz_convert("UTC"))   # asked in UTC
     assert got == pd.Timestamp(end, tz=cfg.TZ_MARKET)
+
+
+# ── The recent pull ───────────────────────────────────────────────────────────
+# What the daily run fetches: a fortnight back, or from the cache's end if that is
+# earlier.  The three things worth pinning are where it starts, that a hole after a
+# pause is filled, and that a value rewritten inside the fortnight is still caught.
+
+NOW = pd.Timestamp("2026-11-03 07:00", tz=cfg.TZ_MARKET)
+
+
+def test_a_recent_pull_starts_a_fortnight_back_when_the_cache_is_current():
+    cached_end = pd.Timestamp("2026-11-02 23:45", tz=cfg.TZ_MARKET)
+    assert data.recent_start(cached_end, NOW) == pd.Timestamp("2026-10-20", tz=cfg.TZ_MARKET)
+
+
+def test_a_recent_pull_starts_where_the_cache_ends_after_a_pause():
+    cached_end = pd.Timestamp("2025-12-31 22:45", tz="UTC")       # the cache before stage 5
+    assert data.recent_start(cached_end, NOW) == cached_end
+
+
+class _LoggingClient(_FakeClient):
+    """The fake source, noting where each request began."""
+
+    def __init__(self, frame):
+        super().__init__(frame)
+        self.starts = []
+
+    def query_day_ahead_prices(self, zone, start=None, end=None):
+        self.starts.append(start)
+        return super().query_day_ahead_prices(zone, start, end)
+
+
+def _pull_recent(monkeypatch, tmp_path, source: pd.DataFrame, now: pd.Timestamp):
+    api = _LoggingClient(source)
+    monkeypatch.setattr(data, "client", lambda: api)
+    monkeypatch.setattr(data, "_today", lambda now_=None: now.normalize())   # a fixed morning
+    [result] = data.pull(["day_ahead_price"], tmp_path, recent=True)
+    return result, api
+
+
+def test_a_recent_pull_fills_the_months_since_the_cache_ended(monkeypatch, tmp_path):
+    source = data.normalise(frame("2025-12-01", 24 * 60, "h"))        # to the end of January
+    old = source.loc[source.index < pd.Timestamp("2026-01-01", tz=cfg.TZ_MARKET)]
+    data.save(old, "day_ahead_price", tmp_path)
+
+    result, api = _pull_recent(monkeypatch, tmp_path, source, pd.Timestamp("2026-01-30", tz=cfg.TZ_MARKET))
+    assert result.outcome == "extended"
+    assert api.starts[0] == old.index.max()                           # no older year requested
+    pd.testing.assert_frame_equal(data.load_raw("day_ahead_price", tmp_path), source, check_freq=False)
+
+
+def test_a_value_rewritten_inside_the_fortnight_is_still_caught(monkeypatch, tmp_path):
+    cached = data.normalise(frame("2026-10-01", 24 * 33, "h", value=1.0))   # to 2 November
+    data.save(cached, "day_ahead_price", tmp_path)
+    source = cached.copy()
+    source.loc[pd.Timestamp("2026-10-28 12:00", tz=cfg.TZ_MARKET)] = 999.0  # ENTSO-E corrects a day
+
+    result, _ = _pull_recent(monkeypatch, tmp_path, source, NOW)
+    assert result.outcome == "revised" and result.changed == 1
+    assert data.load_raw("day_ahead_price", tmp_path).loc[
+        pd.Timestamp("2026-10-28 12:00", tz=cfg.TZ_MARKET)].iloc[0] == 999.0
+    [kept] = data.archive_dir(tmp_path).glob("day_ahead_price__*.parquet")   # the old copy survives
+    assert (pd.read_parquet(kept).iloc[:, 0] == 1.0).all()

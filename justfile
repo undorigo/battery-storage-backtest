@@ -41,10 +41,12 @@ setup:
 test:
     {{py}} -m pytest tests/ -q
 
-# Download every series in the catalog. Needs network and a token.
+# Download every series in the catalog, to the end of tomorrow. Needs network and a token.
 # Safe to re-run: never overwrites a pull, and reports anything ENTSO-E revised.
-pull:
-    {{py}} -m scripts.pull
+# `just pull recent` fetches only the last two weeks (or from where the cache ends):
+# what the daily run uses. The full pull stays the check on every older year.
+pull what="all":
+    {{py}} -m scripts.pull {{what}}
 
 # Check the forecast series really are forecasts. Needs network and a token.
 verify:
