@@ -602,3 +602,25 @@ the ~3,700 € a year between the average and the maximum in words); charts of o
 published figures (different methods, units and years).
 **Open:** the user is not yet sure about the two charts side by side; revisited at the start of
 the next session.
+
+**Revised 3 November (`126151e`): one day first, then four numbers.** Starting from what a reader
+should take away, *the order of the hours earns the money, the exact price barely does*, Part 2 now
+opens with that sentence, then the two days drawn full width as Part 3 draws a day: prices above, the
+battery's hours below, best plan beside the forecast's. 3 September 2024 traded in 9 of the best
+plan's 10 hours (911 of 914 €); 22 February 2025 saw the morning rise as too small to trade and
+matched 3 of 9 (80 of 103 €). Then every day split in half twice, by the median of each measure; a
+typical day kept, on 2024–25:
+
+| | prices off by under 11 € | over 11 € |
+|---|---|---|
+| hours in the right order (better half) | 98 % | 99 % |
+| less in order (worse half) | 94 % | 94 % |
+
+On 2023: 97 % and 98 %, 95 % and 94 %. **Found first and stated on the page:** in euros, days far off
+did leave more behind (about 2,300 € a year against 1,200 € on 2024–25), because they were days of
+high prices with more to earn; the share holds, the euros do not. A test holds the fixed sentence to
+the four numbers on both periods (the order's gap more than twice the miss's); swapping the two
+measures, planted, failed it. **Rejected:** the ranking chart alone with the flat one as a sentence
+(still quarters to decode before any day is seen); the table alone (no concrete day); both dot charts
+kept and fixed (the two middle labels the browser dropped, and the comparison still left to the
+reader). The battery legend now stacks its two entries, which the browser showed cut off at phone width.
