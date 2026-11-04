@@ -4228,38 +4228,70 @@ by a planted bug; 308 green. Every page change is now captured in a real browser
 
 ---
 
+### 3 November 2026 (finished 4 November)
+
+**Recap (all three):** 1 half right (T+1 is forecast; but T's prices are already out, so T's row is the
+one filled in, and wind and solar are forecasts because tomorrow's measurements do not exist yet);
+2 not known (the answer listed stage 5's parts, not the three levels of reproducibility); 3 mostly
+right (timing, not level; "ranked well" is the rank correlation of the day's 24 hours). Written to
+`docs/learnings.md`.
+
+**Part 2 of the page rebuilt** (`126151e`), the user choosing from four layouts: the takeaway as its
+first sentence, then 3 September 2024 (off by 47 €, traded in 9 of the best plan's 10 hours) and 22
+February 2025 (off by 9 €, 3 of 9), each drawn as Part 3 draws a day, then a two-by-two of halves
+(98/99 % ranked well, 94/94 % less well). Found before building: far-off days left more euros behind
+(about 2,300 against 1,200 € a year), because they had more to earn; stated on the page. A test holds
+the sentence to the table (swapping the measures, planted, failed it). Before and after in a real
+browser; the battery legend, cut off at phone width, now stacks.
+
+**Stage 5, step 4: the data reaches today** (`dadaaf5`, `5905b8d`, `ba451ee`). A test first that the
+2018–2025 frames come out identical once 2026 is cached (two planted bugs failed it); Transparency for
+Contracts 2 and 5 stated before the pull changed; the pull's end is tomorrow on the Berlin clock;
+`just pull recent` from two weeks back or the cache's end, whichever is earlier (decided with the user).
+The full pull extended four series, nothing revised, and was stopped by the one-hour background limit
+in actual generation, which `just pull recent` filled in 2½ minutes. **Fingerprints of every real frame
+and split identical before and after.**
+
+**A blocker found by the live pull:** ENTSO-E's wind and solar forecast for tomorrow appeared between
+18:02 and 18:15 on 3 November, and was again absent at 14:15 on 4 November, after that day's auction
+had cleared. Open item 12's trigger. **Decided with the user: measure the cost first, on 2023.** The
+README and the page no longer say every input was public before noon (`ca9ab35`). **Plan refreshed
+twice** (milestones: step 4 done, a blocker appearing): `docs/decisions.md`, README, the plan page
+(version 34). 320 green.
+
+---
+
 ### Next — next session
 
-**Stage 5 under way: steps 1–3 done, the page live** at <https://battery-storage-backtest-aqevrymuvf2pb9jrjpmxc9.streamlit.app/>. Main after this entry's commit, 308
-green. Headline unchanged: strict bids on LEAR **90.1 %** on 2024–25 (about 60,400 € of a 67,000 €
-maximum a year); the average without limits 94.4 %, what the daily run will send. Nothing built yet
-for the daily run, drift or the rerun.
+**Stage 5 under way: steps 1–4 done.** The page is live at <https://battery-storage-backtest-aqevrymuvf2pb9jrjpmxc9.streamlit.app/>;
+the cache runs to 4 November 2026 with every 2018–2025 input unchanged. Main after this entry's
+commit, 320 green. Headline unchanged: strict bids on LEAR **90.1 %** on 2024–25. **A blocker:**
+ENTSO-E publishes tomorrow's wind and solar forecast at about 18:00 on D−1, after gate closure (seen
+on 3 and 4 November), so every published level rests on an input the live run cannot fetch in time.
 
 #### Recap questions
 
-1. On the morning of day T, before noon: which day's real prices are already known, which row
-   written yesterday gets filled in, which day is forecast, and why are the wind and solar numbers
-   still forecasts rather than measurements?
-2. "Reproducibility" is stage 5's headline. Name its three levels, say why the answer from a fresh
-   clone with a fresh pull is a distance rather than yes or no, and why that rerun must write only
-   inside its own folder.
-3. Days sorted by how far off the prices were keep about the same money; days sorted by how well
-   the hours were ranked do not. In plain words, what does "ranked well" measure on one day, and
-   why can a forecast off by 47 € per MWh keep 100 % of the maximum?
+1. Part 2 now opens with one real day before any table. Why that order, and why do the extra euros
+   left behind on days the forecast was far off not contradict "getting the price right barely matters"?
+2. `just pull recent` lays the fetched fortnight over the cache before saving. What would go wrong if
+   the cached values won the overlap instead, and why does it start from the cache's end when that
+   is earlier than two weeks back?
+3. ENTSO-E's wind and solar forecast for day D arrives at about 18:00 on D−1. Why do the comparisons
+   between our models stay fair while the level of every score is in question, and what can stand in
+   for that input in a test that uses only what was public at noon?
 
 #### Then, in order
 
-1. **Revisit Part 2 of the page first** (*What earns the money*): the user is not yet sure about the
-   two dot charts side by side. Start from what a reader should take away; alternatives to weigh
-   include the ranking chart alone with the flat one as a sentence, and one chart that shows both.
-   Look at it in a real browser before and after (the scratchpad is per session, so Playwright and
-   Chromium are installed again into it).
-2. **Stage 5, step 4: the data reaches today.** A test first that the 2018–2025 frames come out
-   identical once the cache holds 2026 rows; then the pull's end moves to tomorrow and `just pull
-   recent` fetches the last two weeks. Contracts 2 and 5: state the four Transparency points first.
-3. Then steps 5–11 as planned (`docs/decisions.md`, *Decided 31 October*): one day's forecast, the
-   2026 replay scored once on stage 4's list, `just tomorrow`, drift flags, the page's second
-   version, the rerun from scratch, the four-week trial.
-4. Noted, not tasks: the ISEA like-for-like ceiling check; the 50Hertz battery study (unread); the
-   EPEX *Block parameters* sheet; the market trades quarter-hours since 1 October 2025, the models
-   hours. The work log's contents table stops at 13 October.
+1. **Measure what the late wind and solar forecast costs, on 2023 only** (decided 3 November). Refit
+   LEAR, the tree and the line with day D's wind and solar replaced by what was public at 12:00 on
+   D−1, plan the battery on each and on the average, and compare rMAE and capture rate with the
+   stored runs. Decide the stand-in with the user first (for LEAR, its D−1 and D−7 forecasts are
+   already in the table; the hourly frame has none). No held-back year is read.
+2. **Then decide with the user what the live run uses**: the stand-in, an earlier source (the four
+   TSOs, netztransparenz.de; checked against ENTSO-E's on past days), or a run after 18:00, which
+   breaks the trial's "committed before noon".
+3. Then steps 5–11 as planned (`docs/decisions.md`, *Decided 31 October*).
+4. Noted, not tasks: the full pull now takes over an hour (run it in the foreground or with a longer
+   limit); the catalog still says wind and solar are public "D-1, before gate closure"; the ISEA
+   like-for-like ceiling check; the 50Hertz battery study (unread); the EPEX *Block parameters*
+   sheet; quarter-hours since 1 October 2025; the work log's contents table stops at 13 October.
