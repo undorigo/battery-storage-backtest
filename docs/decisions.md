@@ -624,3 +624,62 @@ measures, planted, failed it. **Rejected:** the ranking chart alone with the fla
 (still quarters to decode before any day is seen); the table alone (no concrete day); both dot charts
 kept and fixed (the two middle labels the browser dropped, and the comparison still left to the
 reader). The battery legend now stacks its two entries, which the browser showed cut off at phone width.
+
+### Built 3 November: the data reaches today (stage 5, step 4)
+
+**The cache now runs to the end of tomorrow, and not one 2018–2025 value moved.** Built in three
+commits, each tested on its own:
+
+- **A test first** (`dadaaf5`): a frame shaped like the cache at the turn of the year (quarter-hours,
+  the autumn clock change, October's and December's holidays, the one stray price quarter-hour past
+  2025) is built twice, once as cached on 17 September and once reaching February 2026. Every
+  2018–2025 row of the hourly frame and the day table, and every split, must come out identical.
+  Two bugs planted on purpose failed it: residual load centred on its whole-history mean, and a
+  holiday calendar that stops a year short.
+- **The pull's end moves to tomorrow** (`5905b8d`): worked out when the pull runs, on the Berlin
+  clock, two calendar days on from today's midnight. Counting 48 hours instead, planted, failed both
+  clock-change cases.
+- **`just pull recent`** (`ba451ee`): fetches from two weeks back, or from where the cache ends if
+  that is earlier (decided with the user), and lays the fetched stretch over the cache before the
+  usual save, so a value rewritten inside it is still caught and the old copy kept. Rejected: always
+  two weeks back, which would leave a hole after any pause longer than that. Planted: the later of
+  the two starts (three tests failed); cached values winning the overlap (the revision test failed).
+
+**Transparency, stated before the pull changed.** Contract 2: the split dates did not move; every
+script that produces a published number reads the years through `cfg.split`, stops at an explicit end
+date, or clips at 2025 (`explore.local`), so none needed a change. Contract 5: 2026 is all
+quarter-hours, which `to_hourly` already averages, and its clock changes go through the same
+`to_slots`. `LIVE_START` waits for the 2026 replay, the first code to read it.
+
+**The pull, 3 November.** The full pull extended four series with nothing rewritten (prices +29,471
+quarter-hours to the end of 4 November, load forecast +29,568, wind and solar +29,472, actual load
++29,422; no copy archived) and was stopped by a one-hour limit during actual generation, which
+`just pull recent` then filled in 2½ minutes (+29,430, the other four `unchanged`). **Checked on the
+real cache:** fingerprints of the hourly frame, the day table and each of their three splits, taken
+before the pull, came out identical after it. Every published number still rests on the same inputs.
+
+### Found 3 November: ENTSO-E publishes tomorrow's wind and solar forecast after the auction closes
+
+**Open item 12's trigger fired** ("stage 5 runs live and has to fetch it before noon"). On 3 November
+ENTSO-E had no wind or solar forecast for 4 November at 13:39 and at 13:56; checked every ten minutes,
+it was absent at 18:02 and present, all 96 quarter-hours, at 18:15. On 4 November at 14:15 the
+forecast for 5 November was again absent, while that day's prices had cleared and its load forecast
+was there. The legal deadline is 18:00 on D−1 (Regulation 543/2013, Art. 14(1)(d)); two mornings of
+two, ENTSO-E's copy arrived at it, about six hours after gate closure.
+
+**What it means, stated without smoothing.** Every model reads the wind and solar forecast for day D.
+ENTSO-E's copy of it was not public at 12:00 on D−1 on either day observed, so the catalog's claim
+"D-1, before gate closure" does not hold for this source in practice. The comparisons between models
+stay fair, since all used it alike; the **level** of every published score, and of the 90.1 %, rests
+on an input the live run cannot fetch from ENTSO-E in time. The working assumption from 8 October, that
+an equivalent forecast is at hand by noon from the TSOs or a vendor, is unverified. Two days do not say
+how often; ENTSO-E stores no publication time, so the past cannot be checked this way.
+
+**Decided with the user: measure the cost first**, on 2023 alone: refit LEAR and the average with
+day D's wind and solar replaced by what was public by noon (the D−1 and D−7 forecasts LEAR already
+sees), plan the battery on it, and compare rMAE and capture rate. No held-back year is read. Then
+decide what the live run uses. Rejected for now: looking for an earlier source first (settles the live
+run, not how much the backtest depends on it); recording it and carrying on (the trial would have to
+run after the auction closed). Not changed today: the catalog and `features.py`, because marking the
+series unknowable would stop every model from importing before the cost is known. The README and the
+page now state the limit instead of the claim.
