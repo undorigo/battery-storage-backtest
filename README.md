@@ -36,8 +36,9 @@ help (*LASSO*).
   more on 501 days and less on 211, far too many to be luck (p < 10⁻²⁵).
 - **Averaging three forecasts pays about 1,000 € more.** Found on 2023, then confirmed on 2024–25
   (p 0.0001).
-- **No hindsight.** Every input was public before the auction closed. Code enforces this, and tests
-  were shown to catch leaks planted on purpose. Nothing was tuned after looking at the test years.
+- **No hindsight, with one exception found on 3 November** (see *Limits*). Every price, demand and
+  calendar input was public before the auction closed. Code enforces this, and tests were shown to
+  catch leaks planted on purpose. Nothing was tuned after looking at the test years.
 
 ### What did not
 
@@ -52,6 +53,10 @@ help (*LASSO*).
 
 ### Limits
 
+- **Tomorrow's wind and solar forecast arrives late.** Every model uses it. But ENTSO-E, where we get
+  it, published it at about 18:00 the day before: six hours after the auction closed (seen on 3 and 4
+  November 2026). Traders may get such a forecast earlier elsewhere; that is not checked. So every
+  score here may be too good. How much is measured next, on 2023 only.
 - **One market only: the day-ahead auction.** Across all markets, German batteries earned two to three
   times our best case in 2024, mostly from grid reserve.
 - **One exchange rule is guessed.** Nobody has confirmed whether the exchange checks each order of a
@@ -69,7 +74,7 @@ Python 3.11 and a free ENTSO-E account, which provides the data token. Step-by-s
 
 ```bash
 python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
-.venv/bin/python -m pytest tests/ -q     # 298 tests, offline, ~2 min
+.venv/bin/python -m pytest tests/ -q     # 320 tests, offline, ~2 min
 just pull                                # the data, ~20 min
 just final-score                         # forecasts for 2024–25, ~40 min
 just final-score ranges                  # their price ranges, ~4.5 h
@@ -83,8 +88,9 @@ command is still to be built.
 
 ### Next steps
 
-- **Run it every day.** It can't forecast tomorrow yet: there is no daily data pull and no "tomorrow"
-  command. Decided: each morning it sends the average of the three forecasts, without price limits,
+- **Run it every day.** The data now reaches tomorrow (`just pull recent`, about 2 minutes), but
+  there is no "tomorrow" command yet, and tomorrow's wind and solar forecast is not on ENTSO-E before
+  noon (see *Limits*). Decided: each morning it sends the average of the three forecasts, without price limits,
   because that earned the most on both readings; LEAR's plan if one model fails. First, 2026 so far
   is replayed and scored once; then a four-week trial runs it each morning.
 - **Rerun from scratch.** Regenerate these numbers from a fresh copy with freshly pulled data. ENTSO-E
@@ -208,9 +214,12 @@ reading. The order:
 1. **A web page on past results**, published online: pick a day and see the forecasts, the range,
    the real price, the battery's plan and what it earned. It reads one small file kept in git.
    **Done 2 November:** <https://battery-storage-backtest-aqevrymuvf2pb9jrjpmxc9.streamlit.app/>.
-2. **The data reaches today.** The cache stops at the end of 2025, so ten months of 2026 have been
-   seen by nothing in this project. They are replayed once and scored once, on the same list as
-   stage 4, fixed before looking.
+2. **The data reaches today.** **Done 3 November:** the cache runs to the end of tomorrow, and every
+   2018–2025 input came out identical (a test on a clean clone, fingerprints on the real cache).
+   `just pull recent` fetches the last two weeks each morning. The ten months of 2026, seen by nothing
+   in this project, are replayed once and scored once next, on the same list as stage 4, fixed before
+   looking. **Found the same day:** ENTSO-E publishes tomorrow's wind and solar forecast at about
+   18:00, after the auction closes. What that costs is measured first, on 2023.
 3. **`just tomorrow`**: each run first fills in yesterday's real prices and earnings, then forecasts
    tomorrow. The replay and the daily run use the same one-day code, so the replay tests it.
 4. **Drift checks**: a flag when, over 28 days, too few prices land inside the 80 % range, or the
@@ -435,14 +444,14 @@ git clone <this repo> && cd battery-storage-backtest
 
 python3 -m venv .venv                              # a project-local environment
 .venv/bin/pip install -r requirements.txt          # once, not per terminal session
-.venv/bin/python -m pytest tests/ -q               # 298 tests, offline, no token
+.venv/bin/python -m pytest tests/ -q               # 320 tests, offline, no token
 ```
 
 That's the whole setup. `pip install` writes into `.venv/` on disk, so it persists — you
 never repeat it unless `requirements.txt` changes, and you never need to "activate"
 anything, because every command below names the interpreter explicitly.
 
-Expect `298 passed`, in about two minutes. The commands that regenerate each result are under
+Expect `320 passed`, in about two minutes. The commands that regenerate each result are under
 [Reproduce it](#reproduce-it).
 
 ### See it work, without a token

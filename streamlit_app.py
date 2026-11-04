@@ -222,8 +222,10 @@ with st.expander("How our forecasts work"):
         "decision-tree model (*gradient boosting*), and averages the three hour by hour. Each "
         "misses in partly different hours. Together they ranked the hours of a day better than "
         "our forecast alone on about two days in three.\n\n"
-        "**No hindsight.** Every forecast uses only what was published before noon the day "
-        "before: the same information a real battery operator had.")
+        "**Almost no hindsight.** Every forecast uses prices, demand forecasts and the calendar "
+        "as published before noon the day before. One input arrives later: our data source "
+        "publishes tomorrow's wind and solar forecast at about 18:00, after the auction has "
+        "closed. How much that flatters the results is being measured.")
 
 with st.container(border=True):
     st.markdown(f"**Why {kept['bids strict']:.0%} and not {kept['average']:.0%}?**")
@@ -527,9 +529,12 @@ st.markdown(
     "operators' wind and solar forecasts.\n"
     "- **Quarter-hours.** Since October 2025 the auction trades 15-minute periods. We still plan "
     "by the hour.\n"
+    "- **Wind and solar arrive late.** Our data source publishes tomorrow's wind and solar "
+    "forecast at about 18:00, after the auction has closed. Every forecast here uses it, so "
+    "every share may be too high. How much is being measured.\n"
     "- **Money before costs.** Before grid fees, taxes and the price of the battery.\n"
-    "- **A replay.** Every forecast here was made as if at noon the day before, from data "
-    "published by then, but it was computed later. A daily live run is being built next.\n\n"
+    "- **A replay.** Every forecast here was made as if at noon the day before, but it was "
+    "computed later. A daily live run is being built next.\n\n"
     "Every number on this page can be rebuilt from a fresh copy of the "
     "[repository](https://github.com/undorigo/battery-storage-backtest), with the commands in "
     "its README under *Reproduce it*.")
