@@ -4273,6 +4273,12 @@ and vendors refresh theirs several times a day. **Decided with the user:** the b
 time. README, page (both passages seen in a real browser) and the plan page (version 35) refreshed
 (milestone: a blocker cleared). 320 green.
 
+**Afterwards, from the user's questions:** ENTSO-E's response carries no publication time
+(`createdDateTime` is the moment of the request), so arrival can only be seen by polling; a poll every
+10 minutes ran from 12:50. **Decided with the user:** the trial starts at 19:00, retries hourly to 22:00
+when an input is incomplete, then sends the simple rule's plan, flagged. The plan page opens with the
+six stages in plain words (version 37).
+
 ---
 
 ### Next — next session
@@ -4296,8 +4302,10 @@ traders buy one before noon, so the backtest stays; the daily run and trial go a
 
 #### Then, in order
 
-1. **Step 5: one day's forecast.** Fit on days up to D−1, forecast with the three models and the
-   average, plan the battery, time it; a planted price for day D must leave the forecast unchanged.
+1. **Step 5: one day's forecast.** It must report which inputs for day D are complete (96
+   quarter-hours), because step 7's retries and fallback (decided 5 November) hang on that answer.
+   Fit on days up to D−1, forecast with the three models and the average, plan the battery, time
+   it; a planted price for day D must leave the forecast unchanged.
    It runs after 18:00 in live use, so day D's price is already out: that test is what guards it.
 2. Then steps 6–11 as planned (`docs/decisions.md`, *Decided 31 October*; the trial now runs in the
    evening, *Decided 5 November*).

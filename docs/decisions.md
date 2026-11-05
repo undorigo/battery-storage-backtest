@@ -717,3 +717,18 @@ the cost of having no paid feed, which a trading desk does not face); a trial at
 alone (its scores would not compare with the backtest's); buying a feed (outside this project).
 Still to do: the catalog's publication text for wind and solar ("D-1, before gate closure") should
 say made in the morning, published at 18:00.
+
+**Decided with the user, 5 November: the trial never fails for want of an input.** It starts at 19:00
+Berlin time, an hour after the legal deadline (the four weeks fall in winter time, so no clock change
+moves it). An input counts as there only when day D is complete, all 96 quarter-hours, not merely
+present. If one is missing, it tries again every hour, at 20:00, 21:00 and 22:00. If the wind and
+solar forecast is still missing after the last try, it sends the plan from the simple rule (yesterday's
+price Tuesday to Friday, last week's Saturday to Monday). That plan needs only prices that were out by
+12:45 and already cached the evening before, so it works even when ENTSO-E is down. The day is marked
+*fallback: input missing*, scored apart, and the trial counts how often it happened. The order of
+fallbacks: the average of three; LEAR's plan if one model fails (decided 30 October); the simple rule
+if an input is missing. Rejected: 21:00 and one try (one outage loses the day); 18:30 with tries to
+23:00 (more runs finding nothing); retries every 30 minutes (the user's choice: hourly is enough at
+this deadline); skipping the day (gaps in the record, a battery idle); yesterday's wind and solar as
+a stand-in (the models never learned from it, so untested). Not observed, so not built for: GitHub
+starting a scheduled job late or not at all; the hourly tries also cover that.

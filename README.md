@@ -229,8 +229,9 @@ reading. The order:
    error drifts above its usual margin over the simple rule. Thresholds set on 2023 alone.
 5. **A rerun from scratch**, a fresh copy with freshly pulled data, and a command that says how far
    each number moved. That distance is stage 5's headline (*reproducibility*).
-6. **A four-week trial**: GitHub runs `just tomorrow` each evening after 18:00, when the wind and
-   solar forecast is out, then stops by itself. Each forecast is committed before tomorrow begins, but
+6. **A four-week trial**: GitHub runs `just tomorrow` each evening at 19:00, when the wind and
+   solar forecast is out, tries again hourly until 22:00 if an input is incomplete, and sends the simple
+   rule's plan, flagged, if it is still missing. Then it stops by itself. Each forecast is committed before tomorrow begins, but
    after the auction: it shows the pipeline running daily on new days, not a bid made in time. Four
    weeks tests the machinery, not the models.
 
