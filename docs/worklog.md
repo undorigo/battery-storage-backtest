@@ -4261,13 +4261,27 @@ twice** (milestones: step 4 done, a blocker appearing): `docs/decisions.md`, REA
 
 ---
 
+### 5 November 2026
+
+**The late wind and solar forecast settled without a refit** (`97e6551`). Recap skipped (short session;
+the questions stay in *Next*). At 12:14 ENTSO-E again had no wind or solar forecast for tomorrow, the
+load forecast complete; three mornings of three. Twenty minutes of research, sources in
+`docs/decisions.md`: TenneT and 50Hertz make the forecast at 08:00 and 09:00 and publish it at 18:00;
+every free source (their pages, netztransparenz.de, SMARD) publishes at 18:00; EEX sells one at 11:00
+and vendors refresh theirs several times a day. **Decided with the user:** the backtest stays, the
+2023 refit is dropped, the trial runs after 18:00 and says it tests the machinery, not a bid made in
+time. README, page (both passages seen in a real browser) and the plan page (version 35) refreshed
+(milestone: a blocker cleared). 320 green.
+
+---
+
 ### Next — next session
 
 **Stage 5 under way: steps 1–4 done.** The page is live at <https://battery-storage-backtest-aqevrymuvf2pb9jrjpmxc9.streamlit.app/>;
 the cache runs to 4 November 2026 with every 2018–2025 input unchanged. Main after this entry's
-commit, 320 green. Headline unchanged: strict bids on LEAR **90.1 %** on 2024–25. **A blocker:**
-ENTSO-E publishes tomorrow's wind and solar forecast at about 18:00 on D−1, after gate closure (seen
-on 3 and 4 November), so every published level rests on an input the live run cannot fetch in time.
+commit, 320 green. Headline unchanged: strict bids on LEAR **90.1 %** on 2024–25. **The late wind
+and solar forecast is settled** (5 November): the TSOs make it in the morning and publish it at 18:00,
+traders buy one before noon, so the backtest stays; the daily run and trial go after 18:00.
 
 #### Recap questions
 
@@ -4282,16 +4296,15 @@ on 3 and 4 November), so every published level rests on an input the live run ca
 
 #### Then, in order
 
-1. **Measure what the late wind and solar forecast costs, on 2023 only** (decided 3 November). Refit
-   LEAR, the tree and the line with day D's wind and solar replaced by what was public at 12:00 on
-   D−1, plan the battery on each and on the average, and compare rMAE and capture rate with the
-   stored runs. Decide the stand-in with the user first (for LEAR, its D−1 and D−7 forecasts are
-   already in the table; the hourly frame has none). No held-back year is read.
-2. **Then decide with the user what the live run uses**: the stand-in, an earlier source (the four
-   TSOs, netztransparenz.de; checked against ENTSO-E's on past days), or a run after 18:00, which
-   breaks the trial's "committed before noon".
-3. Then steps 5–11 as planned (`docs/decisions.md`, *Decided 31 October*).
-4. Noted, not tasks: the full pull now takes over an hour (run it in the foreground or with a longer
-   limit); the catalog still says wind and solar are public "D-1, before gate closure"; the ISEA
-   like-for-like ceiling check; the 50Hertz battery study (unread); the EPEX *Block parameters*
-   sheet; quarter-hours since 1 October 2025; the work log's contents table stops at 13 October.
+1. **Step 5: one day's forecast.** Fit on days up to D−1, forecast with the three models and the
+   average, plan the battery, time it; a planted price for day D must leave the forecast unchanged.
+   It runs after 18:00 in live use, so day D's price is already out: that test is what guards it.
+2. Then steps 6–11 as planned (`docs/decisions.md`, *Decided 31 October*; the trial now runs in the
+   evening, *Decided 5 November*).
+3. Noted, not tasks: the catalog still says wind and solar are public "D-1, before gate closure"
+   (should say made in the morning, published at 18:00); Amprion's, TransnetBW's and the solar
+   forecasts' making time, not read; one control area from 50Hertz's CSV against ENTSO-E's, to show
+   they are the same numbers; the full pull now takes over an hour (run it in the foreground or with a
+   longer limit); the ISEA like-for-like ceiling check; the 50Hertz battery study (unread); the EPEX
+   *Block parameters* sheet; quarter-hours since 1 October 2025; the work log's contents table stops
+   at 13 October.
