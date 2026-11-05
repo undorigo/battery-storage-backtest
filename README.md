@@ -53,10 +53,12 @@ help (*LASSO*).
 
 ### Limits
 
-- **Tomorrow's wind and solar forecast arrives late.** Every model uses it. But ENTSO-E, where we get
-  it, published it at about 18:00 the day before: six hours after the auction closed (seen on 3 and 4
-  November 2026). Traders may get such a forecast earlier elsewhere; that is not checked. So every
-  score here may be too good. How much is measured next, on 2023 only.
+- **Tomorrow's wind and solar forecast is published late.** Every model uses it. ENTSO-E, where we
+  get it, publishes it at about 18:00 the day before, six hours after the auction closed (missing at
+  noon on 3, 4 and 5 November 2026, there at 18:15 on the 3rd). But the grid operators make it in the
+  morning (08:00 and 09:00 at the two checked), and traders buy an equivalent from forecasters before
+  noon. As far as checked, it holds no hindsight; it just was not free at noon. Not checked: whether a
+  bought 11:00 forecast is as accurate.
 - **One market only: the day-ahead auction.** Across all markets, German batteries earned two to three
   times our best case in 2024, mostly from grid reserve.
 - **One exchange rule is guessed.** Nobody has confirmed whether the exchange checks each order of a
@@ -89,10 +91,10 @@ command is still to be built.
 ### Next steps
 
 - **Run it every day.** The data now reaches tomorrow (`just pull recent`, about 2 minutes), but
-  there is no "tomorrow" command yet, and tomorrow's wind and solar forecast is not on ENTSO-E before
-  noon (see *Limits*). Decided: each morning it sends the average of the three forecasts, without price limits,
+  there is no "tomorrow" command yet. It will run after 18:00, when tomorrow's wind and solar forecast
+  is on ENTSO-E (see *Limits*). Decided: each day it sends the average of the three forecasts, without price limits,
   because that earned the most on both readings; LEAR's plan if one model fails. First, 2026 so far
-  is replayed and scored once; then a four-week trial runs it each morning.
+  is replayed and scored once; then a four-week trial runs it each evening.
 - **Rerun from scratch.** Regenerate these numbers from a fresh copy with freshly pulled data. ENTSO-E
   revises old data, so small differences are possible.
 - **Watch for drift.** Flag when forecasts or ranges start missing more than usual.
@@ -216,19 +218,21 @@ reading. The order:
    **Done 2 November:** <https://battery-storage-backtest-aqevrymuvf2pb9jrjpmxc9.streamlit.app/>.
 2. **The data reaches today.** **Done 3 November:** the cache runs to the end of tomorrow, and every
    2018–2025 input came out identical (a test on a clean clone, fingerprints on the real cache).
-   `just pull recent` fetches the last two weeks each morning. The ten months of 2026, seen by nothing
+   `just pull recent` fetches the last two weeks each day. The ten months of 2026, seen by nothing
    in this project, are replayed once and scored once next, on the same list as stage 4, fixed before
    looking. **Found the same day:** ENTSO-E publishes tomorrow's wind and solar forecast at about
-   18:00, after the auction closes. What that costs is measured first, on 2023.
+   18:00, after the auction closes. **Decided 5 November:** the grid operators make it in the morning
+   and traders can buy one before noon, so the backtest stays as it is; the daily run goes after 18:00.
 3. **`just tomorrow`**: each run first fills in yesterday's real prices and earnings, then forecasts
    tomorrow. The replay and the daily run use the same one-day code, so the replay tests it.
 4. **Drift checks**: a flag when, over 28 days, too few prices land inside the 80 % range, or the
    error drifts above its usual margin over the simple rule. Thresholds set on 2023 alone.
 5. **A rerun from scratch**, a fresh copy with freshly pulled data, and a command that says how far
    each number moved. That distance is stage 5's headline (*reproducibility*).
-6. **A four-week trial**: GitHub runs `just tomorrow` each morning before the auction closes, then
-   stops by itself. Each forecast is committed before the price exists, which anyone can check.
-   Four weeks tests the machinery, not the models.
+6. **A four-week trial**: GitHub runs `just tomorrow` each evening after 18:00, when the wind and
+   solar forecast is out, then stops by itself. Each forecast is committed before tomorrow begins, but
+   after the auction: it shows the pipeline running daily on new days, not a bid made in time. Four
+   weeks tests the machinery, not the models.
 
 Nothing runs in between: the page sleeps without visitors, the trial has an end date. The full
 record, with what was rejected, is in [docs/decisions.md](docs/decisions.md).

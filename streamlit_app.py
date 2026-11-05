@@ -225,7 +225,8 @@ with st.expander("How our forecasts work"):
         "**Almost no hindsight.** Every forecast uses prices, demand forecasts and the calendar "
         "as published before noon the day before. One input arrives later: our data source "
         "publishes tomorrow's wind and solar forecast at about 18:00, after the auction has "
-        "closed. How much that flatters the results is being measured.")
+        "closed. The grid operators make it in the morning, though, and traders buy one like it "
+        "before noon.")
 
 with st.container(border=True):
     st.markdown(f"**Why {kept['bids strict']:.0%} and not {kept['average']:.0%}?**")
@@ -530,8 +531,8 @@ st.markdown(
     "- **Quarter-hours.** Since October 2025 the auction trades 15-minute periods. We still plan "
     "by the hour.\n"
     "- **Wind and solar arrive late.** Our data source publishes tomorrow's wind and solar "
-    "forecast at about 18:00, after the auction has closed. Every forecast here uses it, so "
-    "every share may be too high. How much is being measured.\n"
+    "forecast at about 18:00, after the auction has closed. The grid operators make it in the "
+    "morning, and traders buy one like it before noon; whether as accurate is not checked.\n"
     "- **Money before costs.** Before grid fees, taxes and the price of the battery.\n"
     "- **A replay.** Every forecast here was made as if at noon the day before, but it was "
     "computed later. A daily live run is being built next.\n\n"

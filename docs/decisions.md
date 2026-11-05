@@ -683,3 +683,37 @@ run, not how much the backtest depends on it); recording it and carrying on (the
 run after the auction closed). Not changed today: the catalog and `features.py`, because marking the
 series unknowable would stop every model from importing before the cost is known. The README and the
 page now state the limit instead of the claim.
+
+**Checked again, 5 November.** At 12:14 ENTSO-E had no wind or solar forecast for 6 November. The load
+forecast was there, all 96 quarter-hours; the day's prices were not yet (they clear at about 12:45).
+Three mornings of three now. The session ended before 18:00, so the arrival was not watched.
+
+**Where traders get it before noon** (researched 5 November, about 20 minutes, pages read in full
+where linked):
+
+| Source | Published | Free | Past values checkable against ENTSO-E's |
+|---|---|---|---|
+| The TSOs' own pages ([TenneT](https://netztransparenz.tennet.eu/electricity-market/transparency-pages/transparency-germany/network-figures/actual-and-forecast-wind-energy-feed-in), [50Hertz](https://www.50hertz.com/en/Grid-Data/Wind-power); Amprion and TransnetBW not read) | made in the morning, published at 18:00: TenneT's wind forecast is "estimated at 8 a.m. for the following day" and "published daily at 6 p.m."; 50Hertz's is "always those of 09:00 hrs the previous day", published "daily at 18:00" | yes (50Hertz: "publically available"; TenneT does not say) | probably: 50Hertz offers a CSV "including past values" and an archive; one control area against ENTSO-E's figure for it would show whether they are the same numbers. Not checked |
+| [netztransparenz.de](https://www.netztransparenz.de/en/Renewable-energies-and-levies/Voluntary-publications/Wind-and-solar-energy-forecast-until-15122022) (the four TSOs together) | by 18:00 on D−1, the legal deadline ([EEV § 3 No. 1](https://www.gesetze-im-internet.de/ausglmechv_2015/__3.html)) | yes, CSV download | no: it covers only the plants the TSOs sell themselves, net of everything sold directly, so a part of the fleet. Its separate day-before forecast stopped on 15 December 2022 |
+| [SMARD](https://www.smard.de/en/new-forecasted-photovoltaic-and-wind-generation-in-one-208720) (Bundesnetzagentur) | "by 6pm each day" | yes, download | the same TSO figures; no earlier |
+| [EEX Transparency](https://www.eex-transparency.com/news/market-information/detail/eurowind-publishes-wind-and-solar-power-data-on-eex-transparency-platform) (forecaster EuroWind) | 18:00 on the free platform; "available as early as at 11:00 in the context of the information products" (updated 8:00, 11:00, 18:00) | 11:00 copy: no, a [paid subscription](https://www.eex.com/en/market-data/eex-group-datasource/eex-group-transparency-data) | back to 17 August 2016, but a different forecaster, so compared by error, not matched. Whether the history keeps the 11:00 version or the later update is not stated |
+| Vendors ([Volue](https://volue.com/news/introducing-ai-weather-based-fundamental-wind-forecasts), enercast, [energy & meteo](https://www.emsys-renewables.com/products/power_forecasts/market-forecasts-wind-solar.php), Meteologica) | several times a day; Volue refreshes four or more times from the global weather runs | no | only if the archive keeps the time each forecast was issued; energy & meteo supplies past forecasts on request |
+| Weather instead ([Open-Meteo Previous Runs](https://open-meteo.com/en/docs/previous-runs-api)) | fixed lead of 1–7 days | yes, non-commercial | most models from January 2024 only (GFS from March 2021), so not 2023; and it needs a model from weather to power. Not pursued |
+
+**What that changes.** The forecast in our data is not an evening forecast. The two TSOs read make it
+at 08:00 and 09:00 and only publish it at 18:00, so the weather it rests on was known before noon. A
+trader buys an equivalent from a vendor before the auction. So the level of every score rests on a
+forecast that existed at decision time, just not for free. **Not verified:** when Amprion and
+TransnetBW make theirs, when solar is made, and whether a vendor's 11:00 forecast is as accurate (likely
+close, since both start from the same night's weather runs; not measured).
+
+**Decided with the user, 5 November: the backtest stays as it is, and the 2023 measurement is
+dropped.** It would have measured a forecast that no professional would trade on. The four-week trial
+runs after 18:00, once ENTSO-E has the forecast, and forecasts day D from the same inputs as the
+backtest (prices 24 hours back or more, so day D's price, already cleared, is never read). It then
+tests the machinery on new days; it no longer proves a forecast made before the auction, and the
+README and the page say so. Rejected: the 2023 refit with yesterday's forecast standing in (it sizes
+the cost of having no paid feed, which a trading desk does not face); a trial at 11:00 on free inputs
+alone (its scores would not compare with the backtest's); buying a feed (outside this project).
+Still to do: the catalog's publication text for wind and solar ("D-1, before gate closure") should
+say made in the morning, published at 18:00.
