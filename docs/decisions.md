@@ -738,3 +738,54 @@ from 12:50, ENTSO-E's wind and solar forecast for 6 November was absent at 18:02
 96 quarter-hours, at 18:13. The same window as on 3 November (18:02–18:15). Both arrivals fall before
 the trial's 19:00 start, with three-quarters of an hour to spare. Two evenings, so it says nothing yet
 about how often it comes late; the trial's record of fallback days will.
+
+### Built 6 November: one day's forecast (stage 5, step 5)
+
+**`scripts/tomorrow.py` forecasts and plans one delivery day, and the 2026 replay and `just tomorrow`
+will both call it** (`0ea61c0`). Handed day D and the cache, it returns which inputs for D have
+arrived, five forecasts on D's 24 slots (LEAR, the tree, the line, their average, the simple rule),
+the battery's plan on D's real hours, and how long each part took. It reuses the backtest's two walks,
+handed one day, so the rule "fit on days before D only" lives where it was already tested, and the
+plan is `backtest.walk`: one day, starting and ending empty (Contract 4). Nothing is settled or
+written: yesterday's earnings and the record are the caller's.
+
+**A test first, because day D's price is in the cache when the live run starts.** It clears at about
+12:45 and the run starts at 19:00, so nothing but the code keeps it out. On a synthetic year of
+quarter-hours the test plants 9,999 € per MWh across all of D and demands the forecasts and the plan
+come out identical. Two bugs planted on purpose failed it: the tree and the line fitted once on the
+whole cache (their forecast for D came out near 9,997 €), and LEAR fitted on days up to and including
+D. **Contracts:** none changed; the function only reads `features.build()`, `features.day_table()` and
+the raw cache, so every published number stays valid. No held-back year was read.
+
+**Which inputs count as arrived** (decided with the user): the newest of each, D's load, onshore wind,
+offshore wind and solar forecasts and D−1's price, counted in the raw cache, because averaging up to
+hours gives an hour a value from one quarter-hour of its four. A Berlin day needs 96, 92 in spring and
+100 in autumn. On the real cache at 12:27 on 6 November, tomorrow had the load forecast (96 of 96) and
+no wind or solar (0 of 96). Rejected: counting every day the models read (about 20 counts; a hole in
+an older day has not been seen in 2026).
+
+**What happens when one is missing** (decided with the user): nothing is fitted, and the plan is the
+simple rule's, with the reason (`input missing: wind onshore 0/96, …`). The caller retries in an hour,
+or sends it after the last try. Rejected: forecasting anyway (computed only to be thrown away); raising
+an error (the fallback would then live in two places).
+
+**A model stopped by an older input** (decided with the user). LEAR reads D−1's and D−7's forecasts as
+clues; the tree and the line read only D's, and nothing LEAR does not. So a forecast for D−1 that came
+days late leaves D's counts complete and stops LEAR alone. Then the plan is also the simple rule's,
+naming the clue. **This replaces the 30 October rule "LEAR's plan if one of the three fails"**: no
+missing value can stop the tree or the line while LEAR runs, so that rule could fire only on a crash,
+not seen. Rejected: averaging the two that ran (a pair never scored); keeping the 30 October rule
+beside it (a guard for an unobserved failure). **A late forecast is never back-filled live:** the plan
+sent stands, because the record says what was known then. The replay reads the cache as it stands, so
+there the models run (the stated limit of 31 October).
+
+**Left for the drift step** (decided with the user): LEAR's QRA range, which needs 182 days of LEAR's
+own past forecasts; only the replay produces them.
+
+**Found while checking it on the real cache: ENTSO-E rewrote a day-ahead load forecast after the
+auction.** `just pull recent` on 6 November reported the load forecast for 4 November revised: 95 of
+96 quarter-hours, by 15 MW at the median and 47 MW at most, against a load of about 55,000 MW. It had
+first been fetched at 12:57 on 3 November, after that day's auction closed. So the backtest reads the
+final version of the load forecast, not necessarily the one standing at noon. One day, under a tenth
+of a percent, first seen; noted, not acted on. The old copy is archived, as the pull is built to do.
+Actual load and generation were revised too, as expected; neither is an input.

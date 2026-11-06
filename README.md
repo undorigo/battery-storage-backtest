@@ -90,11 +90,12 @@ command is still to be built.
 
 ### Next steps
 
-- **Run it every day.** The data now reaches tomorrow (`just pull recent`, about 2 minutes), but
-  there is no "tomorrow" command yet. It will run after 18:00, when tomorrow's wind and solar forecast
-  is on ENTSO-E (see *Limits*). Decided: each day it sends the average of the three forecasts, without price limits,
-  because that earned the most on both readings; LEAR's plan if one model fails. First, 2026 so far
-  is replayed and scored once; then a four-week trial runs it each evening.
+- **Run it every day.** The data now reaches tomorrow (`just pull recent`, about 2 minutes), and the
+  code that forecasts and plans one day exists (6 November), but there is no
+  "tomorrow" command yet. It will run after 18:00, when tomorrow's wind and solar forecast is on
+  ENTSO-E (see *Limits*). Decided: each day it sends the average of the three forecasts, without price
+  limits, because that earned the most on both readings; the simple rule's plan, flagged, if any input
+  is missing. First, 2026 so far is replayed and scored once; then a four-week trial runs it each evening.
 - **Rerun from scratch.** Regenerate these numbers from a fresh copy with freshly pulled data. ENTSO-E
   revises old data, so small differences are possible.
 - **Watch for drift.** Flag when forecasts or ranges start missing more than usual.
@@ -210,7 +211,7 @@ What it found, beyond the headline:
   the solver's tolerance; solved exactly, the best possible is never beaten.
 
 **Stage 5, planned on 31 October.** The daily run will send the average of the three forecasts,
-without limits, with LEAR's plan as the fallback. The headline stays the 90.1 % fixed before the
+without limits, with the simple rule's plan if an input is missing. The headline stays the 90.1 % fixed before the
 reading. The order:
 
 1. **A web page on past results**, published online: pick a day and see the forecasts, the range,
@@ -225,6 +226,10 @@ reading. The order:
    and traders can buy one before noon, so the backtest stays as it is; the daily run goes after 18:00.
 3. **`just tomorrow`**: each run first fills in yesterday's real prices and earnings, then forecasts
    tomorrow. The replay and the daily run use the same one-day code, so the replay tests it.
+   **One day's code done 6 November** (`scripts/tomorrow.py`): it says which of tomorrow's inputs
+   have every quarter-hour, forecasts from earlier days only, and plans the battery. A test plants a
+   price for the day itself, already out by evening, and checks nothing moves; two planted bugs failed
+   it. If an input is missing, the plan is the simple rule's, saying which.
 4. **Drift checks**: a flag when, over 28 days, too few prices land inside the 80 % range, or the
    error drifts above its usual margin over the simple rule. Thresholds set on 2023 alone.
 5. **A rerun from scratch**, a fresh copy with freshly pulled data, and a command that says how far
