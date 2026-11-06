@@ -732,3 +732,9 @@ if an input is missing. Rejected: 21:00 and one try (one outage loses the day); 
 this deadline); skipping the day (gaps in the record, a battery idle); yesterday's wind and solar as
 a stand-in (the models never learned from it, so untested). Not observed, so not built for: GitHub
 starting a scheduled job late or not at all; the hourly tries also cover that.
+
+**Watched 5 November (recorded 6 November): the arrival, a second time.** Checked every ten minutes
+from 12:50, ENTSO-E's wind and solar forecast for 6 November was absent at 18:02 and complete, all
+96 quarter-hours, at 18:13. The same window as on 3 November (18:02–18:15). Both arrivals fall before
+the trial's 19:00 start, with three-quarters of an hour to spare. Two evenings, so it says nothing yet
+about how often it comes late; the trial's record of fallback days will.
