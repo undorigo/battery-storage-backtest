@@ -58,7 +58,9 @@ help (*LASSO*).
   noon on 3, 4 and 5 November 2026, there at 18:15 on the 3rd). But the grid operators make it in the
   morning (08:00 and 09:00 at the two checked), and traders buy an equivalent from forecasters before
   noon. As far as checked, it holds no hindsight; it just was not free at noon. Not checked: whether a
-  bought 11:00 forecast is as accurate.
+  bought 11:00 forecast is as accurate. This project measures what a forecast captures, not what a
+  trading desk could run before noon, so a forecast of the day, made before it, is fair to use. What it
+  never uses is anything measured on the day itself, its price included.
 - **One market only: the day-ahead auction.** Across all markets, German batteries earned two to three
   times our best case in 2024, mostly from grid reserve.
 - **One exchange rule is guessed.** Nobody has confirmed whether the exchange checks each order of a

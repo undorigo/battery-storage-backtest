@@ -30,6 +30,12 @@ tomorrow's prices. The commitment is binding.
 So the forecast horizon is 12 to 36 hours, and the decision point is fixed at 12:00 on D−1.
 Everything in this repository is downstream of that single fact.
 
+**The noon decision point is a convention, not a simulated trading desk** (decided 9 Nov). The project
+measures what a forecast captures, not whether an operator could have run it before noon, so a forecast
+*of* day D published later on D−1 (the TSOs' wind and solar, at 18:00) is acceptable. Noon stays because
+the lags, the day table and every published number rest on it, and it keeps the numbers comparable with
+the field's. What holds at any hour: nothing *measured on* D, its price included.
+
 ### Target and split
 
 | | |
@@ -386,6 +392,10 @@ Five shared interfaces where a change in one place breaks another.
 Every feature must have been published **before the auction closed** — 12:00 on day D−1 for
 this market. This is not a style preference; it is what separates a valid backtest from a
 worthless one.
+
+**One stated exception:** the TSOs' wind and solar forecast for D, made in the morning and published
+at 18:00 on D−1 (found 3 November, settled 5 and 9 November). It is a forecast *of* D, so it stays;
+nothing published after it, and nothing measured on D, may join it.
 
 Lead with the constraint rather than the clock, because two different deadlines are easy to
 collapse into one number:

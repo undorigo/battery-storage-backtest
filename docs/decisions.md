@@ -789,3 +789,32 @@ first been fetched at 12:57 on 3 November, after that day's auction closed. So t
 final version of the load forecast, not necessarily the one standing at noon. One day, under a tenth
 of a percent, first seen; noted, not acted on. The old copy is archived, as the pull is built to do.
 Actual load and generation were revised too, as expected; neither is an input.
+
+### Decided 9 November: what the backtest claims, and the line that holds at any hour
+
+**The project does not simulate a trading desk acting at noon** (decided with the user). It measures
+how much of the day-ahead spread a forecast captures, not whether an operator could have run the
+pipeline before the auction closed. So it need not prove that every input was in hand at 12:00 on
+D−1: a forecast *of* day D published later on D−1, like the grid operators' wind and solar forecast at
+18:00, is acceptable. This is now the reason the backtest stays as it is. The decision of 5 November
+is unchanged; its reason then, "the forecast existed at noon, just not for free", is kept as
+supporting evidence, no longer as the condition.
+
+**The noon convention stays, for a different reason: comparability.** The 24-hour minimum price lag,
+the day table and every published number rest on it, and the field's benchmark models read the
+operators' day-ahead forecasts the same way (Lago et al. 2021, epftoolbox; recalled, not re-read for
+this entry). Moving the boundary would make new numbers incomparable with ours and with theirs.
+
+**The line that holds at any hour: nothing measured on day D, its price included.** This is not a
+matter of strictness. At 19:00 on D−1 day D's price is out; using it, or actual load or generation,
+answers the question with its own answer, and the capture rate would pass 100 %. The planted-price
+test in `tests/test_tomorrow.py` guards it in the live code, and the deleting-the-future tests guard
+the features.
+
+**What it changes:** no code and no number. CLAUDE.md states the framing beside "the decision point
+is fixed at 12:00", and Contract 1 names the wind and solar forecast as its one stated exception; the
+README's *Limits* says the same in a sentence. **What it does not license:** forecast updates made
+after 18:00, intraday information, or anything else published between the auction and the run. Each
+would be a new decision, and each would make results incomparable. Rejected: moving the boundary to
+the run's start (19:00), which would let such updates in; keeping "a trader could have done this at
+noon" as the claim, which could only be shown with a paid 11:00 feed, outside this project.
