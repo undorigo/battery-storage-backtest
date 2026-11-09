@@ -77,6 +77,24 @@ def test_split_is_correct_for_a_non_utc_input(hourly_frame):
         assert len(utc_part) == len(berlin_part)
 
 
+# ── 2026 sits outside the split ───────────────────────────────────────────────
+# The replay's days must start the day after the test years end, and no 2026 day
+# may land in any of the three blocks, or a held-back score would quietly grow.
+
+def test_live_start_is_the_day_after_the_test_years():
+    assert pd.Timestamp(cfg.LIVE_START) - pd.Timestamp(cfg.TEST_END) == pd.Timedelta(days=1)
+    assert pd.Timestamp(cfg.REPLAY_END) > pd.Timestamp(cfg.LIVE_START)
+
+
+def test_no_2026_day_lands_in_any_block():
+    idx = pd.date_range("2025-12-30", "2026-01-03", freq="h", tz="UTC")
+    frame = pd.DataFrame({"price": range(len(idx))}, index=idx)
+    train, valid, test = cfg.split(frame)
+    assert len(train) == len(valid) == 0
+    last = test.index.max().tz_convert(cfg.TZ_MARKET)            # the last held-back hour
+    assert last == pd.Timestamp(cfg.TEST_END + " 23:00", tz=cfg.TZ_MARKET)
+
+
 # ── Market and battery constants ──────────────────────────────────────────────
 # The two EIC codes differ by a few characters and name different markets.
 # Confusing them splices the DE-LU zone onto the pre-October-2018 DE-AT-LU zone.

@@ -134,6 +134,18 @@ def split(
     return train, valid, test
 
 
+# ── After the split: 2026, seen by no model ───────────────────────────────────
+# The cache now runs past the test years, so the days after them get their own
+# names rather than a fourth block in `split()`, which stays three: every number
+# published so far was cut by it.  The replay scores the ten months from
+# LIVE_START to REPLAY_END once (`just final-score 2026`).  The end is fixed, not
+# "whatever the cache holds", so a rerun scores the same days; the trial's
+# evening runs take over from 1 November.
+
+LIVE_START = "2026-01-01"                      # the first day after TEST_END
+REPLAY_END = "2026-10-31"                      # ten months, every day cached by 6 Nov
+
+
 # ── Battery — Contract 4 ──────────────────────────────────────────────────────
 # A standard two-hour asset.  Frozen because these are the terms the capture rate
 # is measured against: if they change mid-project, revenue figures from before
