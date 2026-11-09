@@ -95,6 +95,9 @@ significance:
 # ranges (about 4.5 hours: LEAR from July 2023, then four windows over two years).
 # `just final-score battery` is stage 4's: the battery planned on what those two stored,
 # to reports/capture_scores.csv (needs both first; under a minute).
+# `just final-score 2026` is stage 5's: 1 January to 31 October 2026 replayed day by day
+# through scripts/tomorrow.py, QRA around LEAR, then stage 4's list, rows labelled 2026.
+# Needs nothing stored; checks LEAR's late 2025 against `just final-score` where it ran.
 final-score what="points":
     {{py}} -m scripts.final_score {{what}}
 

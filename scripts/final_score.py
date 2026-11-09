@@ -24,6 +24,10 @@ on 5 March 2025 with 4 March in hand. What it never sees is the day it forecasts
 **Stage 3's reading is `just final-score ranges`**, a separate run of this file so that
 reading the ranges does not read stage 2's forecasts a second time.  **Stage 4's is `just
 final-score battery`**: the battery planned on what those two readings stored.
+
+**`just final-score 2026` reads the ten months after the test years**, which no model and
+no decision has seen: every day forecast through `scripts/tomorrow.py`, the code the
+evening run calls, then planned and settled on stage 4's list, once.
 """
 
 from __future__ import annotations
@@ -31,13 +35,16 @@ from __future__ import annotations
 import argparse
 import time
 
+import numpy as np
 import pandas as pd
 
 from scripts import backtest as SB                         # stage 4's battery, same code as on 2023
 from scripts import quantiles as Q                         # stage 3's ranges, same code as on 2023
+from scripts import tomorrow as T                          # one day's forecast, as the evening run makes it
 from scripts.train import git_commit, lear_days, record   # same stamping, same rules
 from src import backtest as BT
 from src import config as cfg
+from src import data as D
 from src import evaluate as E
 from src import features as F
 from src import models as M
@@ -116,13 +123,14 @@ def run(train: pd.DataFrame, valid: pd.DataFrame, holdout: pd.DataFrame,
 # a separate function only so it can be tested, because an enforcement message that
 # quietly says the wrong thing is worse than none at all.
 
-def reading_note(recorded: pd.DataFrame, just_written: int) -> str:
-    """Whether the held-back years had been read before this run."""
-    already = int((recorded["split"] == SPLIT).sum())     # every test row ever recorded
+def reading_note(recorded: pd.DataFrame, just_written: int, split: str = SPLIT) -> str:
+    """Whether these years, the held-back ones unless told, had been read before this run."""
+    already = int((recorded["split"].astype(str) == split).sum())   # a CSV of only 2026 reads it as a number
+    name, years = ("held-back", "The held-back years have") if split == SPLIT else (split, f"{split} has")
     if already == just_written:
-        return f"{already} held-back rows recorded. This is the first reading."
-    return (f"{already} held-back rows recorded, {just_written} of them from this run. "
-            f"The held-back years have been read before — check the commit column.")
+        return f"{already} {name} rows recorded. This is the first reading."
+    return (f"{already} {name} rows recorded, {just_written} of them from this run. "
+            f"{years} been read before — check the commit column.")
 
 
 # ── Stage 3: the ranges, read once ────────────────────────────────────────────
@@ -195,13 +203,13 @@ def read_ranges() -> int:
 # is refitted: the forecasts and the range are the ones stages 2 and 3 stored from
 # their own readings, and the code is `just backtest`'s, handed 2024-25.
 
-def capture_rows(fixed: dict, bid: dict, days: int) -> list[dict]:
+def capture_rows(fixed: dict, bid: dict, days: int, split: str = SPLIT) -> list[dict]:
     """One row per run: what it earned and its share of the ceiling."""
     ceiling_eur = fixed["ceiling"]["earned"]
-    rows = [{"run": name, "split": SPLIT, "days": days, "earned": row["earned"],
+    rows = [{"run": name, "split": split, "days": days, "earned": row["earned"],
              "capture": row["earned"] / ceiling_eur, "days_above": row["days_above"]}
             for name, row in fixed.items()]
-    rows += [{"run": f"bids {rule}", "split": SPLIT, "days": days, "earned": bid[rule]["earned"],
+    rows += [{"run": f"bids {rule}", "split": split, "days": days, "earned": bid[rule]["earned"],
               "capture": bid[rule]["earned"] / ceiling_eur, "rounds": bid[rule]["rounds"],
               "filled": bid[rule]["filled"], "lost": bid[rule]["lost"]}
              for rule in BT.RULES]                    # the ceiling and fixed LEAR: once, above
@@ -233,14 +241,157 @@ def read_battery() -> int:
     return 0
 
 
+# ── 2026: the replay, read once ───────────────────────────────────────────────
+# Stage 4's list, fixed on 31 October 2026 before looking, on ten months no model has
+# seen: the ceiling; the average, LEAR, the tree, the line and naive as fixed plans;
+# LEAR's bids under both rules; each lead tested day by day.  Every day goes through
+# `forecast_day` with the cache as it stands, so the replay is also its test.  A day
+# that fell back stops the reading (decided 9 November): none does in 2026.
+
+LIVE = "2026"                                        # what every 2026 row is labelled
+
+
+def live_days() -> pd.DatetimeIndex:
+    """The replayed delivery days, as grid labels: LIVE_START to REPLAY_END."""
+    return pd.date_range(cfg.LIVE_START, cfg.REPLAY_END, freq="D")
+
+
+def replay(given: T.Inputs, days: pd.DatetimeIndex,
+           lear_window: int) -> tuple[pd.DataFrame, pd.DataFrame, dict[str, float]]:
+    """Each day's five forecasts, the plan `forecast_day` sends, and seconds per part."""
+    forecasts, sent, seconds = [], [], {}
+    for day in days:
+        got = T.forecast_day(day, given, lear_window)
+        if got.why:                                  # nothing is scored around a fallback
+            raise ValueError(f"{day:%Y-%m-%d} fell back ({got.why}): nothing scored")
+        forecasts.append(got.forecasts)
+        sent.append(got.schedule)
+        for part, took in got.seconds.items():
+            seconds[part] = seconds.get(part, 0.0) + took
+    return pd.concat(forecasts), pd.concat(sent), seconds
+
+
+# ── 2026's range: LEAR's half year before it, first ───────────────────────────
+# QRA's dots must be forecasts LEAR really made, so for 1 January's 182-day window LEAR
+# walks 3 July to 31 December 2025 first, as the 2024-25 reading walked the half year
+# before 2024.  Stage 2's reading stored a forecast for each of those days; the walk
+# must match it, or the range rests on a LEAR the record never scored.  Then QRA alone
+# (the bids read nothing else), its 99 lines, each window sorted, the four averaged.
+
+def warm_up_days(table: pd.DataFrame, windows: list[int]) -> pd.DatetimeIndex:
+    """The days before LIVE_START that the longest window reaches back over."""
+    first = pd.Timestamp(cfg.LIVE_START)
+    return Q.walk_days(table, first - pd.Timedelta(days=max(windows)), first - pd.Timedelta(days=1))
+
+
+def matches_stored(lear: pd.Series) -> str:
+    """Says the walk matches stage 2's stored LEAR, or stops the reading."""
+    run = TR.latest(**{**SB.DAILY, "split": SPLIT, "model": "lear daily"})
+    if run is None:
+        return "no stored 2024-25 LEAR to check it against"
+    _, stored = TR.read(run)
+    were = stored["lear daily"].reindex(lear.index)  # the same hours, as stage 2 stored them
+    if were.isna().any() or not np.allclose(were, lear):
+        raise ValueError("LEAR's walk of late 2025 differs from stage 2's stored reading: nothing scored")
+    return f"the same as stage 2's stored reading on all {len(lear) // 24} days"
+
+
+def live_range(lear: pd.Series, actual: pd.Series, days: pd.DatetimeIndex,
+               windows: list[int], levels: tuple[int, ...]) -> pd.DataFrame:
+    """QRA's lines on `days`, each window's sorted, then averaged percentile by percentile."""
+    per_window = []
+    for window in windows:
+        started = time.perf_counter()
+        per_window.append(M.untangle(M.qra(lear, actual, days, window, levels))[0])
+        print(f"QRA, {window} days: {time.perf_counter() - started:.0f} s", flush=True)
+    return M.average(per_window)
+
+
+# ── 2026: forecast, range, plans, settlement ──────────────────────────────────
+# One function computes and nothing here prints a score, so a test can plant a price
+# and compare two replays.  Settlement is the same code 2024-25 went through, on the
+# real hours of the replayed days only: the cache runs past them and nothing may read on.
+
+def replay_2026(windows: list[int] = RANGE_WINDOWS, levels: tuple[int, ...] = M.PERCENTILES,
+                lear_window: int = M.WINDOW_DAYS) -> dict:
+    """The replay: forecasts, the plans sent, LEAR's walk, the range, and what each run earned."""
+    clock = {}
+    started = time.perf_counter()
+    given = T.inputs()                               # the cache, read once for every day
+    clock["inputs"] = time.perf_counter() - started
+
+    days, started = live_days(), time.perf_counter()
+    forecasts, sent, parts = replay(given, days, lear_window)
+    clock["days"] = time.perf_counter() - started
+    print(f"{len(days)} days through forecast_day, none fell back: {clock['days']:.0f} s ("
+          + ", ".join(f"{part} {took:.0f}" for part, took in parts.items()) + ")", flush=True)
+
+    warm, started = warm_up_days(given.table, windows), time.perf_counter()
+    before = M.lear_walk_forward(given.table, warm, lear_window)
+    clock["lear before"] = time.perf_counter() - started
+    print(f"LEAR on the {len(warm)} days before ({warm.min():%Y-%m-%d} to {warm.max():%Y-%m-%d}): "
+          f"{clock['lear before']:.0f} s, {matches_stored(before)}", flush=True)
+
+    lear = pd.concat([before, forecasts["LEAR"]])    # every forecast LEAR made, in day order
+    on_grid = Q.prices(given.table)                  # real prices on the grid: the dots' answers
+    started = time.perf_counter()
+    band = live_range(lear, on_grid, days, windows, levels)
+    clock["range"] = time.perf_counter() - started
+
+    started = time.perf_counter()
+    actual = cfg.replayed(D.load("day_ahead_price").iloc[:, 0])     # real hours, as the battery is paid
+    planned = {name: D.from_slots(forecasts[name], actual.index) for name in forecasts.columns}
+    buy, sell = SB.BAND
+    fixed = SB.fixed_plans(planned, actual)
+    bid = SB.bid_plans(planned["LEAR"], D.from_slots(band[buy], actual.index),
+                       D.from_slots(band[sell], actual.index), actual)
+    clock["battery"] = time.perf_counter() - started
+
+    kept = pd.concat([on_grid.reindex(forecasts.index).rename("actual"), forecasts, band], axis=1)
+    return {"days": days, "forecasts": forecasts, "sent": sent, "lear": lear, "range": band,
+            "actual": actual, "fixed": fixed, "bid": bid, "kept": kept, "seconds": clock}
+
+
+def read_2026(windows: list[int] = RANGE_WINDOWS, levels: tuple[int, ...] = M.PERCENTILES,
+              lear_window: int = M.WINDOW_DAYS) -> int:
+    started = time.perf_counter()
+    try:
+        got = replay_2026(windows, levels, lear_window)
+    except FileNotFoundError as exc:
+        print(exc)
+        print("\nNo cached data. Run `just pull` first.")
+        return 2
+
+    days = got["days"]
+    print(f"\nThe battery on {days.min():%Y-%m-%d} to {days.max():%Y-%m-%d}, {len(days)} days: "
+          f"limits from QRA p{SB.BAND[0]}/p{SB.BAND[1]}, moved to break-even\n")
+    print("Fixed schedules, settled at real prices:")
+    SB.show_fixed(got["fixed"])
+    print("\nBids on LEAR, one loop per round:")
+    SB.show_bids(got["bid"])
+
+    rows = capture_rows(got["fixed"], got["bid"], len(days), LIVE)
+    print("\n" + reading_note(record(rows, cfg.CAPTURE_SCORES), len(rows), LIVE))
+    params = {"window": Q.named(windows), "levels": f"{min(levels)}-{max(levels)}",
+              "lear_window": lear_window, "days": f"{days.min():%Y-%m-%d} to {days.max():%Y-%m-%d}",
+              "commit": git_commit()}
+    run = TR.log_replay(rows, got["kept"], params)
+    took = ", ".join(f"{part} {s:.0f}" for part, s in got["seconds"].items())
+    print(f"Logged to MLflow: replay {run[:8]}. Ran in {time.perf_counter() - started:.0f} s ({took}).")
+    return 0
+
+
 # ── Running it ────────────────────────────────────────────────────────────────
-# Three readings, one per stage that has closed: `points` is stage 2's forecasts, the
-# default because it came first; `ranges` is stage 3's; `battery` is stage 4's.
+# Four readings: `points` is stage 2's forecasts, the default because it came first;
+# `ranges` is stage 3's; `battery` is stage 4's; `2026` is stage 5's replay.
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Read the held-back years, once per stage.")
-    parser.add_argument("what", nargs="?", choices=["points", "ranges", "battery"], default="points")
+    parser.add_argument("what", nargs="?", choices=["points", "ranges", "battery", LIVE],
+                        default="points")
     what = parser.parse_args(argv).what
+    if what == LIVE:
+        return read_2026()
     if what == "ranges":
         return read_ranges()
     if what == "battery":

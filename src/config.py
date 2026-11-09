@@ -146,6 +146,15 @@ LIVE_START = "2026-01-01"                      # the first day after TEST_END
 REPLAY_END = "2026-10-31"                      # ten months, every day cached by 6 Nov
 
 
+def replayed(df: pd.DataFrame | pd.Series) -> pd.DataFrame | pd.Series:
+    """The rows delivering from LIVE_START to REPLAY_END, read on either clock as `split()` does."""
+    idx = df.index
+    if idx.tz is not None:                                      # real hours: read them on the Berlin clock
+        idx = idx.tz_convert(TZ_MARKET).tz_localize(None)
+    day = idx.normalize()
+    return df.loc[(day >= pd.Timestamp(LIVE_START)) & (day <= pd.Timestamp(REPLAY_END))]
+
+
 # ── Battery — Contract 4 ──────────────────────────────────────────────────────
 # A standard two-hour asset.  Frozen because these are the terms the capture rate
 # is measured against: if they change mid-project, revenue figures from before

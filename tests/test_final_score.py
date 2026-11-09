@@ -455,3 +455,196 @@ def test_the_battery_reading_names_the_held_back_run_it_needs(monkeypatch):
         SB.forecasts(hours, "test")
     with pytest.raises(LookupError, match="2024-25 QRA range: run `just final-score ranges` first"):
         SB.ranges(hours, pd.Series(dtype=float), "test")
+
+
+# ── Stage 5's reading: 2026, replayed once ────────────────────────────────────
+# A synthetic cache of quarter-hours from March 2025 to 4 January 2026, read through the
+# real loaders, the replay shortened to 1-3 January with two short windows and three
+# percentiles.  LEAR is the real one on a short window, because the point of the replay
+# is that every day goes through `forecast_day` unchanged.  4 January sits in the cache
+# at 5,000 EUR, as November does in the real one: nothing may read it.
+
+LIVE_DAYS = pd.date_range("2026-01-01", "2026-01-03")
+L_WINDOWS, L_LEVELS, L_LEAR = [3, 5], (25, 50, 75), 260     # LEAR needs more days than its 248 clues
+PLANTED = 9_999.0                                           # EUR/MWh: no forecast would say this
+
+
+def live_cache(planted: str | None = None, blank_wind: str | None = None) -> dict[str, pd.DataFrame]:
+    """The cache as pulled: UTC quarter-hours, the cache's own column names."""
+    idx = pd.date_range(pd.Timestamp("2025-03-01", tz=cfg.TZ_MARKET).tz_convert("UTC"),
+                        pd.Timestamp("2026-01-05", tz=cfg.TZ_MARKET).tz_convert("UTC"),
+                        freq="15min", inclusive="left")
+    local = idx.tz_convert(cfg.TZ_MARKET)
+    day, hour = local.normalize().tz_localize(None), local.hour.to_numpy()
+    rng = np.random.default_rng(11)
+    noise = lambda size: rng.normal(0, size, len(idx))      # noqa: E731 - one-line helper
+    load = 50_000 + 8_000 * np.sin(2 * np.pi * (hour - 6) / 24) + noise(2_000)
+    onshore, offshore = 12_000 + noise(5_000), 3_000 + noise(1_000)
+    solar = np.clip(15_000 * np.sin(np.pi * (hour - 6) / 12), 0, None) + noise(500)
+    price = 0.003 * (load - onshore - offshore - solar) + noise(5)   # residual load sets the price
+    price[day == pd.Timestamp("2026-01-04")] = 5_000.0      # after the replay: never read
+    if planted:
+        price[day == pd.Timestamp(planted)] = PLANTED
+    wind = pd.DataFrame({"Solar": solar, "Wind Offshore": offshore, "Wind Onshore": onshore}, index=idx)
+    if blank_wind:
+        wind = wind[day != pd.Timestamp(blank_wind)]        # that day's forecast never came
+    return {"day_ahead_price": pd.DataFrame({"day_ahead_price": price}, index=idx),
+            "load_forecast": pd.DataFrame({"Forecasted Load": load}, index=idx),
+            "wind_solar_forecast": wind}
+
+
+def live_world(mp: pytest.MonkeyPatch, cache: dict, tmp_path) -> None:
+    """Every loader reads `cache`, the replay is 1-3 January, records and MLflow in `tmp_path`."""
+    import functools
+
+    from src import data
+    from src import tracking as TR
+
+    db, store = tmp_path / "mlflow.db", tmp_path / "mlruns"
+    mp.setattr(data, "load_raw", lambda key, root=None: cache[key])
+    mp.setattr(cfg, "LIVE_START", "2026-01-01")
+    mp.setattr(cfg, "REPLAY_END", "2026-01-03")
+    mp.setattr(cfg, "CAPTURE_SCORES", tmp_path / "capture_scores.csv")
+    mp.setattr(TR, "latest", functools.partial(TR.latest, db=db))
+    mp.setattr(TR, "log_replay", functools.partial(TR.log_replay, db=db, store=store))
+
+
+def live_replay(tmp_path, **cache) -> dict:
+    with pytest.MonkeyPatch.context() as mp:
+        live_world(mp, live_cache(**cache), tmp_path)
+        return FS.replay_2026(L_WINDOWS, L_LEVELS, L_LEAR)
+
+
+@pytest.fixture(scope="module")
+def replayed(tmp_path_factory) -> dict:
+    """The ordinary replay; fitted once for every test that reads it."""
+    return live_replay(tmp_path_factory.mktemp("replay"))
+
+
+def test_the_real_replay_is_the_ten_months_and_its_window_the_half_year_before():
+    days = FS.live_days()
+    assert len(days) == 304 and days[0] == pd.Timestamp("2026-01-01")
+    assert days[-1] == pd.Timestamp("2026-10-31")
+    table = pd.DataFrame(index=pd.date_range("2025-01-01", "2025-12-31"))   # no clue columns: all ready
+    assert FS.warm_up_days(table, FS.RANGE_WINDOWS)[0] == pd.Timestamp("2025-07-03")
+
+
+# ── Every day is forecast_day's ───────────────────────────────────────────────
+# The replay adds no fit of its own: its forecasts for a day are the ones the evening
+# run would make for it, and the average's fixed plan is the very plan that run sends.
+
+def test_each_replayed_day_is_what_forecast_day_makes(replayed, tmp_path):
+    from scripts import tomorrow as T
+    from src import backtest as BT
+
+    assert (replayed["forecasts"].index.normalize().unique() == LIVE_DAYS).all()
+    assert list(replayed["forecasts"].columns) == list(T.FORECASTS)
+    with pytest.MonkeyPatch.context() as mp:
+        live_world(mp, live_cache(), tmp_path)
+        alone = T.forecast_day(pd.Timestamp("2026-01-02"), T.inputs(), L_LEAR)
+    pd.testing.assert_frame_equal(replayed["forecasts"].loc["2026-01-02"], alone.forecasts)
+
+    from src import data
+    average = data.from_slots(replayed["forecasts"]["average"], replayed["actual"].index)
+    pd.testing.assert_frame_equal(BT.fixed(average, replayed["actual"])[0], replayed["sent"])
+
+
+def test_lear_walks_the_longest_window_before_the_first_day_then_every_replayed_day(replayed):
+    days = replayed["lear"].index.normalize().unique()
+    assert days[0] == pd.Timestamp("2025-12-27") and days[-1] == pd.Timestamp("2026-01-03")
+    assert len(days) == max(L_WINDOWS) + len(LIVE_DAYS)
+    pd.testing.assert_series_equal(replayed["lear"].loc["2026-01-01":], replayed["forecasts"]["LEAR"],
+                                   check_names=False)
+
+
+def test_the_range_is_qra_alone_each_window_run_by_quantiles_then_averaged(replayed, tmp_path):
+    """Checked from outside: each window fitted again through `quantiles`, then averaged."""
+    from scripts import quantiles as Q
+
+    with pytest.MonkeyPatch.context() as mp:
+        live_world(mp, live_cache(), tmp_path)
+        prices = Q.prices(F.day_table())                    # the real prices on the grid
+    alone = [Q.lines(replayed["lear"], prices, LIVE_DAYS, w, L_LEVELS)["qra"][0] for w in L_WINDOWS]
+    np.testing.assert_allclose(replayed["range"][list(L_LEVELS)], (alone[0] + alone[1]) / 2)
+    assert replayed["range"].index.equals(replayed["forecasts"].index)   # the replayed hours only
+
+
+# ── What a replayed day may read ──────────────────────────────────────────────
+# 9,999 EUR planted on 2 January.  Everything decided for 1 and 2 January must come out
+# identical: their forecasts, their range and the plans sent.  What 2 January earned must
+# move, because settlement is the one step that reads the real price.  (3 January's
+# forecasts may move: by then 2 January's price is a day old and public.)
+
+def test_a_planted_price_reaches_only_its_own_days_settlement(replayed, tmp_path):
+    planted = live_replay(tmp_path, planted="2026-01-02")
+    until = "2026-01-02 23:00"
+    pd.testing.assert_frame_equal(planted["forecasts"].loc[:until], replayed["forecasts"].loc[:until])
+    pd.testing.assert_frame_equal(planted["range"].loc[:until], replayed["range"].loc[:until])
+    end = pd.Timestamp("2026-01-03", tz=cfg.TZ_MARKET).tz_convert("UTC")
+    pd.testing.assert_frame_equal(planted["sent"][planted["sent"].index < end],
+                                  replayed["sent"][replayed["sent"].index < end])
+    for run in ("average", "LEAR", "naive (field)"):
+        was, now = replayed["fixed"][run]["per_day"], planted["fixed"][run]["per_day"]
+        assert now.iloc[0] == pytest.approx(was.iloc[0])     # 1 January: untouched
+        assert abs(now.iloc[1] - was.iloc[1]) > 100          # 2 January: paid at 9,999
+
+
+def test_the_battery_is_settled_on_the_replayed_days_alone(replayed):
+    from src import backtest as BT
+
+    days = BT.delivery_days(replayed["actual"].index).unique()
+    assert list(days.strftime("%Y-%m-%d")) == ["2026-01-01", "2026-01-02", "2026-01-03"]
+    assert replayed["actual"].max() < 5_000                  # 4 January never reached
+
+
+def test_no_run_beats_the_ceiling_and_no_filled_round_loses(replayed):
+    for name, row in replayed["fixed"].items():
+        assert row["days_above"] == 0, name
+        assert row["earned"] <= replayed["fixed"]["ceiling"]["earned"] + 1e-6, name
+    for rule in ("strict", "pair"):
+        assert replayed["bid"][rule]["lost"] == 0
+
+
+# ── A day that fell back stops the reading ────────────────────────────────────
+# Decided 9 November 2026: no 2026 day falls back, so no rule for scoring one is built.
+# If one ever does, the reading names it and scores nothing.
+
+def test_a_day_that_fell_back_stops_the_replay_and_names_it(tmp_path):
+    with pytest.raises(ValueError, match=r"2026-01-02 fell back \(input missing: wind onshore 0/96"):
+        live_replay(tmp_path, blank_wind="2026-01-02")
+
+
+# ── The reading, recorded once and visibly ────────────────────────────────────
+# Run to its last line on the fixture: the rows go to the capture record labelled 2026,
+# the note calls it the first reading, and the replay's hourly table comes back from MLflow.
+
+def test_the_2026_reading_records_its_rows_and_stores_the_replay(tmp_path, capsys):
+    from src import tracking as TR
+
+    with pytest.MonkeyPatch.context() as mp:
+        live_world(mp, live_cache(), tmp_path)
+        assert FS.read_2026(L_WINDOWS, L_LEVELS, L_LEAR) == 0
+    out = capsys.readouterr().out
+    assert "3 days through forecast_day, none fell back" in out
+    assert "no stored 2024-25 LEAR to check it against" in out
+    assert "8 2026 rows recorded. This is the first reading." in out
+
+    recorded = pd.read_csv(tmp_path / "capture_scores.csv")
+    assert recorded["run"].tolist() == ["ceiling", "LEAR", "tree", "straight line", "average",
+                                        "naive (field)", "bids strict", "bids pair"]
+    assert set(recorded["split"].astype(str)) == {"2026"} and set(recorded["days"]) == {3}
+
+    db = tmp_path / "mlflow.db"
+    run = TR.latest(db=db, model="replay", split="2026")
+    params, kept = TR.read_range(run, db=db)
+    assert params["window"] == "3+5" and params["lear_window"] == "260"
+    assert len(kept) == 3 * 24
+    assert {"actual", "LEAR", "average", "naive (field)", 25, 50, 75} <= set(kept.columns)
+
+
+def test_the_note_counts_2026_rows_apart_from_the_held_back_ones():
+    first = recorded(["test"] * 8 + [2026] * 8)             # read back from CSV as a number
+    assert "8 2026 rows recorded. This is the first reading." in FS.reading_note(first, 8, "2026")
+    second = recorded(["test"] * 8 + ["2026"] * 16)
+    note = FS.reading_note(second, 8, "2026")
+    assert "2026 has been read before" in note and "first reading" not in note

@@ -14,6 +14,7 @@ code writing there.
 
 from __future__ import annotations
 
+import re
 import tempfile
 from pathlib import Path
 
@@ -100,6 +101,23 @@ def log_range(row: dict, kept: pd.DataFrame, params: dict,
     return _write(client, _experiment(client, store), row["method"],
                   {**params, "split": row["split"]}, metrics,
                   kept.rename(columns=str))                  # 90 -> "90" for parquet
+
+
+# ── Writing the 2026 replay ───────────────────────────────────────────────────
+# One run holds the whole replay on the 24-slot grid: the actual price, the five
+# forecasts and QRA's 99 percentiles, so the page and the drift step read 2026
+# back rather than run it again, which would be a second reading.  The plans are
+# not stored: they are planned from these forecasts in seconds.  The metrics are
+# the list's shares of the ceiling, under names MLflow accepts ("naive_field").
+
+def log_replay(rows: list[dict], kept: pd.DataFrame, params: dict,
+               *, db: Path = cfg.MLFLOW_DB, store: Path = cfg.MLRUNS) -> str:
+    """Store the replay: each run's share of the ceiling, and the hourly table."""
+    client = _client(db)
+    metrics = {"capture_" + re.sub(r"[^a-z0-9]+", "_", row["run"].lower()).strip("_"): row["capture"]
+               for row in rows}
+    return _write(client, _experiment(client, store), "replay",
+                  {**params, "split": rows[0]["split"]}, metrics, kept.rename(columns=str))
 
 
 # ── Reading a run back ────────────────────────────────────────────────────────
