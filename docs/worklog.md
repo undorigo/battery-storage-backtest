@@ -4295,6 +4295,16 @@ Recorded 5 November's arrival (18:02–18:13, `b84fa3c`); `just pull recent` fou
 
 ---
 
+### 9 November 2026
+
+**The framing recorded** (decided with the user): the project measures what a forecast captures, not a
+trading desk acting at noon, so a forecast of day D published at 18:00 is fair; noon stays as the
+convention, for comparability; nothing measured on D is ever used. `docs/decisions.md`, CLAUDE.md
+(beside the decision point, and Contract 1's one stated exception) and the README's *Limits*. No code,
+no number moved; not a milestone, so the plan page is unchanged.
+
+---
+
 ### Next — next session
 
 **Stage 5 under way: steps 1–5 done.** The page is live at <https://battery-storage-backtest-aqevrymuvf2pb9jrjpmxc9.streamlit.app/>;
@@ -4313,16 +4323,12 @@ green. Headline unchanged: strict bids on LEAR **90.1 %** on 2024–25.
 
 #### Then, in order
 
-1. **Open from 6 November:** whether to record in `docs/decisions.md` that the project does not
-   simulate a trader at noon (the user's framing), with the noon convention kept for comparability
-   with the field, and the line that holds at any hour: nothing measured on day D, its price included.
-   CLAUDE.md's "decision point fixed at 12:00" would then need a sentence.
-2. **Step 6: the ten months of 2026, replayed and scored once**, on stage 4's list fixed on 31 October,
+1. **Step 6: the ten months of 2026, replayed and scored once**, on stage 4's list fixed on 31 October,
    through `forecast_day`, by `just final-score 2026`; `LIVE_START` enters `config.py` with it. About
    300 days at ~3 s, so about 15 minutes, not yet timed as one run.
-3. Then steps 7–11 as planned (`docs/decisions.md`, *Decided 31 October*; the trial in the evening,
+2. Then steps 7–11 as planned (`docs/decisions.md`, *Decided 31 October*; the trial in the evening,
    *Decided 5 November*; the fallback, *Built 6 November*).
-4. Noted, not tasks: ENTSO-E rewrote one day-ahead load forecast after its auction (6 November); a
+3. Noted, not tasks: ENTSO-E rewrote one day-ahead load forecast after its auction (6 November); a
    second case would make it worth measuring how often; the catalog still says wind and solar are
    public "D-1, before gate closure" (should say made in the morning, published at 18:00); Amprion's,
    TransnetBW's and the solar forecasts' making time, not read; one control area from 50Hertz's CSV
