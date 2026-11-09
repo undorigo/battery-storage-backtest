@@ -113,8 +113,13 @@ LEADS = [("LEAR", "naive (field)"), ("average", "LEAR"),
          ("tree", "LEAR"), ("straight line", "LEAR")]             # each: did the first earn more?
 
 def capture(actual: pd.Series, split: str = "valid") -> tuple[str, dict]:
-    """Earnings per run, the ceiling first, the days a run beat it, and its daily totals."""
+    """The stored runs' commits, and `fixed_plans` on their forecasts."""
     commit, planned = forecasts(actual.index, split)
+    return commit, fixed_plans(planned, actual)
+
+
+def fixed_plans(planned: dict[str, pd.Series], actual: pd.Series) -> dict:
+    """Earnings per run, the ceiling first, the days a run beat it, and its daily totals."""
     _, best = BT.ceiling(actual)
     best_day = best.groupby(BT.delivery_days(best.index)).sum()
     got = {"ceiling": {"earned": best.sum(), "days_above": 0, "above_eur": 0.0}}
@@ -124,7 +129,7 @@ def capture(actual: pd.Series, split: str = "valid") -> tuple[str, dict]:
         above = gap[gap > 1e-6]                                  # days above the ceiling: a bug if any
         got[name] = {"earned": earned.sum(), "days_above": len(above), "above_eur": above.sum(),
                      "per_day": earned.groupby(BT.delivery_days(earned.index)).sum()}
-    return commit, got
+    return got
 
 
 # ── The range the limits come from ────────────────────────────────────────────
@@ -159,12 +164,20 @@ def ranges(hours: pd.DatetimeIndex, lear: pd.Series, split: str = "valid",
 # The fixed schedule is the same plan sent without limits, so the gap between them
 # is what the limits did.  A round that went through and lost money is counted,
 # because the limits promise 0: any such round is a bug, as a day above the ceiling is.
+#
+# Reading the stored runs and settling them are separate steps, here and in
+# `capture`, so the 2026 replay settles the forecasts it made through the same lines.
 
 def bids(actual: pd.Series, split: str = "valid") -> tuple[str, str, dict]:
-    """Earnings of the ceiling, the fixed schedule and each fill rule, and what filled."""
+    """The stored runs' commits, and `bid_plans` on their LEAR forecast and range."""
     commit, planned = forecasts(actual.index, split)
     range_commit, buy_at, sell_at = ranges(actual.index, planned["LEAR"], split)
-    schedule, fixed_earned = BT.fixed(planned["LEAR"], actual)
+    return commit, range_commit, bid_plans(planned["LEAR"], buy_at, sell_at, actual)
+
+
+def bid_plans(lear: pd.Series, buy_at: pd.Series, sell_at: pd.Series, actual: pd.Series) -> dict:
+    """Earnings of the ceiling, the fixed schedule and each fill rule, and what filled."""
+    schedule, fixed_earned = BT.fixed(lear, actual)
     limits = BT.limits(schedule, buy_at, sell_at)
     label = BT.rounds(schedule)
     got = {"ceiling": {"earned": BT.ceiling(actual)[1].sum()},
@@ -175,7 +188,7 @@ def bids(actual: pd.Series, split: str = "valid") -> tuple[str, str, dict]:
         per_round = earned.groupby(label).sum()[went]
         got[rule] = {"earned": earned.sum(), "filled": len(went), "rounds": len(limits),
                      "lost": int((per_round < -1e-9).sum())}
-    return commit, range_commit, got
+    return got
 
 
 # ── Printing what came out ────────────────────────────────────────────────────
