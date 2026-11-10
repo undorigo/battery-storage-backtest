@@ -36,6 +36,10 @@ help (*LASSO*).
   more on 501 days and less on 211, far too many to be luck (p < 10⁻²⁵).
 - **Averaging three forecasts pays about 1,000 € more.** Found on 2023, then confirmed on 2024–25
   (p 0.0001).
+- **It held on ten months nobody had looked at.** 2026, January to October, replayed day by day
+  through the daily code and scored once on 10 November: 93.1 % with price limits, 97.2 % for the
+  average. Every share rose by 3 to 4 points, the no-forecast rule's too, so the days were easier, not
+  the models better. The average again beat the main forecast (p < 10⁻⁵).
 - **No hindsight, with one exception found on 3 November** (see *Limits*). Every price, demand and
   calendar input was public before the auction closed. Code enforces this, and tests were shown to
   catch leaks planted on purpose. Nothing was tuned after looking at the test years.
@@ -78,17 +82,18 @@ Python 3.11 and a free ENTSO-E account, which provides the data token. Step-by-s
 
 ```bash
 python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
-.venv/bin/python -m pytest tests/ -q     # 320 tests, offline, ~2 min
+.venv/bin/python -m pytest tests/ -q     # 341 tests, offline, ~3 min
 just pull                                # the data, ~20 min
 just final-score                         # forecasts for 2024–25, ~40 min
 just final-score ranges                  # their price ranges, ~4.5 h
 just final-score battery                 # the table above, under a minute
+just final-score 2026                    # January to October 2026, ~2 h
 ```
 
 **The long runs are a one-off check, not what forecasting costs.** `just final-score` and
 `just final-score ranges` replay two whole years, refitting every day, to regenerate the results.
-Forecasting a single day should take about 20–25 seconds, worked out from measured parts; the daily
-command is still to be built.
+Forecasting and planning a single day takes about 3 seconds, and its price range about 18 more,
+measured on the 2026 replay; the daily command is still to be built.
 
 ### Next steps
 
@@ -97,7 +102,8 @@ command is still to be built.
   "tomorrow" command yet. It will run after 18:00, when tomorrow's wind and solar forecast is on
   ENTSO-E (see *Limits*). Decided: each day it sends the average of the three forecasts, without price
   limits, because that earned the most on both readings; the simple rule's plan, flagged, if any input
-  is missing. First, 2026 so far is replayed and scored once; then a four-week trial runs it each evening.
+  is missing. 2026 so far was replayed and scored once on 10 November (above); next, a four-week trial runs it
+  each evening.
 - **Rerun from scratch.** Regenerate these numbers from a fresh copy with freshly pulled data. ENTSO-E
   revises old data, so small differences are possible.
 - **Watch for drift.** Flag when forecasts or ranges start missing more than usual.
@@ -222,8 +228,9 @@ reading. The order:
 2. **The data reaches today.** **Done 3 November:** the cache runs to the end of tomorrow, and every
    2018–2025 input came out identical (a test on a clean clone, fingerprints on the real cache).
    `just pull recent` fetches the last two weeks each day. The ten months of 2026, seen by nothing
-   in this project, are replayed once and scored once next, on the same list as stage 4, fixed before
-   looking. **Found the same day:** ENTSO-E publishes tomorrow's wind and solar forecast at about
+   in this project, are replayed once and scored once, on the same list as stage 4, fixed before
+   looking. **Done 10 November:** all 304 days through the one-day code, none missing an input;
+   93.1 % with limits, 97.2 % for the average, every share 3 to 4 points above 2024–25. **Found the same day:** ENTSO-E publishes tomorrow's wind and solar forecast at about
    18:00, after the auction closes. **Decided 5 November:** the grid operators make it in the morning
    and traders can buy one before noon, so the backtest stays as it is; the daily run goes after 18:00.
 3. **`just tomorrow`**: each run first fills in yesterday's real prices and earnings, then forecasts
@@ -245,7 +252,7 @@ reading. The order:
 Nothing runs in between: the page sleeps without visitors, the trial has an end date. The full
 record, with what was rejected, is in [docs/decisions.md](docs/decisions.md).
 
-**Reproduce** stage 4 with `just final-score battery`; the 2023 runs with `just backtest ceiling`,
+**Reproduce** stage 4 with `just final-score battery`, the 2026 replay with `just final-score 2026`; the 2023 runs with `just backtest ceiling`,
 `fixed` and `bids`; every p-value with `just significance`.
 
 ### The plan as a page

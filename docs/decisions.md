@@ -818,3 +818,51 @@ after 18:00, intraday information, or anything else published between the auctio
 would be a new decision, and each would make results incomparable. Rejected: moving the boundary to
 the run's start (19:00), which would let such updates in; keeping "a trader could have done this at
 noon" as the claim, which could only be shown with a paid 11:00 feed, outside this project.
+
+### Read 10 November: 2026, replayed once (stage 5, step 6)
+
+**The ten months no model had seen, read once** (`just final-score 2026` at `95ecf1a`, rows in
+`reports/capture_scores.csv` labelled `2026`, "8 2026 rows recorded. This is the first reading.").
+Every day from 1 January to 31 October went through `scripts/tomorrow.py`, the code the evening run
+will call, and was planned and settled on stage 4's list, fixed on 31 October before looking.
+
+| Share of the ceiling | 2024–25, held back | **2026, replayed** |
+|---|---|---|
+| Ceiling: perfect foresight, wear included | 134,077 € (183 € a day) | 76,798 € (253 € a day) |
+| **Bids on LEAR, strict rule** | 90.1 % | **93.1 %** |
+| Bids on LEAR, pair rule | 94.0 % | 97.0 % |
+| LEAR, fixed schedule | 93.0 % | 96.5 % |
+| Average of the three, fixed schedule | 94.4 % | 97.2 % |
+| Straight line, fixed schedule | 92.8 % | 96.0 % |
+| Tree, fixed schedule | 92.2 % | 95.0 % |
+| Naive rule, fixed schedule | 84.9 % | 88.9 % |
+
+**What held, a third time.** LEAR beat the naive rule on 228 days and trailed on 62, 19.19 € a day
+(p 2.2 × 10⁻²³). **The average beat LEAR on 125 days and trailed on 93**, 1.95 € a day (p 2.7 × 10⁻⁶):
+found on 2023, confirmed on 2024–25, and now on months nobody had looked at. Neither the tree nor the
+line earned more than LEAR (p 1 and 0.95). Limits again cost money under the strict rule (3.4 points
+against the plan sent as is) and added a little under the pair rule (0.5). No round that went through
+lost money (313 and 401 of 434), and no run beat the ceiling on any day.
+
+**Every share is higher than on 2024–25, the naive rule's too** (+4.0 points), and the ceiling earned
+253 € a day against 183 €. The naive rule only looks up old prices, so its rise cannot come from a
+model seeing what it should not: the days themselves were easier to read. The same pattern as from
+2023 to 2024–25; why is not tested. Hunted for hindsight before believing it: LEAR's walk of
+3 July – 31 December 2025, which the range's first windows rest on, matched stage 2's stored reading
+forecast for forecast on all 182 days; no day fell back; the tests plant 9,999 € on a replayed day and
+show its forecasts, range and plan unchanged, with two planted bugs failing them (the range learning
+from its own day; plans paid at their own forecast).
+
+**How long it took:** 7,537 s on the wall clock (about 2 h 6 min). Inside the run: 304 days through
+`forecast_day` 934 s (LEAR 712, tree 212, line 4, plans 2), LEAR's half year before 415 s, QRA's four
+windows 5,491 s (28 days 1,042; 56 days 1,191; 91 days 1,363; 182 days 1,895), the battery 17 s. The
+11 minutes between the two totals are not in the imports (1 s) or the inputs (0.2 s); the likeliest
+reason is the laptop sleeping, which macOS's run clock does not count, not checked. The 15 minutes in
+the plan had left the range out. One day costs about 3 s to forecast and plan, and about 18 s more
+for its range: the 20–25 s estimated on 30 October, now measured.
+
+**Stated limits.** The replay reads forecasts as published now, not as they stood each evening
+(ENTSO-E rewrote one load forecast after its auction, 6 November); wind and solar arrive at 18:00 as
+in every year. Ten months can rank the average against LEAR, not the single models against each
+other. The headline stays the 90.1 % fixed before stage 4's reading; this reading is beside it.
+Nothing was changed after it.
