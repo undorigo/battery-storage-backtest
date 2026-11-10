@@ -4305,34 +4305,53 @@ no number moved; not a milestone, so the plan page is unchanged.
 
 ---
 
+### 10 November 2026
+
+**Stage 5, step 6: 2026 replayed and read once** (`5fa7fec`, `0b1d1bd`, `95ecf1a`, `d10e0b2`): `LIVE_START`
+and `REPLAY_END` (1 January – 31 October) in `config.py`; settling split from reading the stored runs;
+`just final-score 2026` sends all 304 days through `forecast_day`, walks LEAR over late 2025 (matched
+stage 2's stored forecasts on all 182 days), runs QRA alone and settles stage 4's list; a test on made-up
+data first, two planted bugs failed it (range learning from its own day; plans paid at their forecast).
+The one reading, at `95ecf1a`: **strict 93.1 %**, pair 97.0 %, average 97.2 %, LEAR 96.5 %, naive 88.9 %;
+average ahead of LEAR (p 2.7e-06); every share 3–4 points above 2024–25, naive's too. Wall clock 7,537 s
+(QRA 5,491 s), not the 15 minutes planned; 11 minutes outside the run's own clock, probably sleep, not
+checked. Recap answered (1 half, 2 not, 3 not known). Plan page refreshed (version 39; milestone: step 6
+read). 341 green.
+
+---
+
 ### Next — next session
 
-**Stage 5 under way: steps 1–5 done.** The page is live at <https://battery-storage-backtest-aqevrymuvf2pb9jrjpmxc9.streamlit.app/>;
-the cache runs to 6 November 2026 (the load forecast to 7 November) with every 2018–2025 input
-unchanged. `scripts/tomorrow.py` forecasts and plans one day. Main after this entry's commit, 329
-green. Headline unchanged: strict bids on LEAR **90.1 %** on 2024–25.
+**Stage 5 under way: steps 1–6 done.** The page is live at <https://battery-storage-backtest-aqevrymuvf2pb9jrjpmxc9.streamlit.app/>;
+the cache runs to 6 November 2026 (the load forecast to 7 November). 2026 was read once on 10 November:
+strict bids on LEAR **93.1 %**, the average 97.2 %, rows labelled `2026` in `reports/capture_scores.csv`,
+the hourly table in MLflow (`replay`, split `2026`). Headline unchanged: strict bids on LEAR **90.1 %**
+on 2024–25. Main after this entry's commit, 341 green.
 
 #### Recap questions
 
-1. The one-day function counts quarter-hours in the raw download rather than checking the hourly
-   frame for blanks. What would an hourly check miss, and why does the count need 92 on 29 March?
-2. The guard test plants 9,999 € for day D. Why plant an absurd price rather than delete D's price,
-   and which of the two planted bugs is the one a live run would most likely make?
-3. Why can a missing input never stop the tree or the line while LEAR still runs, and what did that
-   do to the 30 October rule "LEAR's plan if one fails"?
+1. The replay walks LEAR over the second half of 2025 before it starts. Why does the range need that,
+   and what would the bands have looked like without it?
+2. Every share rose 3 to 4 points in 2026, the naive rule's too. Why does the naive rule's rise argue
+   against a leak, and what kind of leak would it *not* rule out?
+3. A planted price on 2 January must leave 2 January's plan unchanged but must move what 2 January
+   earned. Why must the second half hold, and which planted bug did only it catch?
 
 #### Then, in order
 
-1. **Step 6: the ten months of 2026, replayed and scored once**, on stage 4's list fixed on 31 October,
-   through `forecast_day`, by `just final-score 2026`; `LIVE_START` enters `config.py` with it. About
-   300 days at ~3 s, so about 15 minutes, not yet timed as one run.
-2. Then steps 7–11 as planned (`docs/decisions.md`, *Decided 31 October*; the trial in the evening,
-   *Decided 5 November*; the fallback, *Built 6 November*).
-3. Noted, not tasks: ENTSO-E rewrote one day-ahead load forecast after its auction (6 November); a
-   second case would make it worth measuring how often; the catalog still says wind and solar are
-   public "D-1, before gate closure" (should say made in the morning, published at 18:00); Amprion's,
-   TransnetBW's and the solar forecasts' making time, not read; one control area from 50Hertz's CSV
-   against ENTSO-E's; the full pull takes over an hour (run it in the foreground or with a longer
-   limit); the ISEA like-for-like ceiling check; the 50Hertz battery study (unread); the EPEX *Block
-   parameters* sheet; quarter-hours since 1 October 2025; the work log's contents table stops at
-   13 October.
+1. **Step 7: `just tomorrow`**, by hand first: pull the recent end, fill in yesterday's prices and
+   earnings, forecast and plan tomorrow through `forecast_day`, write the row. Decide with the user
+   where the daily rows live and whether tomorrow's range (about 18 s) is computed each evening for
+   the drift step.
+2. Then steps 8–11 as planned (`docs/decisions.md`, *Decided 31 October*; the trial in the evening,
+   *Decided 5 November*; the fallback, *Built 6 November*). **The stage 5 date in *Roughly when*
+   (around 13 November) is no longer realistic** with steps 7–10 left; re-estimate with the user.
+3. Noted, not tasks: the page's second version can read 2026 from the `replay` run instead of rerunning
+   it (2 hours, and a second reading); the 11 minutes outside the replay's own clock (sleep, probably);
+   ENTSO-E rewrote one day-ahead load forecast after its auction (6 November), a second case would make
+   it worth measuring how often; the catalog still says wind and solar are public "D-1, before gate
+   closure" (should say made in the morning, published at 18:00); Amprion's, TransnetBW's and the solar
+   forecasts' making time, not read; one control area from 50Hertz's CSV against ENTSO-E's; the full
+   pull takes over an hour (run it in the foreground or with a longer limit); the ISEA like-for-like
+   ceiling check; the 50Hertz battery study (unread); the EPEX *Block parameters* sheet; quarter-hours
+   since 1 October 2025; the work log's contents table stops at 13 October.
