@@ -94,13 +94,16 @@ CATALOG: dict[str, DataItem] = {
         query="query_wind_and_solar_forecast",
         unit="MW",
         expected_resolution="15min",
-        publication="D-1, before gate closure",
-        known_before_gate_closure=True,
+        publication="D-1, made in the morning, published at about 18:00",   # seen 3-5 Nov 2026
+        known_before_gate_closure=True,               # Contract 1's one stated exception
         why=(
             "Solar, wind onshore and wind offshore in one response. This already "
             "contains the weather forecast, converted onto the real installed fleet "
             "by people with turbine-level data, which is why no weather source is "
-            "needed. Residual load is derived from this and the load forecast."
+            "needed. Residual load is derived from this and the load forecast. "
+            "It reaches ENTSO-E after the auction closes, but it is a forecast of "
+            "day D made before it, so it stays (decided 9 November 2026): nothing "
+            "measured on D may join it."
         ),
         document_type="A69",
         process_type="A01",
