@@ -4320,6 +4320,17 @@ read). 341 green.
 
 ---
 
+### 12 November 2026
+
+**Two small changes and a reorder** (`e83789b`, `3853268`): the catalog now says the wind and solar
+forecast is made in the morning and published at about 18:00, naming Contract 1's one exception (text
+only, flag unchanged). Decided with the user: the four-week trial starts right after the drift checks
+(~20 November), the page's second version and the rerun are built beside it with the forecasting code
+frozen, and stage 5 closes on the rerun's result (~27 November; trial to ~18 December). README and plan
+page refreshed (version 40; milestone: dates and order changed). Recap not asked today.
+
+---
+
 ### Next — next session
 
 **Stage 5 under way: steps 1–6 done.** The page is live at <https://battery-storage-backtest-aqevrymuvf2pb9jrjpmxc9.streamlit.app/>;
@@ -4343,14 +4354,14 @@ on 2024–25. Main after this entry's commit, 341 green.
    earnings, forecast and plan tomorrow through `forecast_day`, write the row. Decide with the user
    where the daily rows live and whether tomorrow's range (about 18 s) is computed each evening for
    the drift step.
-2. Then steps 8–11 as planned (`docs/decisions.md`, *Decided 31 October*; the trial in the evening,
-   *Decided 5 November*; the fallback, *Built 6 November*). **The stage 5 date in *Roughly when*
-   (around 13 November) is no longer realistic** with steps 7–10 left; re-estimate with the user.
+2. Then the drift checks, then the trial switched on (~20 November), then the page's second version
+   and the rerun beside it (`docs/decisions.md`, *Decided 31 October*, *Decided 12 November*). **Open for
+   the trial:** a GitHub runner has no `data/raw` (gitignored, 71 MB) and no MLflow, so where the cache
+   lives on the runner is not yet decided.
 3. Noted, not tasks: the page's second version can read 2026 from the `replay` run instead of rerunning
    it (2 hours, and a second reading); the 11 minutes outside the replay's own clock (sleep, probably);
    ENTSO-E rewrote one day-ahead load forecast after its auction (6 November), a second case would make
-   it worth measuring how often; the catalog still says wind and solar are public "D-1, before gate
-   closure" (should say made in the morning, published at 18:00); Amprion's, TransnetBW's and the solar
+   it worth measuring how often; Amprion's, TransnetBW's and the solar
    forecasts' making time, not read; one control area from 50Hertz's CSV against ENTSO-E's; the full
    pull takes over an hour (run it in the foreground or with a longer limit); the ISEA like-for-like
    ceiling check; the 50Hertz battery study (unread); the EPEX *Block parameters* sheet; quarter-hours
