@@ -866,3 +866,25 @@ for its range: the 20–25 s estimated on 30 October, now measured.
 in every year. Ten months can rank the average against LEAR, not the single models against each
 other. The headline stays the 90.1 % fixed before stage 4's reading; this reading is beside it.
 Nothing was changed after it.
+
+### Decided 12 November: the trial before the page's second version, and when stage 5 closes
+
+**The four-week trial is switched on right after the drift checks**, around 20 November, and the page's
+second version and the rerun from scratch are built while it runs (decided with the user). This
+changes the order fixed on 31 October, where the trial came last. The trial is the step that needs
+calendar time rather than working time, so starting it early shortens the stage by about a week.
+
+**Stage 5 now closes on its headline, the rerun's result** (around 27 November), not when the trial is
+switched on: with the trial first, closing at switch-on would close the stage before its own number
+existed. The trial's four weeks are reported when they end (around 18 December), as already planned.
+
+**While the trial runs, the forecasting code is frozen**: `scripts/tomorrow.py`, `src/features.py`,
+`src/models.py` and `src/backtest.py` stay as switched on, so the four weeks test one version of the
+code. A fix for a bug the trial hits goes in, dated in the work log; each row already carries its
+commit. The page and the rerun touch other files.
+
+**The re-estimate behind the dates.** Steps 1–6 took 31 October to 10 November, one to two working days
+each, at the 3½ working days a week this project has kept since 7 October. Left: `just tomorrow` (1½–2
+days), drift checks (1), then beside the trial the page's second version (1–2) and the rerun (1–1½,
+about 7¾ hours of computing: the README's 5.7 hours and 2 more for 2026). Rejected: stage 5 around 26
+November with the trial last, to about Christmas; a week of slack on top of that.

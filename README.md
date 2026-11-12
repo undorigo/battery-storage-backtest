@@ -241,13 +241,16 @@ reading. The order:
    it. If an input is missing, the plan is the simple rule's, saying which.
 4. **Drift checks**: a flag when, over 28 days, too few prices land inside the 80 % range, or the
    error drifts above its usual margin over the simple rule. Thresholds set on 2023 alone.
-5. **A rerun from scratch**, a fresh copy with freshly pulled data, and a command that says how far
-   each number moved. That distance is stage 5's headline (*reproducibility*).
-6. **A four-week trial**: GitHub runs `just tomorrow` each evening at 19:00, when the wind and
+5. **A four-week trial**: GitHub runs `just tomorrow` each evening at 19:00, when the wind and
    solar forecast is out, tries again hourly until 22:00 if an input is incomplete, and sends the simple
    rule's plan, flagged, if it is still missing. Then it stops by itself. Each forecast is committed before tomorrow begins, but
    after the auction: it shows the pipeline running daily on new days, not a bid made in time. Four
    weeks tests the machinery, not the models.
+   **Moved 12 November:** it starts right after the drift checks, around 20 November, and the page's
+   second version and the rerun are built while it runs, with the forecasting code frozen.
+6. **A rerun from scratch**, a fresh copy with freshly pulled data, and a command that says how far
+   each number moved. That distance is stage 5's headline (*reproducibility*).
+   Stage 5 closes on this number, around 27 November (decided 12 November).
 
 Nothing runs in between: the page sleeps without visitors, the trial has an end date. The full
 record, with what was rejected, is in [docs/decisions.md](docs/decisions.md).
@@ -266,7 +269,9 @@ snapshot. [docs/worklog.md](docs/worklog.md) records both links.
 
 Stages 2 to 4 each closed in the week estimated or earlier. Stage 4 closed on 27 October. On 30
 October the euros were compared with published figures and this README was rewritten in plain
-words. Stage 5 was planned on 31 October; the page and the 2026 replay add about half a week.
+words. Stage 5 was planned on 31 October; the page and the 2026 replay add about half a week. On 12
+November the trial was moved ahead of the page's second version and the rerun, and stage 5 now closes on
+the rerun's result.
 
 | Stage | Estimate | Ends around |
 |---|---|---|
@@ -274,7 +279,7 @@ words. Stage 5 was planned on 31 October; the page and the 2026 replay add about
 | 3 | done | 19 October 2026 |
 | 4 | done | 27 October 2026 |
 | 4½ | revenue check, summary, README: done 30 Oct | — |
-| 5 | ~2 weeks, then the four-week trial | around 13 November 2026; trial to mid-December |
+| 5 | re-estimated 12 Nov: trial on ~20 Nov, rerun beside it | around 27 November 2026; trial to ~18 December |
 
 ## Market, split and battery
 
