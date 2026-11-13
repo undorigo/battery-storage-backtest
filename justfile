@@ -101,6 +101,14 @@ significance:
 final-score what="points":
     {{py}} -m scripts.final_score {{what}}
 
+# Stage 5: one evening, by hand. Pulls the last two weeks (needs a token), pays every day in
+# reports/daily.csv whose prices have cleared, then forecasts and plans tomorrow and writes it.
+# Run after 18:00, when tomorrow's wind and solar forecast is out; about 8 minutes, most of it
+# tomorrow's range. Exits 3 if anything for tomorrow is still short: try again later.
+# `just tomorrow --last-try` then writes the simple rule's plan, flagged; `--no-pull` skips the pull.
+tomorrow *flags:
+    {{py}} -m scripts.tomorrow {{flags}}
+
 # The web page's data: every hour of 2023-25 with its forecasts, range, plans and
 # earnings, rebuilt from the stored runs into reports/page.parquet. Offline, about a minute.
 # Needs the runs `just backtest bids` and `just final-score battery` read.

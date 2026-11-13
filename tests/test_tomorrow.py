@@ -325,3 +325,61 @@ def test_a_day_without_lear_has_no_range():
     ws = cache["wind_solar_forecast"]
     cache["wind_solar_forecast"] = ws[ws.index < D_START + pd.Timedelta(hours=12)]
     assert _band(cache) is None
+
+
+# ── One evening, end to end ───────────────────────────────────────────────────
+# Without the pull, which needs the network: pay what has cleared, then forecast
+# tomorrow and write it.  The day before D is written first, so the evening for D
+# has a day to pay.  Short windows, as above.
+
+def _evening(cache: dict, path, last_try: bool = False) -> int:
+    with pytest.MonkeyPatch.context() as mp:
+        mp.setattr(data, "load_raw", lambda key, root=None: cache[key])
+        return T.evening(DAY, last_try, path, lear_window=WINDOW, windows=B_WINDOWS, levels=B_LEVELS)
+
+
+def _with_yesterday_written(cache: dict, path) -> None:
+    with pytest.MonkeyPatch.context() as mp:
+        mp.setattr(data, "load_raw", lambda key, root=None: cache[key])
+        yesterday = T.forecast_day(DAY - pd.Timedelta(days=1), T.inputs(), lear_window=WINDOW)
+    T.write(T.rows(yesterday, None, MADE_AT, COMMIT), path)
+
+
+def test_an_evening_pays_yesterday_and_writes_tomorrow_with_its_range(tmp_path):
+    path = tmp_path / "daily.csv"
+    _with_yesterday_written(_cache(), path)
+    assert _evening(_cache(), path) == 0
+    record = T.read(path)
+    assert sorted(record["day"].unique()) == ["2026-11-19", "2026-11-20"]
+    yesterday, tomorrow = record[record.day == "2026-11-19"], record[record.day == "2026-11-20"]
+    assert yesterday["earned:average"].notna().all()          # paid: its prices are out
+    assert tomorrow["price"].isna().all() and tomorrow["p90"].notna().all()
+    assert (tomorrow["plan_on"] == "average").all()
+
+
+def test_an_incomplete_evening_pays_but_writes_nothing_and_says_not_yet(tmp_path):
+    path = tmp_path / "daily.csv"
+    cache = _cache()
+    _with_yesterday_written(cache, path)
+    ws = cache["wind_solar_forecast"]
+    cache["wind_solar_forecast"] = ws[ws.index < D_START + pd.Timedelta(hours=12)]
+    assert _evening(cache, path) == T.NOT_YET
+    record = T.read(path)
+    assert list(record["day"].unique()) == ["2026-11-19"]      # nothing for D yet
+    assert record["earned:average"].notna().all()             # but yesterday is paid
+
+
+def test_the_last_try_sends_the_simple_rules_plan_flagged(tmp_path):
+    path = tmp_path / "daily.csv"
+    cache = _cache()
+    ws = cache["wind_solar_forecast"]
+    cache["wind_solar_forecast"] = ws[ws.index < D_START + pd.Timedelta(hours=12)]
+    assert _evening(cache, path, last_try=True) == 0
+    record = T.read(path)
+    assert (record["plan_on"] == "simple rule").all() and record["p90"].isna().all()
+    assert record["why"].str.contains("wind onshore 48/96").all()
+
+
+def test_tomorrow_is_the_berlin_day_after_today():
+    late = pd.Timestamp("2026-03-28 23:30", tz="UTC")         # already the 29th in Berlin
+    assert T.tomorrow(late) == pd.Timestamp("2026-03-30")

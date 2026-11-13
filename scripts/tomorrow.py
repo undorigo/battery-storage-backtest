@@ -12,19 +12,23 @@ below keeps that price out: every fit learns from days before D, and every clue
 is a whole earlier day.  `tests/test_tomorrow.py` plants an absurd price for D and
 checks that nothing moves.
 
-Nothing here settles or writes anything.  Filling in yesterday's earnings and
-recording the run belong to the caller.
+`forecast_day` settles and writes nothing.  `evening`, the end of this file, is
+the caller: it pays the days whose prices have cleared, then forecasts tomorrow
+and writes it to `reports/daily.csv` (`just tomorrow`).
 """
 
 from __future__ import annotations
 
+import argparse
 import time
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from pathlib import Path
 
 import pandas as pd
 
 from scripts import quantiles as Q
+from scripts.train import git_commit                        # same stamping as every scored run
 from src import backtest as BT
 from src import config as cfg
 from src import data
@@ -310,3 +314,61 @@ def pay(actual: pd.Series, path: Path = cfg.DAILY) -> tuple[pd.DataFrame, list[s
     if days:
         paid.to_csv(path)                                   # the whole record, money filled in
     return read(path), days
+
+
+# ── One evening ───────────────────────────────────────────────────────────────
+# Pay first, then forecast (decided 31 October and 12 November 2026).  If anything
+# for tomorrow is short, nothing is written and the run says "not yet", so the
+# scheduler tries again in an hour; the last try writes the simple rule's plan,
+# flagged with its reason.  Paying happens either way: it needs only cleared prices.
+
+NOT_YET = 3                                                 # exit code: try again later
+
+
+def tomorrow(now: pd.Timestamp) -> pd.Timestamp:
+    """The delivery day after `now`'s Berlin day, as a grid label."""
+    today = now.tz_convert(cfg.TZ_MARKET).normalize().tz_localize(None)   # wall clock, then a calendar step
+    return today + pd.Timedelta(days=1)                     # 24 h on a 23-hour day would land at 01:00
+
+
+def evening(day: pd.Timestamp, last_try: bool, path: Path = cfg.DAILY,
+            lear_window: int | None = M.WINDOW_DAYS, windows: list[int] = Q.CHOSEN,
+            levels: tuple[int, ...] = M.PERCENTILES) -> int:
+    """Pay what has cleared, then forecast `day` and write it, or say not yet."""
+    if path.exists():
+        actual = data.load("day_ahead_price").iloc[:, 0]    # real hours, as the battery is paid
+        _, paid = pay(actual, path)
+        print("Paid: " + (", ".join(paid) if paid else "nothing new"), flush=True)
+
+    given = inputs()
+    got = forecast_day(day, given, lear_window)
+    print(f"{day:%Y-%m-%d}, what has arrived:\n{got.counts.to_string()}", flush=True)
+    if got.why and not last_try:
+        print(f"Not yet ({got.why}): nothing written, try again later.")
+        return NOT_YET
+
+    started = time.perf_counter()
+    rng = None if got.why else band(got, given, lear_window, windows, levels)
+    got.seconds["range"] = time.perf_counter() - started
+    made_at = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    write(rows(got, rng, made_at, git_commit()), path)
+    print(f"Wrote {day:%Y-%m-%d}: plan on the {got.plan_on}" + (f" ({got.why})" if got.why else "")
+          + ", " + ", ".join(f"{part} {s:.0f} s" for part, s in got.seconds.items()))
+    return 0
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description="Pay what has cleared, then forecast tomorrow.")
+    parser.add_argument("--last-try", action="store_true",
+                        help="if an input is still short, send the simple rule's plan")
+    parser.add_argument("--no-pull", action="store_true", help="use the cache as it stands")
+    args = parser.parse_args(argv)
+    if not args.no_pull:
+        from scripts import pull                            # network and a token: only when asked
+        if pull.main(["recent"]) != 0:
+            return 2
+    return evening(tomorrow(pd.Timestamp.now(tz="UTC")), args.last_try)
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
