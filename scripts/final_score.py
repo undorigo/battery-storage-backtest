@@ -142,7 +142,7 @@ def reading_note(recorded: pd.DataFrame, just_written: int, split: str = SPLIT) 
 # choosing the window again on the years held back, which is the choice 2023 was for.
 # Every range at D learns from days before D, held-back days included once past.
 
-RANGE_WINDOWS = [28, 56, 91, 182]                    # chosen on 2023: the field's average
+RANGE_WINDOWS = Q.CHOSEN                             # chosen on 2023: the field's average
 RANGE_START = pd.Timestamp(cfg.VALID_END) - pd.Timedelta(days=max(RANGE_WINDOWS) - 1)   # 2023-07-03
 
 
@@ -276,7 +276,8 @@ def replay(given: T.Inputs, days: pd.DatetimeIndex,
 # walks 3 July to 31 December 2025 first, as the 2024-25 reading walked the half year
 # before 2024.  Stage 2's reading stored a forecast for each of those days; the walk
 # must match it, or the range rests on a LEAR the record never scored.  Then QRA alone
-# (the bids read nothing else), its 99 lines, each window sorted, the four averaged.
+# (the bids read nothing else), its 99 lines, each window sorted, the four averaged,
+# through `quantiles.qra_averaged`, which the evening run calls too.
 
 def warm_up_days(table: pd.DataFrame, windows: list[int]) -> pd.DatetimeIndex:
     """The days before LIVE_START that the longest window reaches back over."""
@@ -294,17 +295,6 @@ def matches_stored(lear: pd.Series) -> str:
     if were.isna().any() or not np.allclose(were, lear):
         raise ValueError("LEAR's walk of late 2025 differs from stage 2's stored reading: nothing scored")
     return f"the same as stage 2's stored reading on all {len(lear) // 24} days"
-
-
-def live_range(lear: pd.Series, actual: pd.Series, days: pd.DatetimeIndex,
-               windows: list[int], levels: tuple[int, ...]) -> pd.DataFrame:
-    """QRA's lines on `days`, each window's sorted, then averaged percentile by percentile."""
-    per_window = []
-    for window in windows:
-        started = time.perf_counter()
-        per_window.append(M.untangle(M.qra(lear, actual, days, window, levels))[0])
-        print(f"QRA, {window} days: {time.perf_counter() - started:.0f} s", flush=True)
-    return M.average(per_window)
 
 
 # ── 2026: forecast, range, plans, settlement ──────────────────────────────────
@@ -335,7 +325,7 @@ def replay_2026(windows: list[int] = RANGE_WINDOWS, levels: tuple[int, ...] = M.
     lear = pd.concat([before, forecasts["LEAR"]])    # every forecast LEAR made, in day order
     on_grid = Q.prices(given.table)                  # real prices on the grid: the dots' answers
     started = time.perf_counter()
-    band = live_range(lear, on_grid, days, windows, levels)
+    band = Q.qra_averaged(lear, on_grid, days, windows, levels)
     clock["range"] = time.perf_counter() - started
 
     started = time.perf_counter()

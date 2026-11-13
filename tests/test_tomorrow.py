@@ -279,3 +279,49 @@ def test_paying_the_record_rewrites_only_money(unplanted, tmp_path):
     assert days == ["2026-11-20"]
     pd.testing.assert_frame_equal(T.read(path), record, check_freq=False)
     assert T.pay(_cleared(), path)[1] == []                 # nothing left to pay
+
+
+# ── Tomorrow's range ──────────────────────────────────────────────────────────
+# LEAR re-forecasts the longest window's days before D, then QRA's windows are
+# averaged for D alone.  Two short windows and three percentiles keep it quick.
+# D's price is in the cache at 19:00, so the guard is the same as above: plant it
+# and nothing moves.  A day without LEAR has no range.
+
+B_WINDOWS, B_LEVELS = [3, 5], (10, 50, 90)
+
+
+def _band(cache: dict) -> pd.DataFrame | None:
+    with pytest.MonkeyPatch.context() as mp:
+        mp.setattr(data, "load_raw", lambda key, root=None: cache[key])
+        given = T.inputs()
+        got = T.forecast_day(DAY, given, lear_window=WINDOW)
+        return T.band(got, given, WINDOW, B_WINDOWS, B_LEVELS)
+
+
+@pytest.fixture(scope="module")
+def tomorrows_band() -> pd.DataFrame:
+    return _band(_cache())
+
+
+def test_the_range_covers_ds_slots_in_order(tomorrows_band):
+    assert list(tomorrows_band.columns) == list(B_LEVELS)
+    assert len(tomorrows_band) == 24 and (tomorrows_band.index.normalize() == DAY).all()
+    assert (np.diff(tomorrows_band.to_numpy(), axis=1) >= 0).all()   # p10 <= p50 <= p90
+
+
+def test_a_planted_price_for_day_d_leaves_its_range_unchanged(tomorrows_band):
+    pd.testing.assert_frame_equal(_band(_cache(planted=True)), tomorrows_band)
+
+
+def test_the_range_reaches_the_record_as_p10_and_p90(unplanted, tomorrows_band):
+    got = T.rows(unplanted, tomorrows_band, MADE_AT, COMMIT)
+    pd.testing.assert_series_equal(got["p90"], data.from_slots(tomorrows_band[90], T.real_hours(DAY)),
+                                   check_names=False)
+    assert (got["p10"] <= got["p90"]).all()
+
+
+def test_a_day_without_lear_has_no_range():
+    cache = _cache()
+    ws = cache["wind_solar_forecast"]
+    cache["wind_solar_forecast"] = ws[ws.index < D_START + pd.Timedelta(hours=12)]
+    assert _band(cache) is None

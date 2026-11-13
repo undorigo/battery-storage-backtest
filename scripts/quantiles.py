@@ -83,6 +83,26 @@ def averaged(per_window: list[dict]) -> dict[str, tuple[pd.DataFrame, pd.Series]
             for method in METHODS}
 
 
+# ── QRA alone, the windows averaged: the range the bids read ──────────────────
+# The 2026 reading and the evening run need QRA only, since the bids and the drift
+# checks read nothing else.  Each window's lines are sorted, then the windows are
+# averaged, as `averaged` does for both methods; one function, so the two callers
+# cannot build the range two ways.
+
+CHOSEN = [28, 56, 91, 182]                               # chosen on 2023 (19 Oct 2026)
+
+
+def qra_averaged(lear: pd.Series, actual: pd.Series, days: pd.DatetimeIndex, windows: list[int],
+                 levels: tuple[int, ...] = M.PERCENTILES) -> pd.DataFrame:
+    """QRA's lines on `days`, each window's sorted, then averaged percentile by percentile."""
+    per_window = []
+    for window in windows:
+        started = time.perf_counter()
+        per_window.append(M.untangle(M.qra(lear, actual, days, window, levels))[0])
+        print(f"QRA, {window} days: {time.perf_counter() - started:.0f} s", flush=True)
+    return M.average(per_window)
+
+
 def score(found: dict, lear: pd.Series, actual: pd.Series, window: int | str,
           split: str = "valid") -> tuple[list[dict], dict[str, pd.DataFrame]]:
     """One row per method, and each method's hourly table as scored."""

@@ -24,6 +24,7 @@ from pathlib import Path
 
 import pandas as pd
 
+from scripts import quantiles as Q
 from src import backtest as BT
 from src import config as cfg
 from src import data
@@ -189,6 +190,24 @@ def forecast_day(day: pd.Timestamp, given: Inputs,
     seconds["plan"] = time.perf_counter() - started
     return Day(day=day, counts=counts, forecasts=table, plan_on=plan_on, why=why,
                schedule=schedule, seconds=seconds)
+
+
+# ── Tomorrow's range ──────────────────────────────────────────────────────────
+# For the drift checks, which count how often the price lands inside the 80 % band.
+# QRA's dots must be forecasts LEAR really made, so each evening LEAR re-forecasts the
+# longest window's days before D (deterministic: the same numbers every evening), then
+# QRA's windows are averaged for D alone (decided 12 November 2026).  About 7-8 minutes,
+# and it needs only the raw cache.  A day LEAR could not forecast has no range.
+
+def band(got: Day, given: Inputs, lear_window: int | None = M.WINDOW_DAYS,
+         windows: list[int] = Q.CHOSEN, levels: tuple[int, ...] = M.PERCENTILES) -> pd.DataFrame | None:
+    """QRA's range for D's 24 slots around LEAR's forecast, or None without one."""
+    if "LEAR" not in got.forecasts:
+        return None
+    first = got.day - pd.Timedelta(days=max(windows))
+    before = Q.walk_days(given.table, first, got.day - pd.Timedelta(days=1))
+    lear = pd.concat([M.lear_walk_forward(given.table, before, lear_window), got.forecasts["LEAR"]])
+    return Q.qra_averaged(lear, Q.prices(given.table), pd.DatetimeIndex([got.day]), windows, levels)
 
 
 # ── The evening's rows: every decision, no money ──────────────────────────────
