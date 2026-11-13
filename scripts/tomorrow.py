@@ -249,3 +249,45 @@ def write(new: pd.DataFrame, path: Path = cfg.DAILY) -> pd.DataFrame:
     path.parent.mkdir(parents=True, exist_ok=True)
     new.to_csv(path, mode="a", header=not path.exists())
     return read(path)
+
+
+# ── The next evening: paying what was decided ─────────────────────────────────
+# A day is paid once all its real prices are out, and never again: a price ENTSO-E
+# revises later does not change what was earned.  Each plan's trades are rebuilt
+# from the `net` written the night before (an hour charges or discharges, never
+# both) and paid through `backtest.settle`, the one place real prices meet a plan
+# (Contract 3).  The ceiling is planned here, on the day's own prices.
+
+def settle(record: pd.DataFrame, actual: pd.Series) -> pd.DataFrame:
+    """The record with every unpaid day whose prices have all cleared paid at them."""
+    out = record.copy()
+    for day, hours in out.groupby("day").groups.items():
+        if out.loc[hours, "price"].notna().any():
+            continue                                        # paid already
+        price = actual.reindex(hours)
+        if price.isna().any():
+            continue                                        # not every hour has cleared
+        best, best_earned = BT.ceiling(price)
+        out.loc[hours, "price"] = price
+        out.loc[hours, "net:ceiling"] = best.discharge - best.charge
+        out.loc[hours, "earned:ceiling"] = best_earned
+        for name in FORECASTS:
+            net = out.loc[hours, f"net:{name}"]
+            if net.isna().any():
+                continue                                    # no plan was made: nothing to pay
+            trades = pd.DataFrame({"charge": (-net).clip(lower=0), "discharge": net.clip(lower=0)})
+            out.loc[hours, f"earned:{name}"] = BT.settle(trades, price)
+    return out
+
+
+def pay(actual: pd.Series, path: Path = cfg.DAILY) -> tuple[pd.DataFrame, list[str]]:
+    """Settle the record on disk; refuses to write if any decision would change."""
+    had = read(path)
+    paid = settle(had, actual)
+    decided = [c for c in DAILY_COLUMNS if c not in MONEY]
+    if not paid[decided].equals(had[decided]):              # decisions are never rewritten
+        raise ValueError(f"settling would change a decision in {path.name}: nothing written")
+    days = sorted(set(paid.loc[paid["price"].notna(), "day"]) - set(had.loc[had["price"].notna(), "day"]))
+    if days:
+        paid.to_csv(path)                                   # the whole record, money filled in
+    return read(path), days

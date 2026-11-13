@@ -220,3 +220,62 @@ def test_a_day_already_written_is_never_written_again(unplanted, tmp_path):
     with pytest.raises(ValueError, match="2026-11-20 is already written"):
         T.write(T.rows(unplanted, None, "2026-11-19T21:05:00Z", COMMIT), path)
     assert path.read_text() == before                       # the plan sent stands
+
+
+# ── The next evening: paying what was decided ─────────────────────────────────
+# A made-up price for D, two waves a day, so the plans have something to trade.
+# Settling fills the money columns from the real price and the trades written the
+# night before, through the one function that pays a plan; it never touches a
+# decision, never pays a day twice, and leaves a day whose price is not out blank.
+
+def _cleared(day: pd.Timestamp = DAY) -> pd.Series:
+    """D's real prices, as `data.load` returns them: real hours, UTC."""
+    hours = T.real_hours(day)
+    return pd.Series(60 + 40 * np.sin(np.arange(len(hours)) * np.pi / 6), index=hours)
+
+
+def test_settling_pays_each_plan_at_the_real_price_and_changes_no_decision(unplanted):
+    from src import backtest as BT
+
+    written = T.rows(unplanted, None, MADE_AT, COMMIT)
+    paid = T.settle(written, _cleared())
+    decided = [c for c in T.DAILY_COLUMNS if c not in T.MONEY]
+    pd.testing.assert_frame_equal(paid[decided], written[decided])
+    pd.testing.assert_series_equal(paid["price"], _cleared(), check_names=False)
+    best, best_earned = BT.ceiling(_cleared())
+    pd.testing.assert_series_equal(paid["earned:ceiling"], best_earned, check_names=False)
+    for name in T.FORECASTS:
+        plan = BT.walk(data.from_slots(unplanted.forecasts[name], T.real_hours(DAY)))
+        _, earned = BT.fixed(data.from_slots(unplanted.forecasts[name], T.real_hours(DAY)), _cleared())
+        pd.testing.assert_series_equal(paid[f"earned:{name}"], earned, check_names=False)
+        assert paid[f"earned:{name}"].sum() <= paid["earned:ceiling"].sum() + 1e-6, name
+
+
+def test_a_day_whose_price_is_not_out_stays_unpaid(unplanted):
+    written = T.rows(unplanted, None, MADE_AT, COMMIT)
+    half = _cleared().iloc[:12]                             # the auction result not complete
+    pd.testing.assert_frame_equal(T.settle(written, half), written)
+
+
+def test_a_paid_day_is_never_paid_again(unplanted):
+    paid = T.settle(T.rows(unplanted, None, MADE_AT, COMMIT), _cleared())
+    revised = _cleared() + 50                               # ENTSO-E changing a price later
+    pd.testing.assert_frame_equal(T.settle(paid, revised), paid)
+
+
+def test_a_fallback_day_pays_the_simple_rules_plan_and_nothing_it_did_not_make():
+    cache = _cache()
+    ws = cache["wind_solar_forecast"]
+    cache["wind_solar_forecast"] = ws[ws.index < D_START + pd.Timedelta(hours=12)]
+    paid = T.settle(T.rows(_run(cache), None, MADE_AT, COMMIT), _cleared())
+    assert paid["earned:naive (field)"].notna().all() and paid["earned:ceiling"].notna().all()
+    assert paid["earned:average"].isna().all()               # no plan was made, none is paid
+
+
+def test_paying_the_record_rewrites_only_money(unplanted, tmp_path):
+    path = tmp_path / "daily.csv"
+    T.write(T.rows(unplanted, None, MADE_AT, COMMIT), path)
+    record, days = T.pay(_cleared(), path)
+    assert days == ["2026-11-20"]
+    pd.testing.assert_frame_equal(T.read(path), record, check_freq=False)
+    assert T.pay(_cleared(), path)[1] == []                 # nothing left to pay
