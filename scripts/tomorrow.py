@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import time
 from dataclasses import dataclass
+from pathlib import Path
 
 import pandas as pd
 
@@ -188,3 +189,63 @@ def forecast_day(day: pd.Timestamp, given: Inputs,
     seconds["plan"] = time.perf_counter() - started
     return Day(day=day, counts=counts, forecasts=table, plan_on=plan_on, why=why,
                schedule=schedule, seconds=seconds)
+
+
+# ── The evening's rows: every decision, no money ──────────────────────────────
+# Written before the day begins: on D's real hours, what each forecast said, the
+# range, and what each forecast's plan would buy and sell (`net`, MW sold minus
+# bought, as the page file has it).  The price and the euros stay blank until the
+# next evening settles them, so the columns written that night are exactly what
+# was decided then (decided 12 November 2026).  The page file's column names, so
+# the page's second version can lay the record beside it.
+
+TEXT = ("day", "made_at", "commit", "plan_on", "why")     # read back as text, never as numbers
+MONEY = ("price", "net:ceiling", "earned:ceiling") + tuple(f"earned:{name}" for name in FORECASTS)
+DAILY_COLUMNS = (TEXT
+                 + tuple(f"forecast:{name}" for name in FORECASTS) + ("p90", "p10")
+                 + tuple(f"net:{name}" for name in FORECASTS) + MONEY)
+
+
+def rows(got: Day, band: pd.DataFrame | None, made_at: str, commit: str) -> pd.DataFrame:
+    """D's rows for the record: forecasts, range and each forecast's plan; money blank."""
+    hours = real_hours(got.day)
+    out = pd.DataFrame(index=hours.rename("hour"), columns=list(DAILY_COLUMNS), dtype=float)
+    out["day"], out["made_at"], out["commit"] = f"{got.day:%Y-%m-%d}", made_at, commit
+    out["plan_on"], out["why"] = got.plan_on, got.why
+    out = out.astype({column: "str" for column in TEXT})    # one string type, as `read` returns
+    for name in got.forecasts.columns:                      # only the forecasts that were made
+        prices = data.from_slots(got.forecasts[name], hours)    # back onto real hours
+        plan = BT.walk(prices)                              # one day, from empty, ending empty
+        out[f"forecast:{name}"] = prices
+        out[f"net:{name}"] = plan.discharge - plan.charge
+    if band is not None:
+        for level in (90, 10):
+            out[f"p{level}"] = data.from_slots(band[level], hours)
+    return out
+
+
+# ── The record on disk ────────────────────────────────────────────────────────
+# One CSV in git, so the commit that adds a day's rows is the proof they existed
+# before the day began.  A day is written once: a second evening run for the same
+# day is refused, because the plan sent stands (decided 6 November 2026).
+
+def read(path: Path = cfg.DAILY) -> pd.DataFrame:
+    """The record as written, hours back in UTC."""
+    got = pd.read_csv(path, index_col="hour", dtype={column: "str" for column in TEXT},
+                      keep_default_na=False, na_values={c: [""] for c in DAILY_COLUMNS if c not in TEXT})
+    got.index = pd.to_datetime(got.index, utc=True)
+    return got
+
+
+def write(new: pd.DataFrame, path: Path = cfg.DAILY) -> pd.DataFrame:
+    """Append `new` to the record, refusing any day already in it. Returns the whole record."""
+    if path.exists():
+        had = read(path)
+        if list(had.columns) != list(new.columns):
+            raise ValueError(f"{path.name} has columns {list(had.columns)}: nothing written")
+        again = sorted(set(had["day"]) & set(new["day"]))
+        if again:
+            raise ValueError(f"{again[0]} is already written: the plan sent stands")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    new.to_csv(path, mode="a", header=not path.exists())
+    return read(path)

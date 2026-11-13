@@ -159,3 +159,64 @@ def test_a_missing_forecast_for_yesterday_stops_lear_and_the_plan_is_the_simple_
     assert got.why.startswith("LEAR: clue missing, first renew_d1_h00")
     assert {"tree", "straight line"} <= set(got.forecasts.columns)
     assert "LEAR" not in got.forecasts.columns
+
+
+# ── The evening's rows: every decision, no money ──────────────────────────────
+# Tomorrow's rows are written before tomorrow begins: what each forecast said, and
+# what each plan would buy and sell.  The price and the euros stay blank until the
+# next evening settles them, so nothing written that night can be paid money it
+# did not know about.  A day already written is never written again.
+
+MADE_AT, COMMIT = "2026-11-19T19:05:00Z", "abc1234"
+
+
+def test_tomorrows_rows_are_its_real_hours_with_every_decision_and_no_money(unplanted):
+    got = T.rows(unplanted, None, MADE_AT, COMMIT)
+    assert list(got.columns) == list(T.DAILY_COLUMNS)
+    assert got.index.equals(T.real_hours(DAY))
+    assert (got["day"] == "2026-11-20").all() and (got["plan_on"] == "average").all()
+    assert (got["made_at"] == MADE_AT).all() and (got["commit"] == COMMIT).all()
+    money = [c for c in got.columns if c == "price" or c.startswith("earned:") or c == "net:ceiling"]
+    assert got[money].isna().all().all()                    # settled the next evening, not now
+    sent = unplanted.schedule
+    pd.testing.assert_series_equal(got["net:average"], sent.discharge - sent.charge, check_names=False)
+
+
+def test_each_forecasts_net_is_its_own_plan(unplanted):
+    from src import backtest as BT
+
+    got = T.rows(unplanted, None, MADE_AT, COMMIT)
+    for name in T.FORECASTS:
+        plan = BT.walk(data.from_slots(unplanted.forecasts[name], T.real_hours(DAY)))
+        pd.testing.assert_series_equal(got[f"net:{name}"], plan.discharge - plan.charge,
+                                       check_names=False)
+        pd.testing.assert_series_equal(got[f"forecast:{name}"],
+                                       data.from_slots(unplanted.forecasts[name], T.real_hours(DAY)),
+                                       check_names=False)
+
+
+def test_a_fallback_day_writes_the_simple_rules_plan_and_says_why():
+    cache = _cache()
+    ws = cache["wind_solar_forecast"]
+    cache["wind_solar_forecast"] = ws[ws.index < D_START + pd.Timedelta(hours=12)]
+    got = T.rows(_run(cache), None, MADE_AT, COMMIT)
+    assert (got["plan_on"] == "simple rule").all()
+    assert got["why"].str.contains("wind onshore 48/96").all()
+    assert got["forecast:LEAR"].isna().all() and got["net:average"].isna().all()
+    assert got["net:naive (field)"].notna().all()           # the plan that was sent
+
+
+def test_the_record_reads_back_as_written(unplanted, tmp_path):
+    path = tmp_path / "daily.csv"
+    written = T.rows(unplanted, None, MADE_AT, COMMIT)
+    T.write(written, path)
+    pd.testing.assert_frame_equal(T.read(path), written, check_freq=False)
+
+
+def test_a_day_already_written_is_never_written_again(unplanted, tmp_path):
+    path = tmp_path / "daily.csv"
+    T.write(T.rows(unplanted, None, MADE_AT, COMMIT), path)
+    before = path.read_text()
+    with pytest.raises(ValueError, match="2026-11-20 is already written"):
+        T.write(T.rows(unplanted, None, "2026-11-19T21:05:00Z", COMMIT), path)
+    assert path.read_text() == before                       # the plan sent stands
