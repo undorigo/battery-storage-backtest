@@ -888,3 +888,16 @@ each, at the 3½ working days a week this project has kept since 7 October. Left
 days), drift checks (1), then beside the trial the page's second version (1–2) and the rerun (1–1½,
 about 7¾ hours of computing: the README's 5.7 hours and 2 more for 2026). Rejected: stage 5 around 26
 November with the trial last, to about Christmas; a week of slack on top of that.
+
+### Decided 12 November: what `just tomorrow` does each evening (stage 5, step 7)
+
+**One evening, in order** (decided with the user): pull the recent end; settle every row whose day now
+has its price; forecast tomorrow through `forecast_day`; write tomorrow's rows. Real prices enter only in
+the settling step (Contract 3).
+
+| Decision | Chosen | Rejected |
+|---|---|---|
+| Where the rows live | `reports/daily.csv`, committed: 24 rows a day on real hours, the page file's columns plus when and from which commit each was made, what the plan rests on and why; price and earnings blank until the next evening fills them in, git keeping what was written first | two append-only files (every reader must join them); parquet (git cannot show what changed, so the committed-before-the-day proof needs a tool) |
+| Tomorrow's range | each evening LEAR re-forecasts the 182 days before tomorrow, then QRA's four windows for one day, about 7–8 minutes; needs only the raw cache, and covers 1–19 November, which neither the replay nor a daily run did | LEAR's past forecasts read from the replay's MLflow run and earlier rows (about 20 s, but MLflow lives on this machine only); no range until the drift step |
+| An input incomplete | nothing written and a "not yet" exit code the scheduler retries an hour later; with `--last-try` the simple rule's plan, flagged with its reason; settling happens either way | write the simple rule's plan at once and overwrite it later (a sent plan rewritten, against "the plan sent stands") |
+| What is settled | the five fixed plans and the ceiling, the sent one (the average) marked, so the trial sets beside the replay like for like; no bids, since nothing sends them | the sent plan and the ceiling only |
