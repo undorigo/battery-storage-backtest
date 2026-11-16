@@ -28,6 +28,8 @@ jobs:
     timeout-minutes: 300           # four tries an hour apart, about 3½ hours at most
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: main                # the newest rows, not main as it stood when this run was queued
 
       - uses: actions/setup-python@v5
         with:
