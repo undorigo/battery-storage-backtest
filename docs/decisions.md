@@ -950,3 +950,12 @@ and then fail on "already written". The plan sent stands either way (`tomorrow.w
 the trial ends before the clocks change. Seven minutes past, because GitHub delays runs queued on the
 hour. The ENTSO-E token is a repository secret, which GitHub masks in the public logs; that matters,
 because ENTSO-E's error messages print the request with the token in it.
+
+**Then decided: the trial pulls only the three series the forecast reads** (price, load forecast, wind
+and solar forecast). The manifest showed both actuals revised on 6 November, the one recent pull after a
+gap (142 and 215 hours), and under the retry rule a revision is an hour's wait; the actuals are also the
+slowest download from empty. `scripts/trial.py` makes the pull and runs `tomorrow` on that cache, so
+`scripts/tomorrow.py` is unchanged and `just tomorrow` by hand still pulls all five. Rejected: all five,
+as `just tomorrow` does. **The from-empty time, from the manifest instead:** until 3 November every pull
+fetched the whole history, the same work as an empty cache, and the three took about 10 minutes on
+16 September and about 40 on 3 November.

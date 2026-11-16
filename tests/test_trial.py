@@ -115,24 +115,37 @@ def test_a_fault_is_not_tried_again(fault):
     assert len(fake.calls) == 1 and fake.waits == []
 
 
-# ── The last evening, for real ────────────────────────────────────────────────
+# ── One try, for real ─────────────────────────────────────────────────────────
 # The pay-only try runs once, on 14 December, so a fault in it would show only as
 # the trial's last day left unpaid.  Its wiring is checked here with the pull and
-# the record replaced: pull first, then pay; a failed pull is "later", not paid.
+# the record replaced.  The pull asks for the three series the forecast reads and
+# no others: a revised actual must not cost an evening an hour (decided 16 Nov).
 
-def _last_evening(monkeypatch, pulled: int) -> tuple[int, list[str]]:
-    from scripts import pull as P
-
+def _once(monkeypatch, pulled: bool, pay_only: bool) -> tuple[int, list[str]]:
     steps = []
-    monkeypatch.setattr(P, "main", lambda argv: steps.append(f"pull {argv[0]}") or pulled)
+    monkeypatch.setattr(TR, "fetch_recent", lambda: steps.append("pull") or pulled)
     monkeypatch.setattr(TR.data, "load", lambda key: pd.DataFrame({"price": [1.0]}))
     monkeypatch.setattr(TR.T, "pay", lambda actual: steps.append("pay") or (None, ["2026-12-14"]))
-    return TR.once(pay_only=True, last_try=False, pull=True), steps
+    monkeypatch.setattr(TR.T, "main", lambda argv: steps.append(" ".join(argv)) or 0)
+    return TR.once(pay_only=pay_only, last_try=True, pull=True), steps
 
 
 def test_the_last_evening_pulls_then_pays(monkeypatch):
-    assert _last_evening(monkeypatch, pulled=0) == (0, ["pull recent", "pay"])
+    assert _once(monkeypatch, pulled=True, pay_only=True) == (0, ["pull", "pay"])
 
 
 def test_the_last_evening_waits_when_the_pull_fails(monkeypatch):
-    assert _last_evening(monkeypatch, pulled=1) == (PULL_FAILED, ["pull recent"])
+    assert _once(monkeypatch, pulled=False, pay_only=True) == (PULL_FAILED, ["pull"])
+
+
+def test_a_full_evening_pulls_once_then_runs_tomorrow_on_that_cache(monkeypatch):
+    assert _once(monkeypatch, pulled=True, pay_only=False) == (0, ["pull", "--no-pull --last-try"])
+
+
+def test_the_pull_asks_for_the_forecasts_three_series_alone(monkeypatch):
+    from src import features as F
+
+    asked = {}
+    monkeypatch.setattr(TR.data, "pull", lambda keys, recent: asked.update(keys=keys, recent=recent) or [])
+    assert TR.fetch_recent() is True
+    assert asked == {"keys": list(F.SOURCES), "recent": True}

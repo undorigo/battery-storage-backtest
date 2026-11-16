@@ -18,6 +18,7 @@ import pandas as pd
 from scripts import tomorrow as T
 from src import config as cfg
 from src import data
+from src import features as F
 
 # ── The four weeks ────────────────────────────────────────────────────────────
 # Decided 16 November 2026: the first evening is that one, so the last forecast is
@@ -64,17 +65,28 @@ def evening(today: pd.Timestamp, run, wait, written: set[str]) -> int:
 
 
 # ── One try, for real ─────────────────────────────────────────────────────────
-# A full evening is `just tomorrow` with its flags.  The last evening only pays,
-# which `tomorrow.py` has no flag for, so it is spelled out here with the same two
-# calls the full evening makes first: the pull, then `pay`.
+# The pull is made here and asks for the three series the forecast reads, nothing
+# else (decided 16 November 2026): ENTSO-E revised both actuals on the one recent
+# pull after a gap, and a revision is an hour's wait.  `just tomorrow` by hand still
+# pulls all five.  The last evening only pays, which `tomorrow.py` has no flag for.
+
+def fetch_recent() -> bool:
+    """The last two weeks of the forecast's series.  False if it failed or revised."""
+    try:
+        results = data.pull(keys=list(F.SOURCES), recent=True)
+    except Exception as exc:                                # outage, network, no token
+        print(f"Pull failed: {exc}", flush=True)
+        return False
+    for r in results:
+        print(f"  {r.key:<22}{r.outcome:<11}{r.detail}", flush=True)
+    return not any(r.needs_attention for r in results)     # revised: the old copy archived
+
 
 def once(pay_only: bool, last_try: bool, pull: bool) -> int:
+    if pull and not fetch_recent():
+        return PULL_FAILED
     if not pay_only:
-        return T.main(["--last-try"] * last_try + ["--no-pull"] * (not pull))
-    if pull:
-        from scripts import pull as P                       # network and a token
-        if P.main(["recent"]) != 0:
-            return PULL_FAILED
+        return T.main(["--no-pull"] + ["--last-try"] * last_try)
     _, paid = T.pay(data.load("day_ahead_price").iloc[:, 0])
     print("Paid: " + (", ".join(paid) if paid else "nothing new"))
     return 0
