@@ -938,7 +938,7 @@ weeks.
 | Decision | Chosen | Rejected |
 |---|---|---|
 | Where the data lives | GitHub's cache: each evening restores the newest `data/raw`, pulls the last two weeks and saves a new copy (71 MB of 10 GB); the first evening fills it from empty | download from empty every evening (about 35 requests a night, and no revision can ever be seen, since nothing is kept to compare) |
-| What is retried | exit 3 (an input short) **and** exit 2 (the pull failed), hourly from 19:00, `--last-try` at 22:00; if the pull still fails then, the cache as it stands, so every evening ends with a row | exit 3 only, as decided 12 November: an outage (14 September, 16 November) or a revision (4 November) both end the pull with exit 2, and the evening would leave no row |
+| What is retried | exit 3 (an input short) **and** exit 2 (the pull failed), hourly from 19:00, `--last-try` at 22:00; if the pull still fails then, the cache as it stands, so every evening ends with a row | exit 3 only, as decided 12 November: an outage (9 September, 16 November) or a revision (4 November) both end the pull with exit 2, and the evening would leave no row |
 | Where the loop and the end date live | `scripts/trial.py`, called once per evening; tested with a fake evening and no clock | a shell loop in the workflow file (no test can reach it); four scheduled runs at 19–22:00 (four places to keep in step) |
 | When it ends | the last forecast is written on 13 December, for 14 December; the evening of 14 December pays it and forecasts nothing; after that the job does nothing | 17 December, from the plan's dates before the trial moved to tonight |
 
