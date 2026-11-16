@@ -925,3 +925,28 @@ are unchanged.
 rerun's result around 2 December. Rejected: keep the 12 November order (trial after the drift checks,
 with evenings by hand until then); run the schedule on this laptop (it must be awake at 19:00, and its
 logs prove nothing to anyone else).
+
+### Decided 16 November: the trial's workflow on GitHub (stage 5, step 8)
+
+**Measured first, and the measurement failed.** Downloading the three series the forecast reads, into
+an empty folder, was tried twice at about 13:50 and 13:56: both times ENTSO-E answered 599 partway
+through the price history (the second after 8 minutes, at 2021–22), and a three-day request failed the
+same way at 14:05. So a from-empty pull has no time yet; what it showed is that it asks for about eight
+years, one year per request per series, and any one of those can fail. A cached evening asks for two
+weeks.
+
+| Decision | Chosen | Rejected |
+|---|---|---|
+| Where the data lives | GitHub's cache: each evening restores the newest `data/raw`, pulls the last two weeks and saves a new copy (71 MB of 10 GB); the first evening fills it from empty | download from empty every evening (about 35 requests a night, and no revision can ever be seen, since nothing is kept to compare) |
+| What is retried | exit 3 (an input short) **and** exit 2 (the pull failed), hourly from 19:00, `--last-try` at 22:00; if the pull still fails then, the cache as it stands, so every evening ends with a row | exit 3 only, as decided 12 November: an outage (14 September, 16 November) or a revision (4 November) both end the pull with exit 2, and the evening would leave no row |
+| Where the loop and the end date live | `scripts/trial.py`, called once per evening; tested with a fake evening and no clock | a shell loop in the workflow file (no test can reach it); four scheduled runs at 19–22:00 (four places to keep in step) |
+| When it ends | the last forecast is written on 13 December, for 14 December; the evening of 14 December pays it and forecasts nothing; after that the job does nothing | 17 December, from the plan's dates before the trial moved to tonight |
+
+**A second run on an evening already written does nothing.** Tonight's first evening is started by
+hand and the schedule fires at 19:07 too; without the check the second run would forecast for 8 minutes
+and then fail on "already written". The plan sent stands either way (`tomorrow.write` refuses).
+
+**Scheduled at 18:07 UTC**, which is 19:07 in Berlin until summer time; GitHub's timer is UTC only, and
+the trial ends before the clocks change. Seven minutes past, because GitHub delays runs queued on the
+hour. The ENTSO-E token is a repository secret, which GitHub masks in the public logs; that matters,
+because ENTSO-E's error messages print the request with the token in it.
