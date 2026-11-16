@@ -901,3 +901,27 @@ the settling step (Contract 3).
 | Tomorrow's range | each evening LEAR re-forecasts the 182 days before tomorrow, then QRA's four windows for one day, about 7–8 minutes; needs only the raw cache, and covers 1–19 November, which neither the replay nor a daily run did | LEAR's past forecasts read from the replay's MLflow run and earlier rows (about 20 s, but MLflow lives on this machine only); no range until the drift step |
 | An input incomplete | nothing written and a "not yet" exit code the scheduler retries an hour later; with `--last-try` the simple rule's plan, flagged with its reason; settling happens either way | write the simple rule's plan at once and overwrite it later (a sent plan rewritten, against "the plan sent stands") |
 | What is settled | the five fixed plans and the ceiling, the sent one (the average) marked, so the trial sets beside the replay like for like; no bids, since nothing sends them | the sent plan and the ceiling only |
+
+### Decided 16 November: the schedule straight after `just tomorrow`, for continuity
+
+**The four-week trial is switched on as soon as `just tomorrow` has run once on real data**, before the
+drift checks (decided with the user). The user cannot run it by hand every evening this week, and a
+record with gaps where nobody was at the laptop says more about a calendar than about the pipeline. So
+the plan of several hand-run evenings first is dropped; instead the first scheduled evening is started
+by hand from GitHub's page and watched, and from then on it runs itself.
+
+**Moved beside the trial: the drift checks**, with the page's second version and the rerun. They read
+the rows the trial writes (forecasts and the 80 % band are in them from the first evening), and they
+live in their own file, so the forecasting code frozen during the trial (12 November) stays frozen. The
+first drift flag needs 28 days of rows, so it cannot fire inside the trial's first four weeks from trial
+rows alone; it reads the 2026 replay's rows before them.
+
+**Still open, decided before the workflow is written:** where the data cache lives on GitHub's machine,
+which starts with no `data/raw` (gitignored, 71 MB) and no MLflow, and how long downloading the three
+series the forecast needs takes when that cache is empty. The four weeks and the end date inside the job
+are unchanged.
+
+**Dates, re-estimated.** Trial on around 19 November, to around 17 December; stage 5 closes on the
+rerun's result around 2 December. Rejected: keep the 12 November order (trial after the drift checks,
+with evenings by hand until then); run the schedule on this laptop (it must be awake at 19:00, and its
+logs prove nothing to anyone else).

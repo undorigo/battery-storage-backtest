@@ -97,13 +97,12 @@ measured on the 2026 replay; the daily command is still to be built.
 
 ### Next steps
 
-- **Run it every day.** The data now reaches tomorrow (`just pull recent`, about 2 minutes), and the
-  code that forecasts and plans one day exists (6 November), but there is no
-  "tomorrow" command yet. It will run after 18:00, when tomorrow's wind and solar forecast is on
-  ENTSO-E (see *Limits*). Decided: each day it sends the average of the three forecasts, without price
-  limits, because that earned the most on both readings; the simple rule's plan, flagged, if any input
-  is missing. 2026 so far was replayed and scored once on 10 November (above); next, a four-week trial runs it
-  each evening.
+- **Run it every day.** The data reaches tomorrow (`just pull recent`, about 2 minutes), and
+  `just tomorrow` (built 13 November) pays the days whose prices have cleared, then forecasts and plans
+  tomorrow. It runs after 18:00, when tomorrow's wind and solar forecast is on ENTSO-E (see *Limits*),
+  and sends the average of the three forecasts, without price limits, because that earned the most on
+  every reading; the simple rule's plan, flagged, if an input is missing. 2026 so far was replayed and
+  scored once on 10 November (above). Next, GitHub runs it each evening for four weeks, then stops.
 - **Rerun from scratch.** Regenerate these numbers from a fresh copy with freshly pulled data. ENTSO-E
   revises old data, so small differences are possible.
 - **Watch for drift.** Flag when forecasts or ranges start missing more than usual.
@@ -238,19 +237,24 @@ reading. The order:
    **One day's code done 6 November** (`scripts/tomorrow.py`): it says which of tomorrow's inputs
    have every quarter-hour, forecasts from earlier days only, and plans the battery. A test plants a
    price for the day itself, already out by evening, and checks nothing moves; two planted bugs failed
-   it. If an input is missing, the plan is the simple rule's, saying which.
-4. **Drift checks**: a flag when, over 28 days, too few prices land inside the 80 % range, or the
-   error drifts above its usual margin over the simple rule. Thresholds set on 2023 alone.
-5. **A four-week trial**: GitHub runs `just tomorrow` each evening at 19:00, when the wind and
+   it. If an input is missing, the plan is the simple rule's, saying which. **The command built 13
+   November:** it pays the days whose prices have cleared, then forecasts tomorrow with its range and
+   writes it to `reports/daily.csv`, or says "not yet". Not yet run on real data.
+4. **A four-week trial**: GitHub runs `just tomorrow` each evening at 19:00, when the wind and
    solar forecast is out, tries again hourly until 22:00 if an input is incomplete, and sends the simple
    rule's plan, flagged, if it is still missing. Then it stops by itself. Each forecast is committed before tomorrow begins, but
    after the auction: it shows the pipeline running daily on new days, not a bid made in time. Four
    weeks tests the machinery, not the models.
-   **Moved 12 November:** it starts right after the drift checks, around 20 November, and the page's
-   second version and the rerun are built while it runs, with the forecasting code frozen.
+   **Moved 12 and 16 November:** it starts as soon as `just tomorrow` has run once on real data,
+   around 19 November, so the record does not depend on someone being at the laptop. The drift checks,
+   the page's second version and the rerun are built while it runs, with the forecasting code frozen.
+   Open: where the data lives on GitHub's machine, which starts empty.
+5. **Drift checks**, beside the trial: a flag when, over 28 days, too few prices land inside the 80 % range, or the
+   error drifts above its usual margin over the simple rule. Thresholds set on 2023 alone. They read the trial's
+   rows and live in their own file, so the frozen code stays frozen.
 6. **A rerun from scratch**, a fresh copy with freshly pulled data, and a command that says how far
    each number moved. That distance is stage 5's headline (*reproducibility*).
-   Stage 5 closes on this number, around 27 November (decided 12 November).
+   Stage 5 closes on this number, around 2 December (decided 12 November, re-estimated 16 November).
 
 Nothing runs in between: the page sleeps without visitors, the trial has an end date. The full
 record, with what was rejected, is in [docs/decisions.md](docs/decisions.md).
@@ -271,7 +275,8 @@ Stages 2 to 4 each closed in the week estimated or earlier. Stage 4 closed on 27
 October the euros were compared with published figures and this README was rewritten in plain
 words. Stage 5 was planned on 31 October; the page and the 2026 replay add about half a week. On 12
 November the trial was moved ahead of the page's second version and the rerun, and stage 5 now closes on
-the rerun's result.
+the rerun's result. On 16 November the schedule moved ahead of the drift checks too, so the daily
+record does not depend on someone being at the laptop.
 
 | Stage | Estimate | Ends around |
 |---|---|---|
@@ -279,7 +284,7 @@ the rerun's result.
 | 3 | done | 19 October 2026 |
 | 4 | done | 27 October 2026 |
 | 4½ | revenue check, summary, README: done 30 Oct | — |
-| 5 | re-estimated 12 Nov: trial on ~20 Nov, rerun beside it | around 27 November 2026; trial to ~18 December |
+| 5 | re-estimated 16 Nov: trial on ~19 Nov, drift checks and rerun beside it | around 2 December 2026; trial to ~17 December |
 
 ## Market, split and battery
 
