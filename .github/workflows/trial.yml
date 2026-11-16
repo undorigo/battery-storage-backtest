@@ -1,0 +1,75 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# The four-week trial (stage 5, step 8; decided 16 November 2026).
+#
+# Each evening GitHub runs `scripts/trial.py`, which pays the days that have
+# cleared, forecasts tomorrow and writes it to reports/daily.csv, trying again
+# hourly until 22:00 if ENTSO-E is not ready.  This job then commits the rows to
+# main, so git's own timestamp shows each plan existed before its day began.
+# The trial's end date lives in trial.py, so after 14 December this does nothing.
+# ─────────────────────────────────────────────────────────────────────────────
+
+name: trial
+
+on:
+  schedule:
+    - cron: "7 18 * * *"          # 19:07 Berlin until summer time; GitHub's timer is UTC only
+  workflow_dispatch:               # the "Run workflow" button, for the first evening
+
+permissions:
+  contents: write                  # to push the evening's rows
+
+concurrency:
+  group: trial                     # a second start waits for the first, never runs beside it
+  cancel-in-progress: false
+
+jobs:
+  evening:
+    runs-on: ubuntu-latest
+    timeout-minutes: 300           # four tries an hour apart, about 3½ hours at most
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"   # the version every published number was made with
+          cache: pip
+
+      - run: pip install -r requirements.txt
+
+      # ── The data, kept between evenings ─────────────────────────────────────
+      # GitHub starts each run with no data/raw (gitignored).  The newest cache is
+      # restored, the evening pulls the last two weeks of the forecast's three
+      # series, and a new cache is saved under this run's own name.  The first
+      # evening finds none and pulls their whole history (10 to 40 minutes).
+      - uses: actions/cache/restore@v4
+        with:
+          path: data/raw
+          key: raw-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: raw-       # the newest cache saved by an earlier evening
+
+      - name: One evening, tried again hourly to 22:00
+        env:
+          ENTSOE_API_KEY: ${{ secrets.ENTSOE_API_KEY }}   # masked in the public log
+        run: python -m scripts.trial
+
+      - uses: actions/cache/save@v4
+        if: success() || failure()  # a failed evening may still have pulled
+        with:
+          path: data/raw
+          key: raw-${{ github.run_id }}-${{ github.run_attempt }}
+
+      # ── The rows, committed by the job ──────────────────────────────────────
+      # Pull before pushing: the developer pushes to main too.  Nothing to commit
+      # (a day already written, or the trial over) is not a failure.
+      - name: Commit the evening's rows
+        if: success() || failure()
+        run: |
+          [ -f reports/daily.csv ] || exit 0
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add reports/daily.csv
+          git diff --cached --quiet && exit 0
+          git commit -m "Record the trial's evening of $(TZ=Europe/Berlin date +%F)" \
+                     -m "Written by the trial's workflow: the days paid and tomorrow's plan, before tomorrow begins."
+          git pull --rebase
+          git push
