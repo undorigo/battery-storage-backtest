@@ -4331,15 +4331,32 @@ page refreshed (version 40; milestone: dates and order changed). Recap not asked
 
 ---
 
+### 13 November 2026
+
+**Stage 5, step 7: `just tomorrow` built, not yet run on real data** (`9d0bda3`, `d3e5864`, `32032cf`,
+`23c1e58`, `4a7bc77`): four choices decided with the user and recorded first (one CSV filled in the next
+evening; LEAR re-walks 182 days for tomorrow's range; exit 3 "not yet", `--last-try` for the simple
+rule; all five plans and the ceiling paid). Then in four pieces, each test-first: the rows (decisions
+only, a day never rewritten), paying (once, through `backtest.settle`, decisions guarded), tomorrow's
+range (QRA averaging moved to `quantiles.qra_averaged`, shared with the 2026 reading, which was not
+rerun), the command. Seven planted bugs each failed a test; one test caught a real bug (tomorrow's date
+on the 23-hour day landed at 01:00). 359 green. **The first real run was offered at 18:34 and not
+started**: no answer before the session ended, so no row exists and nothing runs on a schedule. Not a
+milestone yet (built, not measured), so the plan page is unchanged.
+
+---
+
 ### Next — next session
 
-**Stage 5 under way: steps 1–6 done.** The page is live at <https://battery-storage-backtest-aqevrymuvf2pb9jrjpmxc9.streamlit.app/>;
-the cache runs to 6 November 2026 (the load forecast to 7 November). 2026 was read once on 10 November:
-strict bids on LEAR **93.1 %**, the average 97.2 %, rows labelled `2026` in `reports/capture_scores.csv`,
-the hourly table in MLflow (`replay`, split `2026`). Headline unchanged: strict bids on LEAR **90.1 %**
-on 2024–25. Main after this entry's commit, 341 green.
+**Stage 5 under way: steps 1–6 done, step 7 built but never run on real data.** `just tomorrow` exists
+(pull, pay, forecast, write or exit 3); `reports/daily.csv` does not exist yet. **Nothing runs
+automatically**: no GitHub workflow, no cron; the trial (step 9) is what will schedule it. The cache runs
+to 6 November 2026. 2026 was read once on 10 November (strict 93.1 %, average 97.2 %). Headline
+unchanged: strict bids on LEAR **90.1 %** on 2024–25. Main at this entry's commit, 359 green.
 
 #### Recap questions
+
+The recap was skipped on 12 November, so 10 November's three, then two on 13 November's work:
 
 1. The replay walks LEAR over the second half of 2025 before it starts. Why does the range need that,
    and what would the bands have looked like without it?
@@ -4347,22 +4364,28 @@ on 2024–25. Main after this entry's commit, 341 green.
    against a leak, and what kind of leak would it *not* rule out?
 3. A planted price on 2 January must leave 2 January's plan unchanged but must move what 2 January
    earned. Why must the second half hold, and which planted bug did only it catch?
+4. Tomorrow's rows store each plan's `net` the night before, and the price only the next evening. Why
+   store the trades rather than recompute the plan when paying?
+5. Why did adding 24 hours to Berlin midnight give the wrong "tomorrow" on 29 March, and why would no
+   ordinary test day have shown it?
 
 #### Then, in order
 
-1. **Step 7: `just tomorrow`**, by hand first: pull the recent end, fill in yesterday's prices and
-   earnings, forecast and plan tomorrow through `forecast_day`, write the row. Decide with the user
-   where the daily rows live and whether tomorrow's range (about 18 s) is computed each evening for
-   the drift step.
-2. Then the drift checks, then the trial switched on (~20 November), then the page's second version
-   and the rerun beside it (`docs/decisions.md`, *Decided 31 October*, *Decided 12 November*). **Open for
-   the trial:** a GitHub runner has no `data/raw` (gitignored, 71 MB) and no MLflow, so where the cache
-   lives on the runner is not yet decided.
-3. Noted, not tasks: the page's second version can read 2026 from the `replay` run instead of rerunning
-   it (2 hours, and a second reading); the 11 minutes outside the replay's own clock (sleep, probably);
-   ENTSO-E rewrote one day-ahead load forecast after its auction (6 November), a second case would make
-   it worth measuring how often; Amprion's, TransnetBW's and the solar
-   forecasts' making time, not read; one control area from 50Hertz's CSV against ENTSO-E's; the full
-   pull takes over an hour (run it in the foreground or with a longer limit); the ISEA like-for-like
-   ceiling check; the 50Hertz battery study (unread); the EPEX *Block parameters* sheet; quarter-hours
-   since 1 October 2025; the work log's contents table stops at 13 October.
+1. **The first real `just tomorrow`, by hand, after 18:00** (wind and solar arrive then): time it, look
+   at the rows, commit `reports/daily.csv` before midnight. The next evening's run pays that day, which
+   is the first real test of settling. Then record step 7 as built and measured: `docs/decisions.md`,
+   README stage 5 item 3, plan page (milestone), work log.
+2. **Step 8: drift checks** (80 % band coverage and rMAE against the field's rule over 28 days,
+   thresholds set on 2023 alone; a flag, nothing switches).
+3. **Before the trial: decide where the cache lives on the GitHub runner.** A runner starts without
+   `data/raw` (gitignored, 71 MB) and without MLflow; `just tomorrow` needs only the raw cache. Then
+   step 9, the trial's workflow (19:00, hourly retries to 22:00, `--last-try` at the end, its end date
+   inside the job), then the page's second version and the rerun beside it, the forecasting code frozen.
+4. **The dates slip.** Decided 12 November: trial on ~20 November, stage 5 closes ~27 November on the
+   rerun. With step 7 unmeasured on 16 November, re-estimate with the user once step 8 is scoped.
+5. Noted, not tasks: the page's second version can read 2026 from the `replay` MLflow run; the 11
+   minutes outside the replay's own clock (sleep, probably); ENTSO-E rewrote one day-ahead load forecast
+   after its auction (6 November); Amprion's, TransnetBW's and the solar forecasts' making time, not
+   read; one control area from 50Hertz's CSV against ENTSO-E's; the full pull takes over an hour; the
+   ISEA like-for-like ceiling check; the 50Hertz battery study (unread); the EPEX *Block parameters*
+   sheet; quarter-hours since 1 October 2025; the work log's contents table stops at 13 October.
