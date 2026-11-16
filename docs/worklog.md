@@ -4346,11 +4346,21 @@ milestone yet (built, not measured), so the plan page is unchanged.
 
 ---
 
+### 16 November 2026
+
+**The schedule moved ahead, for continuity** (`99ef179`, decided with the user): the user cannot run
+`just tomorrow` by hand every evening this week, so the four-week trial is switched on as soon as it
+has run once on real data (~19 November), and the drift checks join the page's second version and the
+rerun beside it, in their own file. Dates: trial to ~17 December, stage 5 closes ~2 December. README,
+`docs/decisions.md` and the plan page refreshed (version 41; milestone: order and dates changed).
+
+---
+
 ### Next — next session
 
 **Stage 5 under way: steps 1–6 done, step 7 built but never run on real data.** `just tomorrow` exists
 (pull, pay, forecast, write or exit 3); `reports/daily.csv` does not exist yet. **Nothing runs
-automatically**: no GitHub workflow, no cron; the trial (step 9) is what will schedule it. The cache runs
+automatically yet**: no GitHub workflow, no cron; the trial (now step 8) is what will schedule it. The cache runs
 to 6 November 2026. 2026 was read once on 10 November (strict 93.1 %, average 97.2 %). Headline
 unchanged: strict bids on LEAR **90.1 %** on 2024–25. Main at this entry's commit, 359 green.
 
@@ -4371,18 +4381,22 @@ The recap was skipped on 12 November, so 10 November's three, then two on 13 Nov
 
 #### Then, in order
 
-1. **The first real `just tomorrow`, by hand, after 18:00** (wind and solar arrive then): time it, look
-   at the rows, commit `reports/daily.csv` before midnight. The next evening's run pays that day, which
-   is the first real test of settling. Then record step 7 as built and measured: `docs/decisions.md`,
-   README stage 5 item 3, plan page (milestone), work log.
-2. **Step 8: drift checks** (80 % band coverage and rMAE against the field's rule over 28 days,
-   thresholds set on 2023 alone; a flag, nothing switches).
-3. **Before the trial: decide where the cache lives on the GitHub runner.** A runner starts without
-   `data/raw` (gitignored, 71 MB) and without MLflow; `just tomorrow` needs only the raw cache. Then
-   step 9, the trial's workflow (19:00, hourly retries to 22:00, `--last-try` at the end, its end date
-   inside the job), then the page's second version and the rerun beside it, the forecasting code frozen.
-4. **The dates slip.** Decided 12 November: trial on ~20 November, stage 5 closes ~27 November on the
-   rerun. With step 7 unmeasured on 16 November, re-estimate with the user once step 8 is scoped.
+1. **Decide with the user where the data lives on GitHub's machine**, which starts with no `data/raw`
+   (gitignored, 71 MB) and no MLflow (`just tomorrow` needs only the raw cache). First measure how long
+   downloading the three series the forecast needs takes from empty; that decides whether GitHub's
+   cache is needed at all. The ENTSO-E token goes in as a repository secret.
+2. **Build the trial's workflow** (decided 31 October, 5 and 16 November): `just tomorrow` each evening
+   at 19:00, retried hourly to 22:00 on exit 3, `--last-try` at the end, the rows committed by the job,
+   its end date inside the job, four weeks. A test first where one can be written (the end date, the
+   retry rule).
+3. **The first real evening, started by hand from GitHub's page and watched** (after 18:00): time it,
+   look at the rows, check the commit landed before midnight. From then on it runs itself. The next
+   evening pays that day: the first real test of settling. Then record step 7 as built and measured and
+   the trial as switched on: `docs/decisions.md`, README, plan page (milestone), work log.
+4. **Beside the trial, the forecasting code frozen** (`scripts/tomorrow.py`, `src/features.py`,
+   `src/models.py`, `src/backtest.py`): the drift checks in their own file, reading the trial's rows and
+   the 2026 replay's before them; then the page's second version; then the rerun, on which stage 5
+   closes (~2 December). The job commits to `main` every evening: pull before pushing.
 5. Noted, not tasks: the page's second version can read 2026 from the `replay` MLflow run; the 11
    minutes outside the replay's own clock (sleep, probably); ENTSO-E rewrote one day-ahead load forecast
    after its auction (6 November); Amprion's, TransnetBW's and the solar forecasts' making time, not
