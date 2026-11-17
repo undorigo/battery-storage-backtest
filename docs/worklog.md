@@ -4408,9 +4408,9 @@ Main at this entry's commit, 380 green.
 2. **The second evening pays the 18th**: the first real settling. Check `earned:*` filled, the ceiling
    above every plan.
 3. **Beside the trial, the forecasting code frozen** (`scripts/tomorrow.py`, `scripts/trial.py`,
-   `src/features.py`, `src/models.py`, `src/backtest.py`): the drift checks in their own file, design
-   to be decided with the user, reading the trial's rows and the 2026 replay's before
-   them; then the page's second version; then the rerun, on which stage 5 closes (~2 December). The job
+   `src/features.py`, `src/models.py`, `src/backtest.py`): the drift checks in their own file, decided
+   17 November (`docs/decisions.md`): 2023's 5–95 %, the replay exported and the gap skipped, `just
+   drift` plus a job step, read once on 2024–25 and 2026; test-first, never committed 18:07–23:00; then the page's second version; then the rerun, on which stage 5 closes (~2 December). The job
    commits to `main` every evening: pull before pushing, and never commit while it runs (18:07–23:00).
 4. Bump the actions to their Node 24 versions when GitHub stops forcing them (a warning on every run).
 5. Noted, not tasks: the page's second version can read 2026 from the `replay` MLflow run; the 11
