@@ -4356,47 +4356,63 @@ rerun beside it, in their own file. Dates: trial to ~17 December, stage 5 closes
 
 ---
 
+### 16–17 November 2026
+
+**Stage 5, step 8: the trial's workflow built, switched on, not yet run with a token** (`8bcf05b`,
+`1a60231`, `8180e5f`, `b6c6ec2`, `4f668f6`, `23a0748`). Decided with the user and recorded first:
+GitHub's cache for `data/raw`; exit 2 (pull failed) retried as well as exit 3, the last try falling
+back on the cache; the loop and the end date in `scripts/trial.py`; four weeks. Then, from the
+manifest (both actuals revised on 6 November): the trial pulls only the forecast's three series.
+`.github/workflows/trial.yml` restores the cache, runs `trial.py`, saves the cache, commits
+`reports/daily.csv` (now excepted in `.gitignore`), pulling before pushing. **The from-empty pull
+could not be timed on the 16th**: ENTSO-E refused year-long requests from about 13:50 to 18:08 (11
+attempts); then 2,504 s for the three. A full evening from a fresh clone took 457 s. **GitHub fired the
+first schedule at 02:50 on the 17th, 7¾ hours late**, before the token was added: nothing written, exit
+1 on an empty cache. Had the token been there it would have sent the simple rule's plan for the 18th.
+So, decided with the user: a start only from 18:00 to 19:59 Berlin, the day fixed at the start, slots
+at 18:07 and 19:07; the end moves to 15 December (last forecast written on the 14th). Twelve planted
+bugs each failed a test; the commit step rehearsed in scratch clones against a rival push. Recap
+answered (1–3 half, 4 mostly, 5 the day only). Found, not acted on: with tomorrow's inputs short and
+yesterday's price missing, `forecast_day` raises instead of answering "not yet" (an empty or two-day-old
+cache). 380 green. Not a milestone yet (no row), so the plan page is unchanged.
+
+---
+
 ### Next — next session
 
-**Stage 5 under way: steps 1–6 done, step 7 built but never run on real data.** `just tomorrow` exists
-(pull, pay, forecast, write or exit 3); `reports/daily.csv` does not exist yet. **Nothing runs
-automatically yet**: no GitHub workflow, no cron; the trial (now step 8) is what will schedule it. The cache runs
-to 6 November 2026. 2026 was read once on 10 November (strict 93.1 %, average 97.2 %). Headline
-unchanged: strict bids on LEAR **90.1 %** on 2024–25. Main at this entry's commit, 359 green.
+**Stage 5, step 8 switched on, never run with a token.** `.github/workflows/trial.yml` fires at 18:07 and
+19:07 Berlin; `scripts/trial.py` runs only if started 18:00–19:59, retries exit 2 and 3 hourly, four
+tries, and ends with the 15th of December paid. **The first evening should be 17 November**, with no one
+watching: about 55 minutes (42 to fill the cache from empty). `reports/daily.csv` may or may not exist
+on main. The local cache still ends 6 November. Headline unchanged: strict bids on LEAR **90.1 %**.
+Main at this entry's commit, 380 green.
 
 #### Recap questions
 
-The recap was skipped on 12 November, so 10 November's three, then two on 13 November's work:
-
-1. The replay walks LEAR over the second half of 2025 before it starts. Why does the range need that,
-   and what would the bands have looked like without it?
-2. Every share rose 3 to 4 points in 2026, the naive rule's too. Why does the naive rule's rise argue
-   against a leak, and what kind of leak would it *not* rule out?
-3. A planted price on 2 January must leave 2 January's plan unchanged but must move what 2 January
-   earned. Why must the second half hold, and which planted bug did only it catch?
-4. Tomorrow's rows store each plan's `net` the night before, and the price only the next evening. Why
-   store the trades rather than recompute the plan when paying?
-5. Why did adding 24 hours to Berlin midnight give the wrong "tomorrow" on 29 March, and why would no
-   ordinary test day have shown it?
+1. GitHub fired the first schedule at 02:50. Why would a run then have harmed the record, not just
+   wasted a night, and which rule of the record turns a wrong plan into a lasting one?
+2. Why does the trial retry when the pull fails (exit 2) but not when the code crashes (exit 1)?
+3. Why does the trial skip the two actual series, when `just tomorrow` by hand pulls all five?
+4. A queued run checks out main as it stood when it was queued. What would it have done tonight, and
+   why does `ref: main` fix it?
+5. ENTSO-E answered three-day requests but refused year-long ones for four hours. Why does that make
+   the cache matter more than the 42 minutes do?
 
 #### Then, in order
 
-1. **Decide with the user where the data lives on GitHub's machine**, which starts with no `data/raw`
-   (gitignored, 71 MB) and no MLflow (`just tomorrow` needs only the raw cache). First measure how long
-   downloading the three series the forecast needs takes from empty; that decides whether GitHub's
-   cache is needed at all. The ENTSO-E token goes in as a repository secret.
-2. **Build the trial's workflow** (decided 31 October, 5 and 16 November): `just tomorrow` each evening
-   at 19:00, retried hourly to 22:00 on exit 3, `--last-try` at the end, the rows committed by the job,
-   its end date inside the job, four weeks. A test first where one can be written (the end date, the
-   retry rule).
-3. **The first real evening, started by hand from GitHub's page and watched** (after 18:00): time it,
-   look at the rows, check the commit landed before midnight. From then on it runs itself. The next
-   evening pays that day: the first real test of settling. Then record step 7 as built and measured and
-   the trial as switched on: `docs/decisions.md`, README, plan page (milestone), work log.
-4. **Beside the trial, the forecasting code frozen** (`scripts/tomorrow.py`, `src/features.py`,
-   `src/models.py`, `src/backtest.py`): the drift checks in their own file, reading the trial's rows and
-   the 2026 replay's before them; then the page's second version; then the rerun, on which stage 5
-   closes (~2 December). The job commits to `main` every evening: pull before pushing.
+1. **Read the first evening** (17 November): did a run start inside the window, how long did it take,
+   are the 18th's 24 rows on main, committed before midnight (`git log --format=%ci`)? If it failed,
+   the user pastes the "One evening" step's log (logs need a signed-in account). If the rows are there:
+   record step 7 as built and measured and the trial as switched on in `docs/decisions.md`, README,
+   plan page (milestone: also the trial's dates, now 17 November – 15 December), work log.
+2. **The second evening pays the 18th**: the first real settling. Check `earned:*` filled, the ceiling
+   above every plan.
+3. **Beside the trial, the forecasting code frozen** (`scripts/tomorrow.py`, `scripts/trial.py`,
+   `src/features.py`, `src/models.py`, `src/backtest.py`): the drift checks in their own file, design
+   to be decided with the user, reading the trial's rows and the 2026 replay's before
+   them; then the page's second version; then the rerun, on which stage 5 closes (~2 December). The job
+   commits to `main` every evening: pull before pushing, and never commit while it runs (18:07–23:00).
+4. Bump the actions to their Node 24 versions when GitHub stops forcing them (a warning on every run).
 5. Noted, not tasks: the page's second version can read 2026 from the `replay` MLflow run; the 11
    minutes outside the replay's own clock (sleep, probably); ENTSO-E rewrote one day-ahead load forecast
    after its auction (6 November); Amprion's, TransnetBW's and the solar forecasts' making time, not
