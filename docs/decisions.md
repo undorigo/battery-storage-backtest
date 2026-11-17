@@ -959,3 +959,27 @@ slowest download from empty. `scripts/trial.py` makes the pull and runs `tomorro
 as `just tomorrow` does. **The from-empty time, from the manifest instead:** until 3 November every pull
 fetched the whole history, the same work as an empty cache, and the three took about 10 minutes on
 16 September and about 40 on 3 November.
+
+### Found 17 November: GitHub fired the first schedule 7¾ hours late
+
+**The 19:07 slot on 16 November never ran; one scheduled run started at 02:50 Berlin on the 17th**
+instead, with no token yet (the secret was added later that morning), so each try's pull failed at
+once, the last try fell back on an empty cache and stopped with exit 1, and nothing was written. Had
+the token been there, the run's "tomorrow" would have been the 18th, whose wind and solar forecast was
+15 hours away: its fourth try would have sent the simple rule's plan, and the plan sent stands, so the
+real evening would have found the 18th already written.
+
+**Decided with the user: an evening window and two slots.** `scripts/trial.py` runs only if started
+between 18:00 and 19:59 Berlin, and fixes the delivery day at the start, handing it to
+`tomorrow.evening` rather than letting each try read the clock: four tries after a slow pull (42
+minutes from empty, measured below) could otherwise reach past midnight. The workflow fires at 18:07
+and 19:07 Berlin; if GitHub drops one, the other runs, and if both run, the second stops at "already
+written". Rejected: the window with one slot (a dropped slot is a missed evening); no change, starting
+late evenings by hand (against the point of the trial). **The end date moves a day with the first
+evening:** four weeks from 17 November, the last forecast written on 14 December for the 15th, paid on
+the 15th.
+
+**The from-empty time, measured.** ENTSO-E refused year-long requests from about 13:50 to 18:08 on
+16 November (11 attempts; three-day requests got through from 14:14). Then the three series took 2,504 s
+from an empty folder: price 496 s, load forecast 1,146 s, wind and solar 861 s. A full evening from a
+fresh clone with the three series cached took 457 s (6 November, range 452 s of it).

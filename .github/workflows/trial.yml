@@ -5,14 +5,16 @@
 # cleared, forecasts tomorrow and writes it to reports/daily.csv, trying again
 # hourly until 22:00 if ENTSO-E is not ready.  This job then commits the rows to
 # main, so git's own timestamp shows each plan existed before its day began.
-# The trial's end date lives in trial.py, so after 14 December this does nothing.
+# The end date and the evening window live in trial.py: a start outside
+# 18:00-19:59 Berlin, or after 15 December, does nothing.
 # ─────────────────────────────────────────────────────────────────────────────
 
 name: trial
 
 on:
-  schedule:
-    - cron: "7 18 * * *"          # 19:07 Berlin until summer time; GitHub's timer is UTC only
+  schedule:                        # GitHub's timer is UTC only; Berlin is UTC+1 until summer time
+    - cron: "7 17 * * *"          # 18:07 Berlin
+    - cron: "7 18 * * *"          # 19:07 Berlin: runs if the first was dropped, else stops at "already written"
   workflow_dispatch:               # the "Run workflow" button, for the first evening
 
 permissions:

@@ -20,9 +20,10 @@ class Evening:
     """A stand-in for one try of `just tomorrow`: answers in turn, notes each call."""
 
     def __init__(self, *answers: int):
-        self.answers, self.calls, self.waits = list(answers), [], []
+        self.answers, self.calls, self.waits, self.days = list(answers), [], [], []
 
-    def run(self, pay_only: bool, last_try: bool, pull: bool) -> int:
+    def run(self, day: pd.Timestamp, pay_only: bool, last_try: bool, pull: bool) -> int:
+        self.days.append(day)
         self.calls.append((pay_only, last_try, pull))
         return self.answers.pop(0)
 
@@ -30,34 +31,61 @@ class Evening:
         self.waits.append(seconds)
 
 
-def _evening(day: str, *answers: int, written: set[str] = frozenset()) -> tuple[int, Evening]:
+def _evening(start: str, *answers: int, written: set[str] = frozenset()) -> tuple[int, Evening]:
+    """One evening started at `start`, Berlin wall clock; 19:07 unless a time is given."""
     fake = Evening(*answers)
-    code = TR.evening(pd.Timestamp(day), fake.run, fake.wait, written)
+    now = pd.Timestamp(start if " " in start else f"{start} 19:07")
+    code = TR.evening(now, fake.run, fake.wait, written)
     return code, fake
 
 
 # ── The end date ──────────────────────────────────────────────────────────────
-# Four weeks from 16 November: the last forecast is written on 13 December, for the
-# 14th.  The evening of the 14th pays that day and forecasts nothing, so no row is
-# left unpaid; every evening after it does nothing at all.
+# Four weeks from the first evening, 17 November: the last forecast is written on
+# 14 December, for the 15th.  The evening of the 15th pays that day and forecasts
+# nothing, so no row is left unpaid; every evening after it does nothing at all.
 
-def test_the_last_forecast_is_written_on_13_december():
-    code, fake = _evening("2026-12-13", 0)
+def test_the_last_forecast_is_written_on_14_december():
+    code, fake = _evening("2026-12-14", 0)
     assert code == 0
     assert fake.calls == [(False, False, True)]             # a full evening: pay, then forecast
+    assert fake.days == [pd.Timestamp("2026-12-15")]
 
 
-def test_14_december_is_paid_and_nothing_is_forecast():
-    code, fake = _evening("2026-12-14", 0)
+def test_15_december_is_paid_and_nothing_is_forecast():
+    code, fake = _evening("2026-12-15", 0)
     assert code == 0
     assert fake.calls == [(True, False, True)]              # pay only
 
 
-def test_after_14_december_the_job_does_nothing():
-    for day in ("2026-12-15", "2027-01-31"):
+def test_after_15_december_the_job_does_nothing():
+    for day in ("2026-12-16", "2027-01-31"):
         code, fake = _evening(day)
         assert code == 0
         assert fake.calls == []
+
+
+# ── The evening window ────────────────────────────────────────────────────────
+# GitHub fired the first schedule at 02:50, 7¾ hours late (17 November).  Started
+# then, "tomorrow" is the day after, whose wind and solar forecast is 15 hours
+# away: the fourth try would have sent the simple rule's plan, and the plan sent
+# stands.  So a start outside 18:00–19:59 Berlin does nothing.
+
+@pytest.mark.parametrize("start", ["2026-11-18 02:50", "2026-11-17 17:59", "2026-11-17 20:00"])
+def test_a_start_outside_the_evening_does_nothing(start):
+    code, fake = _evening(start)
+    assert code == 0
+    assert fake.calls == []
+
+
+@pytest.mark.parametrize("start", ["2026-11-17 18:00", "2026-11-17 19:59"])
+def test_a_start_inside_the_evening_runs(start):
+    code, fake = _evening(start, 0)
+    assert fake.days == [pd.Timestamp("2026-11-18")]
+
+
+def test_every_try_forecasts_the_day_fixed_when_the_evening_began():
+    code, fake = _evening("2026-11-17 19:59", NOT_YET, NOT_YET, NOT_YET, 0)
+    assert fake.days == [pd.Timestamp("2026-11-18")] * 4    # 22:59 or later: still the 18th
 
 
 # ── A day already written ─────────────────────────────────────────────────────
@@ -66,13 +94,13 @@ def test_after_14_december_the_job_does_nothing():
 # fail on "already written".
 
 def test_an_evening_whose_tomorrow_is_written_does_nothing():
-    code, fake = _evening("2026-11-16", written={"2026-11-17"})
+    code, fake = _evening("2026-11-17", written={"2026-11-18"})
     assert code == 0
     assert fake.calls == []
 
 
 def test_only_tomorrow_counts_as_written():
-    code, fake = _evening("2026-11-16", 0, written={"2026-11-16"})   # today's own rows, from last night
+    code, fake = _evening("2026-11-17", 0, written={"2026-11-17"})   # today's own rows, from last night
     assert fake.calls == [(False, False, True)]
 
 
@@ -104,7 +132,7 @@ def test_a_failed_pull_is_tried_again_and_the_last_try_falls_back_on_the_cache()
 
 
 def test_the_last_evening_falls_back_on_the_cache_too():
-    code, fake = _evening("2026-12-14", PULL_FAILED, PULL_FAILED, PULL_FAILED, PULL_FAILED, 0)
+    code, fake = _evening("2026-12-15", PULL_FAILED, PULL_FAILED, PULL_FAILED, PULL_FAILED, 0)
     assert fake.calls[-1] == (True, True, False)
 
 
@@ -116,7 +144,7 @@ def test_a_fault_is_not_tried_again(fault):
 
 
 # ── One try, for real ─────────────────────────────────────────────────────────
-# The pay-only try runs once, on 14 December, so a fault in it would show only as
+# The pay-only try runs once, on 15 December, so a fault in it would show only as
 # the trial's last day left unpaid.  Its wiring is checked here with the pull and
 # the record replaced.  The pull asks for the three series the forecast reads and
 # no others: a revised actual must not cost an evening an hour (decided 16 Nov).
@@ -125,9 +153,9 @@ def _once(monkeypatch, pulled: bool, pay_only: bool) -> tuple[int, list[str]]:
     steps = []
     monkeypatch.setattr(TR, "fetch_recent", lambda: steps.append("pull") or pulled)
     monkeypatch.setattr(TR.data, "load", lambda key: pd.DataFrame({"price": [1.0]}))
-    monkeypatch.setattr(TR.T, "pay", lambda actual: steps.append("pay") or (None, ["2026-12-14"]))
-    monkeypatch.setattr(TR.T, "main", lambda argv: steps.append(" ".join(argv)) or 0)
-    return TR.once(pay_only=pay_only, last_try=True, pull=True), steps
+    monkeypatch.setattr(TR.T, "pay", lambda actual: steps.append("pay") or (None, ["2026-12-15"]))
+    monkeypatch.setattr(TR.T, "evening", lambda day, last_try: steps.append(f"{day:%Y-%m-%d} {last_try}") or 0)
+    return TR.once(pd.Timestamp("2026-12-01"), pay_only=pay_only, last_try=True, pull=True), steps
 
 
 def test_the_last_evening_pulls_then_pays(monkeypatch):
@@ -138,8 +166,8 @@ def test_the_last_evening_waits_when_the_pull_fails(monkeypatch):
     assert _once(monkeypatch, pulled=False, pay_only=True) == (PULL_FAILED, ["pull"])
 
 
-def test_a_full_evening_pulls_once_then_runs_tomorrow_on_that_cache(monkeypatch):
-    assert _once(monkeypatch, pulled=True, pay_only=False) == (0, ["pull", "--no-pull --last-try"])
+def test_a_full_evening_pulls_once_then_forecasts_the_day_it_was_given(monkeypatch):
+    assert _once(monkeypatch, pulled=True, pay_only=False) == (0, ["pull", "2026-12-01 True"])
 
 
 def test_the_pull_asks_for_the_forecasts_three_series_alone(monkeypatch):
