@@ -1,6 +1,6 @@
 """The four-week trial: one evening of `just tomorrow`, tried again until it answers.
 
-Run:  python -m scripts.trial      (by `.github/workflows/trial.yml`, at 18:07 and 19:07 Berlin)
+Run:  python -m scripts.trial      (by `.github/workflows/trial.yml`, every hour)
 
 GitHub starts this each evening.  It decides four things and leaves the rest to
 `scripts/tomorrow.py`: whether the trial is still on, whether it is the evening at
@@ -22,20 +22,21 @@ from src import data
 from src import features as F
 
 # ── The four weeks ────────────────────────────────────────────────────────────
-# Four weeks from the first evening, 17 November 2026 (decided the 16th, for that
-# evening; GitHub's first schedule fired too late for it).  The last forecast is
-# written on 14 December for the 15th.  The evening of the 15th pays it and
-# forecasts nothing, so the trial leaves no row unpaid.  After that the job still
+# Four weeks from the first evening, 18 November 2026 (decided the 16th as "four
+# weeks from tonight"; GitHub's schedules fired too late on the 16th and 17th).  The
+# last forecast is written on 15 December for the 16th.  The evening of the 16th
+# pays it and forecasts nothing, so the trial leaves no row unpaid.  After that the job still
 # fires each evening and does nothing, until the workflow is switched off.
 
-LAST_DAY = pd.Timestamp("2026-12-15")                       # the last delivery day forecast
+LAST_DAY = pd.Timestamp("2026-12-16")                       # the last delivery day forecast
 
 # ── The evening window ────────────────────────────────────────────────────────
-# GitHub fired the first schedule at 02:50, 7¾ hours late.  Started then, the run's
+# GitHub fired its first three schedules 6¾ to 7¾ hours late.  Started at 02:50, the run's
 # "tomorrow" was a day whose wind and solar forecast was 15 hours away, and its
 # fourth try would have sent the simple rule's plan, which then stands.  So only a
 # start between 18:00 and 19:59 Berlin runs, and the day it forecasts is fixed at
-# the start, so a long evening cannot slide into the next day's forecast.
+# the start, so a long evening cannot slide into the next day's forecast.  The
+# workflow fires every hour, so whichever fire lands in the window runs.
 
 FIRST_HOUR, LAST_HOUR = 18, 19                              # a start from 18:00 to 19:59
 
@@ -46,7 +47,7 @@ FIRST_HOUR, LAST_HOUR = 18, 19                              # a start from 18:00
 # stands, so the evening still ends with a row.  Any other code is a fault in the
 # code, and an hour's wait would only hide it.
 
-TRIES = 4                                                   # from 19:07: 19, 20, 21 and 22:00
+TRIES = 4                                                   # from 18:07: 18, 19, 20 and 21:00
 HOUR = 3600                                                 # seconds between tries
 PULL_FAILED = 2                                             # `just tomorrow`'s code when the pull fails
 LATER = (T.NOT_YET, PULL_FAILED)

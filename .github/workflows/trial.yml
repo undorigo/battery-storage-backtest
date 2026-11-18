@@ -6,22 +6,24 @@
 # hourly until 22:00 if ENTSO-E is not ready.  This job then commits the rows to
 # main, so git's own timestamp shows each plan existed before its day began.
 # The end date and the evening window live in trial.py: a start outside
-# 18:00-19:59 Berlin, or after 15 December, does nothing.
+# 18:00-19:59 Berlin, or after 16 December, does nothing.
 # ─────────────────────────────────────────────────────────────────────────────
 
 name: trial
 
 on:
-  schedule:                        # GitHub's timer is UTC only; Berlin is UTC+1 until summer time
-    - cron: "7 17 * * *"          # 18:07 Berlin
-    - cron: "7 18 * * *"          # 19:07 Berlin: runs if the first was dropped, else stops at "already written"
-  workflow_dispatch:               # the "Run workflow" button, for the first evening
+  # Every hour, because GitHub fired its first three schedules 6¾ to 7¾ hours late
+  # (16–18 November 2026).  trial.py lets only a start from 18:00 to 19:59 Berlin
+  # run; every other fire, and any fire after tomorrow is written, ends in a minute.
+  schedule:
+    - cron: "7 * * * *"
+  workflow_dispatch:               # the "Run workflow" button, inside the window
 
 permissions:
   contents: write                  # to push the evening's rows
 
 concurrency:
-  group: trial                     # a second start waits for the first, never runs beside it
+  group: trial                     # a fire during a running evening waits, then finds it written
   cancel-in-progress: false
 
 jobs:
@@ -43,21 +45,32 @@ jobs:
       # ── The data, kept between evenings ─────────────────────────────────────
       # GitHub starts each run with no data/raw (gitignored).  The newest cache is
       # restored, the evening pulls the last two weeks of the forecast's three
-      # series, and a new cache is saved under this run's own name.  The first
-      # evening finds none and pulls their whole history (10 to 40 minutes).
+      # series, and a new cache is saved under this run's own name, but only if
+      # the run pulled: the pull adds a line to manifest.csv for every series.
+      # The first evening finds none and pulls their whole history (42 minutes).
       - uses: actions/cache/restore@v4
         with:
           path: data/raw
           key: raw-${{ github.run_id }}-${{ github.run_attempt }}
           restore-keys: raw-       # the newest cache saved by an earlier evening
 
+      - run: cp data/raw/manifest.csv "$RUNNER_TEMP/manifest.before" 2>/dev/null || true
+
       - name: One evening, tried again hourly to 22:00
         env:
           ENTSOE_API_KEY: ${{ secrets.ENTSOE_API_KEY }}   # masked in the public log
         run: python -m scripts.trial
 
-      - uses: actions/cache/save@v4
+      - name: Did this run pull?
+        id: pulled
         if: success() || failure()  # a failed evening may still have pulled
+        run: |
+          if [ -f data/raw/manifest.csv ] && ! cmp -s data/raw/manifest.csv "$RUNNER_TEMP/manifest.before"; then
+            echo "yes=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/cache/save@v4
+        if: (success() || failure()) && steps.pulled.outputs.yes == 'true'
         with:
           path: data/raw
           key: raw-${{ github.run_id }}-${{ github.run_attempt }}
