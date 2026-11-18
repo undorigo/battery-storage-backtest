@@ -1013,3 +1013,11 @@ outside cron service calling GitHub at 18:05 with a token (exact, but an account
 for four weeks); fixed slots placed seven hours early (all land at midday the day GitHub is on time).
 Not guaranteed: if GitHub skips every fire in the window, that evening is a gap. **The end moves to
 16 December** with the first evening, now the 18th: last forecast written on the 15th, paid on the 16th.
+
+**Then decided (18 November): the error signal watches the average**, the forecast whose plan is sent
+and paid, so a drifting member shows even when LEAR holds. On one condition, checked first: a stretch
+of 2023's stored average is rebuilt with today's `forecast_day` and must match it, as LEAR's walk
+matched stage 2 on all 182 days; a threshold is only as good as the forecasts it was set on. If it does
+not match, LEAR instead, with the reason recorded. The band signal stays LEAR's (the band is built on
+it). Rejected: LEAR alone (verified, and one story with the band, but blind to the members the plan
+also rests on); both as a third signal (with each flagging one window in twenty, about one in seven).
