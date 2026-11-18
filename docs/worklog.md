@@ -4378,14 +4378,25 @@ cache). 380 green. Not a milestone yet (no row), so the plan page is unchanged.
 
 ---
 
+### 18 November 2026
+
+**GitHub's timer late three times out of three; the trial now fires hourly** (`68708ff`, decided with
+the user). The 17 November slots fired at 00:50 and 01:54 on the 18th, both ended in a minute (the window
+held: no wrong plan, no row). The workflow now fires every hour; only a start from 18:00 to 19:59 Berlin
+runs, and the cache is saved only after a pull. The end moves to 16 December. One planted bug (the old
+end date) failed three tests; the "did it pull" lines rehearsed on four cases. Still no row, so not a
+milestone; the plan page is unchanged.
+
+---
+
 ### Next — next session
 
-**Stage 5, step 8 switched on, never run with a token.** `.github/workflows/trial.yml` fires at 18:07 and
-19:07 Berlin; `scripts/trial.py` runs only if started 18:00–19:59, retries exit 2 and 3 hourly, four
-tries, and ends with the 15th of December paid. **The first evening should be 17 November**, with no one
-watching: about 55 minutes (42 to fill the cache from empty). `reports/daily.csv` may or may not exist
-on main. The local cache still ends 6 November. Headline unchanged: strict bids on LEAR **90.1 %**.
-Main at this entry's commit, 380 green.
+**Stage 5, step 8 switched on, no evening run yet.** `.github/workflows/trial.yml` fires every hour (GitHub
+ran its fixed slots 6¾–7¾ hours late three times); `scripts/trial.py` runs only if started 18:00–19:59
+Berlin, retries exit 2 and 3 hourly, four tries, and ends with 16 December paid. **The first evening
+should be 18 November**, unwatched: about 55 minutes (42 to fill the cache from empty). The local cache
+still ends 6 November. Headline unchanged: strict bids on LEAR **90.1 %**. Main at this entry's commit,
+380 green.
 
 #### Recap questions
 
@@ -4400,12 +4411,12 @@ Main at this entry's commit, 380 green.
 
 #### Then, in order
 
-1. **Read the first evening** (17 November): did a run start inside the window, how long did it take,
-   are the 18th's 24 rows on main, committed before midnight (`git log --format=%ci`)? If it failed,
+1. **Read the first evening** (18 November; hourly fires, so look for the one that started 18:00–19:59): did a run start inside the window, how long did it take,
+   are the 19th's 24 rows on main, committed before midnight (`git log --format=%ci`)? If it failed,
    the user pastes the "One evening" step's log (logs need a signed-in account). If the rows are there:
    record step 7 as built and measured and the trial as switched on in `docs/decisions.md`, README,
-   plan page (milestone: also the trial's dates, now 17 November – 15 December), work log.
-2. **The second evening pays the 18th**: the first real settling. Check `earned:*` filled, the ceiling
+   plan page (milestone: also the trial's dates, now 18 November – 16 December), work log.
+2. **The second evening pays the 19th**: the first real settling. Check `earned:*` filled, the ceiling
    above every plan.
 3. **Beside the trial, the forecasting code frozen** (`scripts/tomorrow.py`, `scripts/trial.py`,
    `src/features.py`, `src/models.py`, `src/backtest.py`): the drift checks in their own file, decided
