@@ -4389,12 +4389,24 @@ milestone; the plan page is unchanged.
 
 ---
 
+### 19 November 2026
+
+**The evening is started by a Claude routine; a second one checks each morning** (decided with the
+user). GitHub fired the hourly schedule twice in 19 hours, both outside the window: the 18th was missed.
+"Trial, evening start" dispatches `trial.yml` at 18:05 Berlin; tested at 10:53 (accepted in 2 s, ended
+in 59 s doing nothing). "Trial watch, morning check" posts on issue #1 each morning; its first real
+comment, 08:06, said PROBLEM: evening missed (right; it mislabelled one earlier run as failed). The
+Trial watch doc was deleted. First evening now 19 November; end stays 16 December (27 evenings). Not a
+milestone yet (no row).
+
+---
+
 ### Next — next session
 
 **Stage 5, step 8 switched on, no evening run yet.** `.github/workflows/trial.yml` fires every hour (GitHub
 ran its fixed slots 6¾–7¾ hours late three times); `scripts/trial.py` runs only if started 18:00–19:59
 Berlin, retries exit 2 and 3 hourly, four tries, and ends with 16 December paid. **The first evening
-should be 18 November**, unwatched: about 55 minutes (42 to fill the cache from empty). The local cache
+should be 19 November**, started at 18:05 by the routine "Trial, evening start", unwatched: about 55 minutes (42 to fill the cache from empty). The local cache
 still ends 6 November. Headline unchanged: strict bids on LEAR **90.1 %**. Main at this entry's commit,
 380 green.
 
@@ -4411,12 +4423,12 @@ still ends 6 November. Headline unchanged: strict bids on LEAR **90.1 %**. Main 
 
 #### Then, in order
 
-1. **Read the first evening** (18 November; hourly fires, so look for the one that started 18:00–19:59): did a run start inside the window, how long did it take,
-   are the 19th's 24 rows on main, committed before midnight (`git log --format=%ci`)? If it failed,
+1. **Read the first evening** (19 November; the `workflow_dispatch` run started ~18:05; issue #1's morning comment): did a run start inside the window, how long did it take,
+   are the 20th's 24 rows on main, committed before midnight (`git log --format=%ci`)? If it failed,
    the user pastes the "One evening" step's log (logs need a signed-in account). If the rows are there:
    record step 7 as built and measured and the trial as switched on in `docs/decisions.md`, README,
-   plan page (milestone: also the trial's dates, now 18 November – 16 December), work log.
-2. **The second evening pays the 19th**: the first real settling. Check `earned:*` filled, the ceiling
+   plan page (milestone: also the trial's dates, now 19 November – 16 December, 27 evenings), work log.
+2. **The second evening pays the 20th**: the first real settling. Check `earned:*` filled, the ceiling
    above every plan.
 3. **Beside the trial, the forecasting code frozen** (`scripts/tomorrow.py`, `scripts/trial.py`,
    `src/features.py`, `src/models.py`, `src/backtest.py`): the drift checks in their own file, decided

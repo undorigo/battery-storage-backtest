@@ -1021,3 +1021,23 @@ matched stage 2 on all 182 days; a threshold is only as good as the forecasts it
 not match, LEAR instead, with the reason recorded. The band signal stays LEAR's (the band is built on
 it). Rejected: LEAR alone (verified, and one story with the band, but blind to the members the plan
 also rests on); both as a third signal (with each flagging one window in twenty, about one in seven).
+
+### Found 19 November: hourly fires did not help; a Claude routine starts the evening
+
+**GitHub fired the hourly schedule twice in 19 hours** (23:33 on the 18th, 05:06 on the 19th), both
+outside the window, so the evening of 18 November was missed: no rows, nothing sent. **Decided with the
+user: a scheduled Claude routine ("Trial, evening start", 17:05 UTC = 18:05 Berlin) presses GitHub's "Run
+workflow" button** (a `workflow_dispatch` of `trial.yml` on `main`) through the GitHub tools of the
+Claude app; everything the evening does stays in the tested workflow and `trial.py`. Tested at 10:53:
+GitHub accepted the start two seconds after the call, and the run ended in 59 s doing nothing, as a start
+outside the window must. Claude's morning routine had fired at 08:06 for an 08:00 slot. The hourly
+schedule stays as a harmless fallback. Rejected: an outside cron service with a token (an account and a
+token to keep). **The first evening moves to 19 November**; the end date stays 16 December (27 evenings),
+not moved again.
+
+**A morning check, as a second routine** ("Trial watch, morning check", 07:00 UTC): it reads the record
+and the runs and posts one comment a morning on issue #1 "Trial watch", OK, PROBLEM, Not started or
+Trial over, so a missing comment means the check itself did not run. It writes as the repository's
+owner, so GitHub sends no notification for it; a failed workflow still notifies by GitHub's default.
+Rejected: a Claude doc (the docs connector is not available in cloud runs, tried twice); push
+notifications (sent, never arrived).

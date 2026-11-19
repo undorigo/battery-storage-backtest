@@ -40,7 +40,7 @@ def _evening(start: str, *answers: int, written: set[str] = frozenset()) -> tupl
 
 
 # ── The end date ──────────────────────────────────────────────────────────────
-# Four weeks from the first evening, 18 November: the last forecast is written on
+# Four weeks from 18 November, the evening planned first: the last forecast is written on
 # 15 December, for the 16th.  The evening of the 16th pays that day and forecasts
 # nothing, so no row is left unpaid; every evening after it does nothing at all.
 

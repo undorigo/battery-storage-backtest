@@ -22,11 +22,11 @@ from src import data
 from src import features as F
 
 # ── The four weeks ────────────────────────────────────────────────────────────
-# Four weeks from the first evening, 18 November 2026 (decided the 16th as "four
-# weeks from tonight"; GitHub's schedules fired too late on the 16th and 17th).  The
-# last forecast is written on 15 December for the 16th.  The evening of the 16th
-# pays it and forecasts nothing, so the trial leaves no row unpaid.  After that the job still
-# fires each evening and does nothing, until the workflow is switched off.
+# Four weeks from 18 November 2026, the evening planned first; GitHub's own timer
+# missed it, so the first real evening is the 19th and the trial has 27, the end
+# not moved again.  The last forecast is written on 15 December for the 16th.  The
+# evening of the 16th pays it and forecasts nothing, so no row is left unpaid.
+# After that the job still starts each evening and does nothing.
 
 LAST_DAY = pd.Timestamp("2026-12-16")                       # the last delivery day forecast
 
