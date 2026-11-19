@@ -40,25 +40,25 @@ def _evening(start: str, *answers: int, written: set[str] = frozenset()) -> tupl
 
 
 # ── The end date ──────────────────────────────────────────────────────────────
-# Four weeks from 18 November, the evening planned first: the last forecast is written on
-# 15 December, for the 16th.  The evening of the 16th pays that day and forecasts
-# nothing, so no row is left unpaid; every evening after it does nothing at all.
+# The last forecast is written on 17 December, for the 18th (decided 19 November).
+# The evening of the 18th pays that day and forecasts nothing, so no row is left
+# unpaid; every evening after it does nothing at all.
 
-def test_the_last_forecast_is_written_on_15_december():
-    code, fake = _evening("2026-12-15", 0)
+def test_the_last_forecast_is_written_on_17_december():
+    code, fake = _evening("2026-12-17", 0)
     assert code == 0
     assert fake.calls == [(False, False, True)]             # a full evening: pay, then forecast
-    assert fake.days == [pd.Timestamp("2026-12-16")]
+    assert fake.days == [pd.Timestamp("2026-12-18")]
 
 
-def test_16_december_is_paid_and_nothing_is_forecast():
-    code, fake = _evening("2026-12-16", 0)
+def test_18_december_is_paid_and_nothing_is_forecast():
+    code, fake = _evening("2026-12-18", 0)
     assert code == 0
     assert fake.calls == [(True, False, True)]              # pay only
 
 
-def test_after_16_december_the_job_does_nothing():
-    for day in ("2026-12-17", "2027-01-31"):
+def test_after_18_december_the_job_does_nothing():
+    for day in ("2026-12-19", "2027-01-31"):
         code, fake = _evening(day)
         assert code == 0
         assert fake.calls == []
@@ -132,7 +132,7 @@ def test_a_failed_pull_is_tried_again_and_the_last_try_falls_back_on_the_cache()
 
 
 def test_the_last_evening_falls_back_on_the_cache_too():
-    code, fake = _evening("2026-12-16", PULL_FAILED, PULL_FAILED, PULL_FAILED, PULL_FAILED, 0)
+    code, fake = _evening("2026-12-18", PULL_FAILED, PULL_FAILED, PULL_FAILED, PULL_FAILED, 0)
     assert fake.calls[-1] == (True, True, False)
 
 
@@ -144,7 +144,7 @@ def test_a_fault_is_not_tried_again(fault):
 
 
 # ── One try, for real ─────────────────────────────────────────────────────────
-# The pay-only try runs once, on 16 December, so a fault in it would show only as
+# The pay-only try runs once, on 18 December, so a fault in it would show only as
 # the trial's last day left unpaid.  Its wiring is checked here with the pull and
 # the record replaced.  The pull asks for the three series the forecast reads and
 # no others: a revised actual must not cost an evening an hour (decided 16 Nov).
@@ -153,7 +153,7 @@ def _once(monkeypatch, pulled: bool, pay_only: bool) -> tuple[int, list[str]]:
     steps = []
     monkeypatch.setattr(TR, "fetch_recent", lambda: steps.append("pull") or pulled)
     monkeypatch.setattr(TR.data, "load", lambda key: pd.DataFrame({"price": [1.0]}))
-    monkeypatch.setattr(TR.T, "pay", lambda actual: steps.append("pay") or (None, ["2026-12-16"]))
+    monkeypatch.setattr(TR.T, "pay", lambda actual: steps.append("pay") or (None, ["2026-12-18"]))
     monkeypatch.setattr(TR.T, "evening", lambda day, last_try: steps.append(f"{day:%Y-%m-%d} {last_try}") or 0)
     return TR.once(pd.Timestamp("2026-12-01"), pay_only=pay_only, last_try=True, pull=True), steps
 

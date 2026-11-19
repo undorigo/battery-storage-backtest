@@ -6,24 +6,23 @@
 # hourly until 22:00 if ENTSO-E is not ready.  This job then commits the rows to
 # main, so git's own timestamp shows each plan existed before its day began.
 # The end date and the evening window live in trial.py: a start outside
-# 18:00-19:59 Berlin, or after 16 December, does nothing.
+# 18:00-19:59 Berlin, or after 18 December, does nothing.
 # ─────────────────────────────────────────────────────────────────────────────
 
 name: trial
 
 on:
-  # Every hour, because GitHub fired its first three schedules 6¾ to 7¾ hours late
-  # (16–18 November 2026).  trial.py lets only a start from 18:00 to 19:59 Berlin
-  # run; every other fire, and any fire after tomorrow is written, ends in a minute.
-  schedule:
-    - cron: "7 * * * *"
-  workflow_dispatch:               # the "Run workflow" button, inside the window
+  # Started at 18:05 Berlin by a scheduled Claude routine that presses "Run
+  # workflow" (decided 19 November 2026): GitHub's own timer fired this job 6 to 7
+  # hours late, or not at all, on 16–19 November.  trial.py lets only a start from
+  # 18:00 to 19:59 Berlin run; any other start ends in a minute.
+  workflow_dispatch:
 
 permissions:
   contents: write                  # to push the evening's rows
 
 concurrency:
-  group: trial                     # a fire during a running evening waits, then finds it written
+  group: trial                     # a second start waits, then finds tomorrow written
   cancel-in-progress: false
 
 jobs:
