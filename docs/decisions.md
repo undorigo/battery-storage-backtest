@@ -1064,3 +1064,17 @@ ceiling and the simple rule's earnings on a fallback day, and keeps a table in i
 newest morning first, since GitHub shows comments oldest first and cannot be told otherwise.
 Rejected: keeping every fallback a PROBLEM (it then no longer says whether something is broken);
 filling the 21st from another source (a second price source for one day).
+
+### Measured 19–24 November: step 7 on real data, the trial switched on (stage 5, steps 7 and 8)
+
+**`just tomorrow`'s code has run on real data every evening since 19 November**, on GitHub's machine,
+started at 18:05 Berlin by the routine "Trial, evening start" and checked each morning by "Trial watch,
+morning check" (issue #1). The first evening filled the cache from empty and finished in 67 minutes,
+on the average with all four models and the range; its rows reached `main` at 19:13. The next four fell
+back to the simple rule on ENTSO-E's missing 21 November price (above) and committed between 21:11 and
+21:14, before midnight each time. Every paid price matches ENTSO-E's; no plan beat the ceiling. The
+trial runs to 18 December (29 evenings).
+
+**Re-estimated with the user: stage 5 closes around 10 December**, not 2 December: the drift checks
+(about two sessions), the page's second version (one to two) and the rerun from scratch (about a day
+and a half) remain, and nothing is committed while an evening runs. Still before the trial ends.

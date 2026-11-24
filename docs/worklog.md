@@ -4413,6 +4413,10 @@ table in issue #1's description (tested: built for 18–24 November). End stays 
 acted on: `scripts/tomorrow.py` says "in practice only LEAR can stop", but a missing price day stops
 the tree and the line too, through their price lags (comment only; the code handles it).
 
+**Milestone refresh** (steps 7 and 8: measured and switched on): `docs/decisions.md`, README (*Where this
+is going*, stage table, *Roughly when*: stage 5 closes ~10 December, decided with the user), plan page
+version 42.
+
 ---
 
 ### Next — next session
@@ -4437,13 +4441,11 @@ LEAR **90.1 %**. Main at this entry's commit, 380 green.
 
 #### Then, in order
 
-1. **Read the first evening** (19 November; the `workflow_dispatch` run started ~18:05; issue #1's morning comment): did a run start inside the window, how long did it take,
-   are the 20th's 24 rows on main, committed before midnight (`git log --format=%ci`)? If it failed,
-   the user pastes the "One evening" step's log (logs need a signed-in account). If the rows are there:
-   record step 7 as built and measured and the trial as switched on in `docs/decisions.md`, README,
-   plan page (milestone: also the trial's dates, now 19 November – 18 December, 29 evenings), work log.
-2. **The second evening pays the 20th**: the first real settling. Check `earned:*` filled, the ceiling
-   above every plan.
+1. **Read issue #1** (its description's table, newest first): did the 25th–27th run on the average,
+   did the 28th fall back as expected, was the 20th paid, did success notifications reach the user
+   (switched on 24 November)? A real PROBLEM gets its own issue.
+2. **Drift checks first**: the 2023 match check of the average, then the thresholds and the replay
+   export, then `scripts/drift.py`, `just drift` and the job step, then the one held-back reading.
 3. **Beside the trial, the forecasting code frozen** (`scripts/tomorrow.py`, `scripts/trial.py`,
    `src/features.py`, `src/models.py`, `src/backtest.py`): the drift checks in their own file, decided
    17 November (`docs/decisions.md`): 2023's 5–95 %, the error signal on the average (after a

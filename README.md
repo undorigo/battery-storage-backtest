@@ -151,7 +151,7 @@ claim traces back to the run that produced it.
 | 2 | Retraining every day; LEAR; public holidays | **error 0.485** *(rMAE)* | **done** 14 Oct 2026 |
 | 3 | A price range around each forecast | **pinball 4.655** | **done** 19 Oct 2026 |
 | 4 | The battery: a plan, bids with price limits, earnings | **90.1 % of the best possible** | **done** 27 Oct 2026 |
-| 5 | A web page, a daily run, drift checks, a rerun from scratch | reproducibility | **planned** 31 Oct 2026 |
+| 5 | A web page, a daily run, drift checks, a rerun from scratch | reproducibility | **under way**: trial running since 19 Nov |
 
 **How forecast error is scored.** Our average miss divided by a simple rule's average miss (*rMAE*):
 below 1 beats the rule. Until 15 October the rule was "same hour last week". Since then it is the
@@ -239,22 +239,27 @@ reading. The order:
    price for the day itself, already out by evening, and checks nothing moves; two planted bugs failed
    it. If an input is missing, the plan is the simple rule's, saying which. **The command built 13
    November:** it pays the days whose prices have cleared, then forecasts tomorrow with its range and
-   writes it to `reports/daily.csv`, or says "not yet". Not yet run on real data.
-4. **A four-week trial**: GitHub runs `just tomorrow` each evening at 19:00, when the wind and
-   solar forecast is out, tries again hourly until 22:00 if an input is incomplete, and sends the simple
-   rule's plan, flagged, if it is still missing. Then it stops by itself. Each forecast is committed before tomorrow begins, but
-   after the auction: it shows the pipeline running daily on new days, not a bid made in time. Four
-   weeks tests the machinery, not the models.
-   **Moved 12 and 16 November:** it starts as soon as `just tomorrow` has run once on real data,
-   around 19 November, so the record does not depend on someone being at the laptop. The drift checks,
-   the page's second version and the rerun are built while it runs, with the forecasting code frozen.
-   Open: where the data lives on GitHub's machine, which starts empty.
+   writes it to `reports/daily.csv`, or says "not yet". **Running on real data every evening since 19
+   November.**
+4. **A four-week trial**: GitHub runs the evening's forecast after 18:00, when the wind and solar
+   forecast is out, tries again hourly if an input is incomplete, and at the fourth try sends the simple
+   rule's plan, flagged. Each forecast is committed before tomorrow begins, but after the auction: it
+   shows the pipeline running daily on new days, not a bid made in time. Four weeks tests the
+   machinery, not the models. **Switched on 19 November, to 18 December.** GitHub's own timer ran 6 to
+   7 hours late, so a scheduled Claude routine starts the job at 18:05; the data is kept in GitHub's
+   cache between evenings. A second routine checks every morning and writes the result to
+   [issue #1](https://github.com/undorigo/battery-storage-backtest/issues/1), newest morning first.
+   **The first five evenings:** the 19th planned on the average; the 20th to 23rd sent the simple
+   rule's plan, because ENTSO-E has published no price for 21 November and the models need prices
+   from 1, 2, 3 and 7 days back. Every evening committed before midnight, and every paid price
+   matches ENTSO-E's. The drift checks, the page's second version and the rerun are built while it
+   runs, with the forecasting code frozen.
 5. **Drift checks**, beside the trial: a flag when, over 28 days, too few prices land inside the 80 % range, or the
    error drifts above its usual margin over the simple rule. Thresholds set on 2023 alone. They read the trial's
    rows and live in their own file, so the frozen code stays frozen.
 6. **A rerun from scratch**, a fresh copy with freshly pulled data, and a command that says how far
    each number moved. That distance is stage 5's headline (*reproducibility*).
-   Stage 5 closes on this number, around 2 December (decided 12 November, re-estimated 16 November).
+   Stage 5 closes on this number, around 10 December (decided 12 November, re-estimated 24 November).
 
 Nothing runs in between: the page sleeps without visitors, the trial has an end date. The full
 record, with what was rejected, is in [docs/decisions.md](docs/decisions.md).
@@ -276,7 +281,10 @@ October the euros were compared with published figures and this README was rewri
 words. Stage 5 was planned on 31 October; the page and the 2026 replay add about half a week. On 12
 November the trial was moved ahead of the page's second version and the rerun, and stage 5 now closes on
 the rerun's result. On 16 November the schedule moved ahead of the drift checks too, so the daily
-record does not depend on someone being at the laptop.
+record does not depend on someone being at the laptop. The trial started on 19 November, three
+evenings late, after GitHub's own timer missed them. On 24 November the close moved to about
+10 December: the drift checks, the page's second version and the rerun remain, and nothing is
+committed while an evening runs.
 
 | Stage | Estimate | Ends around |
 |---|---|---|
@@ -284,7 +292,7 @@ record does not depend on someone being at the laptop.
 | 3 | done | 19 October 2026 |
 | 4 | done | 27 October 2026 |
 | 4½ | revenue check, summary, README: done 30 Oct | — |
-| 5 | re-estimated 16 Nov: trial on ~19 Nov, drift checks and rerun beside it | around 2 December 2026; trial to ~17 December |
+| 5 | re-estimated 24 Nov: trial running since 19 Nov; drift checks, page v2 and rerun beside it | around 10 December 2026; trial to 18 December |
 
 ## Market, split and battery
 
