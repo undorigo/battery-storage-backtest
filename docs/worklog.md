@@ -4450,7 +4450,7 @@ LEAR **90.1 %**. Main at this entry's commit, 380 green.
    `src/features.py`, `src/models.py`, `src/backtest.py`): the drift checks in their own file, decided
    17 November (`docs/decisions.md`): 2023's 5–95 %, the error signal on the average (after a
    match check on 2023, else LEAR), the replay exported and the gap skipped, `just drift` plus a job
-   step, read once on 2024–25 and 2026; test-first, never committed 18:07–23:00; then the page's second version; then the rerun, on which stage 5 closes (~2 December). The job
+   step, read once on 2024–25 and 2026; test-first, never committed 18:07–23:00; then the page's second version; then the rerun, on which stage 5 closes (~10 December). The job
    commits to `main` every evening: pull before pushing, and never commit while it runs (18:07–23:00).
 4. Bump the actions to their Node 24 versions when GitHub stops forcing them (a warning on every run).
 5. Noted, not tasks: the page's second version can read 2026 from the `replay` MLflow run; the 11
