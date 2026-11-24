@@ -1041,3 +1041,26 @@ Trial over, so a missing comment means the check itself did not run. It writes a
 owner, so GitHub sends no notification for it; a failed workflow still notifies by GitHub's default.
 Rejected: a Claude doc (the docs connector is not available in cloud runs, tried twice); push
 notifications (sent, never arrived).
+
+### Found 24 November: a hole in ENTSO-E's prices, and five evenings on the simple rule
+
+**ENTSO-E has published no day-ahead price for 21 November 2026** (asked on the 24th: no row for the day;
+its one row is midnight of the 22nd), and the 20th's arrived after that evening's run. Every evening ran
+in the window and committed before midnight, but only the first (19 November, 67 minutes, the cache
+filled from empty) planned on the average. The evenings of the 20th and 21st found yesterday's price
+missing; those of the 22nd and 23rd found the models' price lags (48 and 72 hours) and LEAR's clues
+reaching back to the 21st. Each such evening retried three times and sent the simple rule's plan at the
+fourth try, about 186 minutes, as the retry rule says. The paid prices match ENTSO-E's to the cent; the
+22nd's ceiling of 0 EUR is right (a 56 EUR/MWh spread does not pay for a cycle's losses and wear).
+Checked in the code before the evening of the 24th: LEAR's walk skips days with incomplete clues, the
+range takes the last days that have both a forecast and a price, the hourly models train on complete
+rows, so the gap stops only the days whose inputs reach it: 22, 23, 24 and 28 November. The 21st stays
+unpaid unless ENTSO-E publishes it while the evening pull still looks back over it (14 days).
+
+**Decided with the user:** the end stays 18 December (the fallbacks are the live run behaving as
+designed when data is missing, and belong in the record); the morning check gains a status FALLBACK
+(the simple rule sent for missing data, not a fault) beside OK and PROBLEM, expects only the price, the
+ceiling and the simple rule's earnings on a fallback day, and keeps a table in issue #1's description,
+newest morning first, since GitHub shows comments oldest first and cannot be told otherwise.
+Rejected: keeping every fallback a PROBLEM (it then no longer says whether something is broken);
+filling the 21st from another source (a second price source for one day).

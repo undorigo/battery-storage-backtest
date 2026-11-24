@@ -4402,14 +4402,27 @@ milestone yet (no row).
 
 ---
 
+### 24 November 2026
+
+**The trial's first five evenings read: one on the models, four on the simple rule, from a hole in
+ENTSO-E's data.** Every evening started at 18:05–18:06 and committed before midnight; the 19th took 67
+minutes (cache from empty) and planned on the average; the 20th to 23rd each took about 186 minutes and
+fell back, because ENTSO-E has no price for 21 November and the 20th's came late. Settlement checked
+against ENTSO-E: exact. The morning check now has FALLBACK beside OK and PROBLEM and keeps a newest-first
+table in issue #1's description (tested: built for 18–24 November). End stays 18 December. Found, not
+acted on: `scripts/tomorrow.py` says "in practice only LEAR can stop", but a missing price day stops
+the tree and the line too, through their price lags (comment only; the code handles it).
+
+---
+
 ### Next — next session
 
-**Stage 5, step 8 switched on, no evening run yet.** `.github/workflows/trial.yml` is started at 18:05 by a Claude
-routine (GitHub's own timer ran 6–7 hours late or not at all); `scripts/trial.py` runs only if started 18:00–19:59
-Berlin, retries exit 2 and 3 hourly, four tries, and ends with 18 December paid. **The first evening
-should be 19 November**, started at 18:05 by the routine "Trial, evening start", unwatched: about 55 minutes (42 to fill the cache from empty). The local cache
-still ends 6 November. Headline unchanged: strict bids on LEAR **90.1 %**. Main at this entry's commit,
-380 green.
+**Stage 5, step 8 running since 19 November.** A Claude routine starts `.github/workflows/trial.yml`
+at 18:05 Berlin; a second checks each morning and writes issue #1 (table in the description, newest
+first; a comment per morning). Five evenings so far: the 19th on the average, the 20th to 23rd on the
+simple rule (ENTSO-E has no price for 21 November). Expected: the 25th to 27th on the models, the 28th
+falls back once more (its 7-day lag), then clear. End 18 December. Headline unchanged: strict bids on
+LEAR **90.1 %**. Main at this entry's commit, 380 green.
 
 #### Recap questions
 
