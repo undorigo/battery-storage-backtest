@@ -137,3 +137,68 @@ def test_a_stored_series_missing_a_day_is_refused():
 def test_a_match_allows_no_gap_a_price_could_show():
     assert D.matches(pd.DataFrame({"average": [0.0, 0.004]}))
     assert not D.matches(pd.DataFrame({"average": [0.0, 0.01]}))   # a cent per MWh: prices show it
+
+
+# ── A reading: the last 28 days with rows, two numbers ────────────────────────
+# Coverage is the share of hours whose price landed inside p10 to p90, the edges
+# counting as inside (as `evaluate.coverage` counts them).  The error is the
+# average's mean absolute error over the field rule's, the project's rMAE.  A day
+# with no rows is skipped, not counted as a day: the trial's record has a hole.
+
+def _hourly(days: int, start: str = "2023-01-01") -> pd.DataFrame:
+    """Every hour: price 100 on the band's lower edge (100 to 110), the average 5 off, the rule 10 off."""
+    idx = pd.date_range(start, periods=24 * days, freq="h")
+    return pd.DataFrame({"actual": 100.0, "average": 105.0, "naive": 90.0,
+                         "p10": 100.0, "p90": 110.0}, index=idx)
+
+
+def test_a_reading_needs_28_days_with_rows():
+    assert D.readings(_hourly(27)).empty
+    got = D.readings(_hourly(30))
+    assert list(got.index) == list(pd.date_range("2023-01-28", "2023-01-30"))   # labelled by its last day
+
+
+def test_every_price_inside_reads_full_coverage_and_the_rmae_is_the_error_ratio():
+    got = D.readings(_hourly(28))
+    assert got.coverage.tolist() == [1.0]                   # on p10, the edge: inside
+    assert got.rmae.tolist() == [0.5]                       # 5 off against 10 off
+
+
+def test_the_rmae_is_the_windows_errors_summed_not_its_days_ratios_averaged():
+    hourly = _hourly(28)
+    hourly["average"], hourly["naive"] = 101.0, 101.0       # every day: 1 off, ratio 1
+    first = hourly.index[:24]
+    hourly.loc[first, "average"], hourly.loc[first, "naive"] = 110.0, 120.0   # day 1: 10 off, 20 off
+    got = D.readings(hourly)
+    assert got.rmae.iloc[0] == pytest.approx(37 / 47)       # not (0.5 + 27) / 28
+
+
+def test_coverage_counts_hours_outside_in_its_own_window_only():
+    hourly = _hourly(29)
+    hourly.loc[hourly.index[:24], "actual"] = 200.0         # the first day: every price above p90
+    got = D.readings(hourly)
+    assert got.coverage.tolist() == [27 / 28, 1.0]          # gone once the window has moved on
+
+
+def test_a_day_without_rows_is_skipped_not_counted():
+    hourly = _hourly(29)
+    hourly = hourly[hourly.index.normalize() != pd.Timestamp("2023-01-10")]
+    got = D.readings(hourly)
+    assert list(got.index) == [pd.Timestamp("2023-01-29")]  # 28 days with rows, over 29 on the calendar
+
+
+# ── The thresholds: where 2023's readings rarely went ─────────────────────────
+# Coverage flags below the 5th percentile of 2023's readings, the error above the
+# 95th: on 2023 itself each line is crossed in about one reading in twenty.
+
+def test_the_lines_are_2023s_5th_and_95th_percentiles():
+    read = pd.DataFrame({"coverage": range(101), "rmae": range(101)}, dtype=float)
+    assert D.thresholds(read) == {"coverage_below": 5.0, "rmae_above": 95.0}
+
+
+def test_a_reading_flags_below_the_coverage_line_or_above_the_error_line():
+    lines = {"coverage_below": 0.7, "rmae_above": 0.6}
+    read = pd.DataFrame({"coverage": [0.8, 0.69, 0.8, 0.7], "rmae": [0.5, 0.5, 0.61, 0.6]})
+    got = D.flags(read, lines)
+    assert got.coverage.tolist() == [False, True, False, False]   # on the line is not below it
+    assert got.rmae.tolist() == [False, False, True, False]

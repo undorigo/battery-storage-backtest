@@ -1,6 +1,7 @@
 """The drift checks (stage 5, step 9): is the trial still forecasting as 2023 did?
 
-Run:  just drift match      (does the trial's code rebuild 2023's stored forecasts and band?)
+Run:  just drift match        (does the trial's code rebuild 2023's stored forecasts and band?)
+      just drift thresholds   (the two alarm lines, regenerated from 2023's stored runs)
 
 Two signals, each over 28 days, flag when they leave the range 2023 showed: the share
 of real prices inside LEAR's 80 % band, and the average's error against the field's
@@ -20,6 +21,7 @@ import argparse
 import time
 from types import SimpleNamespace
 
+import numpy as np
 import pandas as pd
 
 from scripts import backtest as B
@@ -151,11 +153,83 @@ def match() -> int:
     return 0
 
 
+# ── A reading: the last 28 days with rows ─────────────────────────────────────
+# Two numbers, as decided on 31 October: the share of hours whose price landed inside
+# p10 to p90 (edges inside, as `evaluate.coverage` counts), and the average's mean
+# absolute error over the field rule's (rMAE, `evaluate.rmae`'s ratio).  Summed per
+# day first, so a window is 28 days that have rows, and a hole in the record is
+# skipped rather than counted as a day.
+
+WINDOW = 28                                                 # days in one reading
+
+
+def readings(hourly: pd.DataFrame, window: int = WINDOW) -> pd.DataFrame:
+    """One reading per day that ends a full window: `coverage` and `rmae`, labelled by that day."""
+    h = hourly
+    per_day = pd.DataFrame({
+        "inside": ((h.actual >= h.p10) & (h.actual <= h.p90)).astype(float),
+        "hours": 1.0,
+        "error": (h.average - h.actual).abs(),
+        "benchmark": (h.naive - h.actual).abs(),
+    }).groupby(h.index.normalize()).sum()
+    summed = per_day.rolling(window).sum().dropna()          # over rows: days that have them
+    return pd.DataFrame({"coverage": summed.inside / summed.hours,
+                         "rmae": summed.error / summed.benchmark})
+
+
+# ── The thresholds, set on 2023 and committed ─────────────────────────────────
+# Coverage flags below the 5th percentile of 2023's readings, the error above the
+# 95th (decided 17 November 2026): on 2023 itself each is crossed about one evening
+# in twenty.  The numbers are written here because the stored runs they come from
+# live in MLflow on one machine; `just drift thresholds` regenerates and compares.
+
+LOW, HIGH = 0.05, 0.95                                      # the two percentiles of 2023's readings
+THRESHOLDS = {"coverage_below": 0.7098,                    # from `just drift thresholds`, rounded:
+              "rmae_above": 0.6443}                         # 338 readings of 2023 (25 November 2026)
+
+
+def thresholds(read: pd.DataFrame) -> dict[str, float]:
+    return {"coverage_below": float(read.coverage.quantile(LOW)),
+            "rmae_above": float(read.rmae.quantile(HIGH))}
+
+
+def flags(read: pd.DataFrame, lines: dict[str, float]) -> pd.DataFrame:
+    return pd.DataFrame({"coverage": read.coverage < lines["coverage_below"],
+                         "rmae": read.rmae > lines["rmae_above"]})
+
+
+def hourly_2023() -> tuple[str, pd.DataFrame]:
+    """2023's stored slots: the price, the average, the field's rule and the band's edges."""
+    commit, stored = stored_2023()
+    params, band = TR.read_range(TR.latest(**B.QRA_RUN))
+    if not np.allclose(band["lear"], stored["LEAR"].reindex(band.index)):
+        raise ValueError("the stored range was built on another LEAR forecast than the runs'")
+    _, table = TR.read(TR.latest(model="lear", **B.DAILY))
+    hourly = pd.DataFrame({"actual": table["actual"], "average": stored["average"],
+                           "naive": table["naive_field"], "p10": band[10], "p90": band[90]})
+    return f"{commit} (range {params['commit']})", hourly
+
+
+def show_thresholds() -> int:
+    commit, hourly = hourly_2023()
+    read = readings(hourly)
+    found = thresholds(read)
+    print(f"2023's readings at {git_commit()}, from the runs at {commit}: {len(read)} windows of "
+          f"{WINDOW} days, {read.index[0]:%d %b} to {read.index[-1]:%d %b}")
+    for name, value in found.items():
+        print(f"  {name:<15} {value:.4f}   committed {THRESHOLDS.get(name, float('nan')):.4f}")
+    crossed = flags(read, found).mean()
+    print(f"  2023 flagged: coverage {crossed.coverage:.1%}, rmae {crossed.rmae:.1%} of evenings")
+    same = all(round(found[n], 4) == THRESHOLDS.get(n) for n in found)
+    print("The committed thresholds are 2023's." if same else "The committed thresholds differ.")
+    return 0 if same else 1
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="The drift checks.")
-    parser.add_argument("what", choices=["match"])
-    parser.parse_args(argv)
-    return match()
+    parser.add_argument("what", choices=["match", "thresholds"])
+    what = parser.parse_args(argv).what
+    return match() if what == "match" else show_thresholds()
 
 
 if __name__ == "__main__":
