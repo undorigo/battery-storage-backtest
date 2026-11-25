@@ -1078,3 +1078,19 @@ trial runs to 18 December (29 evenings).
 **Re-estimated with the user: stage 5 closes around 10 December**, not 2 December: the drift checks
 (about two sessions), the page's second version (one to two) and the rerun from scratch (about a day
 and a half) remain, and nothing is committed while an evening runs. Still before the trial ends.
+
+### Found 25 November: the trial's models rebuild 2023 to the cent (stage 5, step 9, first piece)
+
+**The condition of 18 November holds: the error signal watches the average.** `just drift match`
+rebuilt every day of 2023 with the trial's own forecasting step (`tomorrow._models`, the code behind
+the evening's arrival check) and compared it with the runs `just train daily` stored in October
+(`9b2ed8d`): on all 365 days LEAR, the tree, the straight line and their average came out identical,
+largest gap 0.00 €/MWh against a line of one cent, no day stopped, 1,290 s (at `954b73bd`). Two
+errors planted on purpose showed at once (LEAR on 728 days instead of 1,092: LEAR up to 20.88 €/MWh
+off, the average 6.96, the tree and the line still 0; each day compared with the next day's stored
+forecast: every model off), and seven planted bugs each failed a test in `tests/test_drift.py`.
+
+**The arrival check is skipped there, and why.** It counts quarter-hours, and 2023's prices came
+hourly (24 a day, not 96), so on 2023 it answers "not yet" for every day. That is right for the
+trial, which only reads 2026, and is why the check calls the step behind it. Nothing in the
+forecasting code changed; every published number stays valid.
