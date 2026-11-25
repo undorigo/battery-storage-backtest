@@ -67,6 +67,48 @@ def test_a_day_a_model_could_not_forecast_is_an_error_not_a_skip(monkeypatch):
         D.rebuild(DAYS, _given(), lear_window=1092)
 
 
+# ── The band: the trial's own `tomorrow.band`, handed one day's LEAR ──────────
+# A fake stands in for it.  Each call must see that day's 24 slots of LEAR alone,
+# as an evening does, and the window asked for.  A day without a band is an error.
+
+class FakeBand:
+    """`tomorrow.band`: p10 at LEAR minus 10, p90 at LEAR plus 10."""
+
+    def __init__(self, none_on: pd.Timestamp | None = None):
+        self.calls, self.none_on = [], none_on
+
+    def __call__(self, got, given, lear_window):
+        self.calls.append((got.day, list(got.forecasts.index), lear_window))
+        if got.day == self.none_on:
+            return None
+        lear = got.forecasts["LEAR"]
+        return pd.DataFrame({10: lear - 10, 90: lear + 10})
+
+
+def _lear() -> pd.Series:
+    return pd.Series(range(len(SLOTS)), index=SLOTS, dtype=float)
+
+
+def test_each_band_is_asked_for_with_its_own_days_lear_alone(monkeypatch):
+    fake = FakeBand()
+    monkeypatch.setattr(T, "band", fake)
+    D.rebuild_band(DAYS, _given(), _lear(), lear_window=300)
+    assert fake.calls == [(day, list(pd.date_range(day, periods=24, freq="h")), 300) for day in DAYS]
+
+
+def test_the_bands_are_joined_by_percentile_in_order(monkeypatch):
+    monkeypatch.setattr(T, "band", FakeBand())
+    got = D.rebuild_band(DAYS, _given(), _lear(), lear_window=300)
+    pd.testing.assert_series_equal(got["p90"], _lear() + 10, check_names=False)
+    assert set(got) == {"p10", "p90"}
+
+
+def test_a_day_without_a_band_is_an_error_not_a_skip(monkeypatch):
+    monkeypatch.setattr(T, "band", FakeBand(none_on=DAYS[2]))
+    with pytest.raises(ValueError, match="2023-03-03.*no band"):
+        D.rebuild_band(DAYS, _given(), _lear(), lear_window=300)
+
+
 # ── The gaps: how far the rebuild lands from what was stored ──────────────────
 # The largest difference in each day, in EUR/MWh, so one hour off shows at full
 # size rather than averaged away.  Lined up by label: a stored series missing a

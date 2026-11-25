@@ -1,6 +1,6 @@
 """The drift checks (stage 5, step 9): is the trial still forecasting as 2023 did?
 
-Run:  just drift match      (does the trial's code rebuild 2023's stored forecasts?)
+Run:  just drift match      (does the trial's code rebuild 2023's stored forecasts and band?)
 
 Two signals, each over 28 days, flag when they leave the range 2023 showed: the share
 of real prices inside LEAR's 80 % band, and the average's error against the field's
@@ -10,12 +10,15 @@ rule (decided 17 and 18 November 2026).  A flag is a message; nothing switches.
 `match` comes first, because a threshold is only as good as the forecasts it was set
 on: 2023's were stored in October by `just train daily`, and the trial makes its own
 with `tomorrow._models`.  If the two recipes disagree, the error signal watches LEAR.
+The band is checked the same way, on twelve days: stage 3 stored 2023's, the trial
+builds its own with `tomorrow.band`.
 """
 
 from __future__ import annotations
 
 import argparse
 import time
+from types import SimpleNamespace
 
 import pandas as pd
 
@@ -52,6 +55,31 @@ def rebuild(days: pd.DatetimeIndex, given: T.Inputs,
     return joined
 
 
+# ── Rebuilding 2023's band with the trial's own `tomorrow.band` ───────────────
+# The band signal is set on stage 3's stored range, and the trial builds its own each
+# evening, so it needs the same check.  One band costs about 8 minutes (LEAR's 182
+# days before the day, re-forecast), so the check takes the 1st of each month
+# (decided 25 November 2026), from 1 January, whose windows reach back into 2022.
+# `band` reads only the day and its LEAR forecast, so that is all it is handed.
+
+BAND_DAYS = pd.date_range("2023-01-01", periods=12, freq="MS")   # the 1st of each month
+
+
+def rebuild_band(days: pd.DatetimeIndex, given: T.Inputs, lear: pd.Series,
+                 lear_window: int | None = M.WINDOW_DAYS) -> dict[str, pd.Series]:
+    """The trial's band for these days, one series per percentile (`p10`, ...)."""
+    parts = []
+    for day in days:
+        own = lear[lear.index.normalize() == day]               # that day's 24 slots, as an evening has
+        got = SimpleNamespace(day=day, forecasts=pd.DataFrame({"LEAR": own}))
+        band = T.band(got, given, lear_window)
+        if band is None:
+            raise ValueError(f"{day:%Y-%m-%d}: no band")
+        parts.append(band)
+    joined = pd.concat(parts)
+    return {f"p{level}": joined[level] for level in joined.columns}
+
+
 # ── How far the rebuild lands from what was stored ────────────────────────────
 # The largest difference within each day, so one hour off shows at full size.  A
 # cent per MWh is the line: day-ahead prices clear in whole cents, so a gap below
@@ -86,18 +114,40 @@ def stored_2023() -> tuple[str, dict[str, pd.Series]]:
     return ", ".join(sorted(commits)), stored
 
 
-def match() -> int:
-    started = time.time()
-    days = pd.date_range(pd.Timestamp(cfg.TRAIN_END) + pd.Timedelta(days=1), cfg.VALID_END)
-    commit, stored = stored_2023()
-    per_day = gaps(rebuild(days, T.inputs()), stored)
-    print(f"2023 rebuilt at {git_commit()} against the runs at {commit}: {len(per_day)} days, "
-          f"{time.time() - started:.0f} s")
+def stored_band() -> tuple[str, dict[str, pd.Series]]:
+    """The commit and percentiles of stage 3's 2023 range, the four windows averaged."""
+    params, table = TR.read_range(TR.latest(**B.QRA_RUN))
+    return params["commit"], {f"p{level}": table[level] for level in M.PERCENTILES}
+
+
+def _show(per_day: pd.DataFrame) -> None:
     for name, gap in per_day.items():
         print(f"  {name:<14} largest gap {gap.max():.2e} EUR/MWh, days at {TOLERANCE} or more: "
               f"{int((gap >= TOLERANCE).sum())}")
+
+
+def match() -> int:
+    started = time.time()
+    given = T.inputs()
+    days = pd.date_range(pd.Timestamp(cfg.TRAIN_END) + pd.Timedelta(days=1), cfg.VALID_END)
+    commit, stored = stored_2023()
+    rebuilt = rebuild(days, given)
+    per_day = gaps(rebuilt, stored)
+    print(f"2023 rebuilt at {git_commit()} against the runs at {commit}: {len(per_day)} days, "
+          f"{time.time() - started:.0f} s", flush=True)
+    _show(per_day)
     print("Match: the error signal watches the average." if matches(per_day)
-          else "No match: the error signal watches LEAR.")
+          else "No match: the error signal watches LEAR.", flush=True)
+
+    started = time.time()
+    commit, stored = stored_band()
+    band = gaps(rebuild_band(BAND_DAYS, given, rebuilt["LEAR"]), stored)
+    band = pd.DataFrame({"band": band.max(axis=1)})        # the widest gap of the 99 percentiles
+    print(f"\nBands of {len(band)} days rebuilt against the range at {commit}, "
+          f"{time.time() - started:.0f} s")
+    _show(band)
+    print("Match: the band signal is set on the band the trial builds." if matches(band)
+          else "No match: the band's thresholds would rest on another recipe.")
     return 0
 
 
