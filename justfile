@@ -109,6 +109,12 @@ final-score what="points":
 tomorrow *flags:
     {{py}} -m scripts.tomorrow {{flags}}
 
+# Stage 5's drift checks. Offline. `just drift match` rebuilds all of 2023 with the trial's
+# own models and compares it with the runs `just train daily` stored: the thresholds are
+# set on those, so they must agree to the cent. About 22 minutes.
+drift what:
+    {{py}} -m scripts.drift {{what}}
+
 # The web page's data: every hour of 2023-25 with its forecasts, range, plans and
 # earnings, rebuilt from the stored runs into reports/page.parquet. Offline, about a minute.
 # Needs the runs `just backtest bids` and `just final-score battery` read.
