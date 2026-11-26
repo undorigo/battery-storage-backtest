@@ -4419,43 +4419,64 @@ version 42.
 
 ---
 
+### 25–26 November 2026
+
+**Drift checks, step 9's first two pieces: the trial forecasts exactly as 2023 was forecast, and the
+two alarm lines are set.** `just drift match` (new, `scripts/drift.py`) rebuilt all 365 days of 2023
+with the trial's own `tomorrow._models` and matched the stored October runs to 0.00 €/MWh, LEAR, the
+tree, the line and the average (1,290 s), so the error signal watches the average as decided on
+18 November; the trial's `tomorrow.band` matched stage 3's stored range on the 1st of each month, all
+99 percentiles (6,914 s, run in the user's terminal: the whole command takes 2 h 17 min and outlasts a
+background job here). The arrival check is skipped there: it counts quarter-hours, and 2023 came
+hourly. `just drift thresholds`: coverage below **0.7098** or rMAE above **0.6443** flags (338 sliding
+28-day windows of 2023, each line crossed on about one evening in twenty). 17 tests; 18 planted bugs,
+each failing one, three only after the test was fixed (a window not passed on, a price on the band's
+edge, days whose ratios differ). Trial: the 25th paid on the average (56.67 € against the rule's 45.34 €,
+ceiling 63.86 €), the 26th written on the average; the 20th now paid. Not a milestone yet: step 9 has
+three pieces left.
+
+---
+
 ### Next — next session
 
-**Stage 5, step 8 running since 19 November.** A Claude routine starts `.github/workflows/trial.yml`
-at 18:05 Berlin; a second checks each morning and writes issue #1 (table in the description, newest
-first; a comment per morning). Five evenings so far: the 19th on the average, the 20th to 23rd on the
-simple rule (ENTSO-E has no price for 21 November). Expected: the 25th to 27th on the models, the 28th
-falls back once more (its 7-day lag), then clear. End 18 December. Headline unchanged: strict bids on
-LEAR **90.1 %**. Main at this entry's commit, 380 green.
+**Stage 5: the trial runs (step 8, since 19 November), the drift checks are half built (step 9).** A
+Claude routine starts `.github/workflows/trial.yml` at 18:05 Berlin; a second checks each morning and
+writes issue #1. The 19th, 25th and 26th on the average, the 20th to 24th on the simple rule (ENTSO-E
+has no price for 21 November). Expected: the 27th on the models, the 28th falls back once (its 7-day
+lag), then clear. End 18 December. Headline unchanged: strict bids on LEAR **90.1 %**. Main at this
+entry's commit, 397 green.
 
 #### Recap questions
 
-1. GitHub fired the first schedule at 02:50. Why would a run then have harmed the record, not just
-   wasted a night, and which rule of the record turns a wrong plan into a lasting one?
-2. Why does the trial retry when the pull fails (exit 2) but not when the code crashes (exit 1)?
-3. Why does the trial skip the two actual series, when `just tomorrow` by hand pulls all five?
-4. A queued run checks out main as it stood when it was queued. What would it have done tonight, and
-   why does `ref: main` fix it?
-5. ENTSO-E answered three-day requests but refused year-long ones for four hours. Why does that make
-   the cache matter more than the 42 minutes do?
+1. Why did 2023 have to be rebuilt with the trial's code before any alarm line was drawn from it? What
+   would a mismatch have done to the alarm, even with the market unchanged?
+2. The trial's arrival check answers "not yet" for every day of 2023. Why, and why is that no bug?
+3. Why do 2023's readings slide a day at a time instead of taking thirteen separate four-week blocks?
+4. Over a window, rMAE is the average's errors summed over the rule's errors summed, not each day's
+   ratio averaged. Which days would the second way give too much weight?
+5. Why is the detector read on 2024–25 only once, with nothing changed after, and what should it show?
 
 #### Then, in order
 
-1. **Read issue #1** (its description's table, newest first): did the 25th–27th run on the average,
-   did the 28th fall back as expected, was the 20th paid, did success notifications reach the user
-   (switched on 24 November)? A real PROBLEM gets its own issue.
-2. **Drift checks first**: the 2023 match check of the average, then the thresholds and the replay
-   export, then `scripts/drift.py`, `just drift` and the job step, then the one held-back reading.
-3. **Beside the trial, the forecasting code frozen** (`scripts/tomorrow.py`, `scripts/trial.py`,
-   `src/features.py`, `src/models.py`, `src/backtest.py`): the drift checks in their own file, decided
-   17 November (`docs/decisions.md`): 2023's 5–95 %, the error signal on the average (after a
-   match check on 2023, else LEAR), the replay exported and the gap skipped, `just drift` plus a job
-   step, read once on 2024–25 and 2026; test-first, never committed 18:07–23:00; then the page's second version; then the rerun, on which stage 5 closes (~10 December). The job
-   commits to `main` every evening: pull before pushing, and never commit while it runs (18:07–23:00).
+1. **Read issue #1** (on github.com: `gh` is not installed here): the 27th on the average, the 28th
+   falling back as expected? A real PROBLEM gets its own issue.
+2. **Drift checks, the three pieces left**, test-first, never committed while an evening runs
+   (18:05 until its commit, up to about 23:00):
+   - the 2026 replay's hourly table (actual, five forecasts, band; the local `replay` MLflow run)
+     exported once into a committed file, so GitHub reads it too;
+   - the reading itself: the last 28 days with rows (replay and trial, 1–18 November skipped),
+     flagged or not, as `just drift` and as one step after the evening in `trial.yml`;
+     `trial.py` and the forecasting code stay frozen;
+   - one reading on 2024–25 and 2026, reported as it comes out, nothing tuned after: coverage should
+     flag 2024's dearest months, when QRA's bands ran narrow.
+   Then the milestone refresh (step 9 built and measured).
+3. Then the page's second version; then the rerun, on which stage 5 closes (~10 December). The job
+   commits to `main` every evening: pull before pushing.
 4. Bump the actions to their Node 24 versions when GitHub stops forcing them (a warning on every run).
-5. Noted, not tasks: the page's second version can read 2026 from the `replay` MLflow run; the 11
-   minutes outside the replay's own clock (sleep, probably); ENTSO-E rewrote one day-ahead load forecast
-   after its auction (6 November); Amprion's, TransnetBW's and the solar forecasts' making time, not
-   read; one control area from 50Hertz's CSV against ENTSO-E's; the full pull takes over an hour; the
-   ISEA like-for-like ceiling check; the 50Hertz battery study (unread); the EPEX *Block parameters*
-   sheet; quarter-hours since 1 October 2025; the work log's contents table stops at 13 October.
+5. Noted, not tasks: `scripts/tomorrow.py`'s "in practice only LEAR can stop" is stale (a missing
+   price day stops the tree and the line too); the 11 minutes outside the replay's own clock (sleep,
+   probably); ENTSO-E rewrote one day-ahead load forecast after its auction (6 November); Amprion's,
+   TransnetBW's and the solar forecasts' making time, not read; one control area from 50Hertz's CSV
+   against ENTSO-E's; the full pull takes over an hour; the ISEA like-for-like ceiling check; the
+   50Hertz battery study (unread); the EPEX *Block parameters* sheet; quarter-hours since 1 October
+   2025; the work log's contents table stops at 13 October.
