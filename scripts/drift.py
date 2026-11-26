@@ -59,7 +59,7 @@ def rebuild(days: pd.DatetimeIndex, given: T.Inputs,
 
 # ── Rebuilding 2023's band with the trial's own `tomorrow.band` ───────────────
 # The band signal is set on stage 3's stored range, and the trial builds its own each
-# evening, so it needs the same check.  One band costs about 8 minutes (LEAR's 182
+# evening, so it needs the same check.  One band costs about 9½ minutes (LEAR's 182
 # days before the day, re-forecast), so the check takes the 1st of each month
 # (decided 25 November 2026), from 1 January, whose windows reach back into 2022.
 # `band` reads only the day and its LEAR forecast, so that is all it is handed.

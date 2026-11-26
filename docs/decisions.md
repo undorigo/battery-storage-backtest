@@ -1094,3 +1094,29 @@ forecast: every model off), and seven planted bugs each failed a test in `tests/
 hourly (24 a day, not 96), so on 2023 it answers "not yet" for every day. That is right for the
 trial, which only reads 2026, and is why the check calls the step behind it. Nothing in the
 forecasting code changed; every published number stays valid.
+
+**The band matches too, so the band signal can be set on stage 3's stored range.** The trial builds
+its band each evening with `tomorrow.band`, stage 3 stored 2023's with `just quantiles`; the same
+pieces, put together by two callers. One band costs about 9½ minutes (LEAR's 182 days before the day,
+re-forecast), so all of 2023 would take some 58 hours: decided with the user, `just drift match`
+checks the 1st of each month, from 1 January, whose windows reach back into 2022. All twelve came out
+identical on all 99 percentiles, largest gap 0.00 €/MWh (6,914 s, at `5c4f298`, against the range at
+`b4b9700`; the whole command 2 h 17 min, run in a terminal, since it outlasts a background job here).
+Four planted bugs each failed a test (the whole year's LEAR handed to one day; the window ignored; a
+day without a band skipped; the first day dropped). Not covered by a test: the line that folds the 99
+percentiles into one column by their largest gap (a mean there would pass), read directly in the output.
+
+### Decided 25 November: the two alarm lines, set on 2023 (stage 5, step 9, second piece)
+
+**A reading flags when coverage falls below 0.7098 or rMAE rises above 0.6443**, over the last 28
+days that have rows. On 2023 the readings slide a day at a time, as the trial's will: 338 windows,
+28 January to 31 December, each line at the 5th or 95th percentile, as decided on 17 November. On
+2023 itself coverage fell below its line on 4.7 % of evenings and rMAE rose above its own on 5.0 %.
+Coverage counts the hours inside p10 to p90 (edges inside), rMAE divides the average's absolute
+errors by the field rule's, both summed over the window (not each day's ratio averaged). From the
+stored runs alone, nothing refitted: the price and the field's rule from LEAR's run, the average of
+the three, the edges from stage 3's range (refused unless built on the same LEAR). The numbers are
+written in `scripts/drift.py`; `just drift thresholds` regenerates them in seconds and fails if they
+differ. Rejected: windows that do not overlap (13 in a year, too few for a 5 % line). Seven planted
+bugs each failed a test, two of them only after the tests were fixed: a price on the band's edge, and
+days whose error ratios differ. **Contracts:** none touched; nothing here reads a held-back year.

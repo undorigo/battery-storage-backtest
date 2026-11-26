@@ -112,7 +112,7 @@ tomorrow *flags:
 # Stage 5's drift checks. Offline. `just drift match` rebuilds all of 2023 with the trial's
 # own models and compares it with the runs `just train daily` stored, then the trial's band on
 # the 1st of each month with stage 3's range: the thresholds are set on those, so they must
-# agree to the cent. About 2 hours 10 minutes, most of it the twelve bands.
+# agree to the cent. About 2¼ hours, most of it the twelve bands (run it in a terminal).
 # `just drift thresholds` regenerates the two alarm lines from 2023's stored runs (seconds)
 # and fails if they differ from the numbers committed in scripts/drift.py.
 drift what:
