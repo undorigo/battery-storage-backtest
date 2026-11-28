@@ -1120,3 +1120,26 @@ written in `scripts/drift.py`; `just drift thresholds` regenerates them in secon
 differ. Rejected: windows that do not overlap (13 in a year, too few for a 5 % line). Seven planted
 bugs each failed a test, two of them only after the tests were fixed: a price on the band's edge, and
 days whose error ratios differ. **Contracts:** none touched; nothing here reads a held-back year.
+
+### Decided 28 November: the 2026 replay, exported once for GitHub (stage 5, step 9, third piece)
+
+**The trial's first readings can now reach back into the replay on GitHub.** `just drift export`
+copied the replay run (`31ef04fe`, made at `95ecf1a`) into `reports/replay_2026.csv`: 7,296 slots,
+1 January to 31 October 2026, on the 24-slot grid the alarm lines were set on, with the price, the
+five forecasts and the band's edges p10 and p90 (1.0 MB). Run again with the file there, it compares
+instead of writing and fails on any difference: the replay was read once, so a second replay in
+MLflow is a change to look at, not a newer copy to take. Run again on 28 November: it matches.
+
+| Decision | Chosen | Rejected |
+|---|---|---|
+| Where | a new file, read by the drift step | a 2026 split in `page.parquet` (brings plans, earnings and the page's record test into this step: the page's second version, done early) |
+| The band | p10 and p90, what both signals and the page read | all 99 percentiles (about ten times larger; nothing planned reads another band) |
+| Format | CSV, as `daily.csv`: readable on GitHub, diffs show a change | Parquet (smaller, opaque on GitHub) |
+
+**Found on the way: pandas' fast CSV parser is off in a float's last digit** (42.394999999999996
+reads back as 42.395, at most 5.7e-14 €/MWh). The first test used a value it happens to read
+exactly, so it passed; the real file did not, and the export said so. The test now uses a value the
+fast parser misreads, and the file is read with `float_precision="round_trip"`. Eleven planted bugs
+each failed a test (eight in the code, three in the committed file: the edges swapped, the last day
+missing, an hour blank); the fast parser only after the test was fixed. **Contracts:** none touched;
+nothing is refitted or scored, and no held-back year is read.

@@ -32,6 +32,7 @@ QUANTILE_SCORES = REPORTS / "quantile_scores.csv"   # the same, for ranges: pinb
 CAPTURE_SCORES = REPORTS / "capture_scores.csv"     # the same, for the battery: share of the ceiling
 PAGE_DATA = REPORTS / "page.parquet"  # the web page's one input, rebuilt by `just page-data`
 DAILY = REPORTS / "daily.csv"          # the evening run's rows: decided before the day, paid after
+REPLAY_TABLE = REPORTS / "replay_2026.csv"   # the 2026 replay's hours, for the drift step
 MLFLOW = REPORTS / "mlflow"          # local only: MLflow stores full machine paths inside
 MLFLOW_DB = MLFLOW / "mlflow.db"      # MLflow's run index
 MLRUNS = MLFLOW / "mlruns"            # MLflow's files per run, e.g. the hourly forecasts

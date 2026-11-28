@@ -115,6 +115,8 @@ tomorrow *flags:
 # agree to the cent. About 2¼ hours, most of it the twelve bands (run it in a terminal).
 # `just drift thresholds` regenerates the two alarm lines from 2023's stored runs (seconds)
 # and fails if they differ from the numbers committed in scripts/drift.py.
+# `just drift export` copies the 2026 replay's hours (price, five forecasts, p10, p90) from
+# MLflow into reports/replay_2026.csv, once; with the file there, it compares instead.
 drift what:
     {{py}} -m scripts.drift {{what}}
 

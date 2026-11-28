@@ -202,3 +202,72 @@ def test_a_reading_flags_below_the_coverage_line_or_above_the_error_line():
     got = D.flags(read, lines)
     assert got.coverage.tolist() == [False, True, False, False]   # on the line is not below it
     assert got.rmae.tolist() == [False, False, True, False]
+
+
+# ── The 2026 replay, exported once for GitHub ─────────────────────────────────
+# The replay's hourly table lives in MLflow on one machine, and the trial's first
+# readings reach back into it.  The export keeps what the two signals read, and
+# never writes over a file that disagrees: the replay was read once, so a second
+# run in MLflow is a change to be looked at, not a newer copy to take.
+
+REPLAY_SLOTS = pd.date_range("2026-10-30", periods=48, freq="h")   # grid labels, naive
+
+
+def _kept(shift: float = 0.0) -> pd.DataFrame:
+    """The replay run's table: price, five forecasts, percentile k valued k."""
+    kept = pd.DataFrame({"actual": 42.394999999999996 + shift,   # pandas' fast parser reads 42.395
+                         "LEAR": 1.0, "tree": 2.0,
+                         "straight line": 3.0, "average": 2.0, "naive (field)": 4.0},
+                        index=REPLAY_SLOTS)
+    for level in range(1, 100):
+        kept[level] = float(level)
+    return kept
+
+
+@pytest.fixture
+def stored_replay(monkeypatch):
+    """A fake MLflow: `latest` names the run, `read_range` hands back its table."""
+    held = {"kept": _kept()}
+    monkeypatch.setattr(D.TR, "latest", lambda **params: "run123" if params else None)
+    monkeypatch.setattr(D.TR, "read_range",
+                        lambda run: ({"commit": "abc1234", "split": "2026"}, held["kept"]))
+    return held
+
+
+def test_the_export_keeps_the_price_the_five_forecasts_and_the_bands_edges():
+    got = D.replay_table(_kept())
+    assert list(got.columns) == ["actual", "LEAR", "tree", "straight line", "average",
+                                 "naive (field)", "p10", "p90"]
+    assert (got.p10 == 10).all() and (got.p90 == 90).all()  # each edge from its own percentile
+
+
+def test_the_exported_file_reads_back_exactly(stored_replay, tmp_path):
+    path = tmp_path / "replay.csv"
+    assert D.export(path) == 0
+    pd.testing.assert_frame_equal(D.read_replay(path), D.replay_table(_kept()),
+                                  check_exact=True, check_freq=False)
+
+
+def test_a_second_export_that_agrees_leaves_the_file_alone(stored_replay, tmp_path):
+    path = tmp_path / "replay.csv"
+    D.export(path)
+    before = path.stat().st_mtime_ns
+    assert D.export(path) == 0
+    assert path.stat().st_mtime_ns == before
+
+
+def test_an_export_that_disagrees_is_refused_and_the_file_kept(stored_replay, tmp_path):
+    path = tmp_path / "replay.csv"
+    D.export(path)
+    written = path.read_bytes()
+    stored_replay["kept"] = _kept(shift=0.01)                # a different replay in MLflow
+    assert D.export(path) == 1
+    assert path.read_bytes() == written
+
+
+def test_the_committed_replay_holds_every_hour_of_its_ten_months():
+    got = D.read_replay()                                    # the committed file: no MLflow needed
+    expected = pd.date_range("2026-01-01", "2026-10-31 23:00", freq="h")   # 304 days on the grid
+    assert list(got.index) == list(expected)
+    assert not got.isna().any().any()
+    assert (got.p10 <= got.p90).all()                        # the edges not swapped

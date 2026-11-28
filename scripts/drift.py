@@ -2,6 +2,7 @@
 
 Run:  just drift match        (does the trial's code rebuild 2023's stored forecasts and band?)
       just drift thresholds   (the two alarm lines, regenerated from 2023's stored runs)
+      just drift export       (the 2026 replay's hours, copied once into a committed file)
 
 Two signals, each over 28 days, flag when they leave the range 2023 showed: the share
 of real prices inside LEAR's 80 % band, and the average's error against the field's
@@ -225,11 +226,51 @@ def show_thresholds() -> int:
     return 0 if same else 1
 
 
+# ── The 2026 replay, exported once for GitHub ─────────────────────────────────
+# The trial's first readings reach back into the replay, whose hourly table lives in
+# MLflow on this machine only.  So the columns the two signals read are copied once
+# into `reports/replay_2026.csv`, still on the 24-slot grid the thresholds were set
+# on.  A file that is there is compared, never written over: the replay was read
+# once, so a second replay in MLflow is a change to look at, not a newer copy.
+
+REPLAY_COLUMNS = {name: name for name in ("actual", *MEMBERS, "average", "naive (field)")}
+REPLAY_COLUMNS |= {10: "p10", 90: "p90"}                    # the 80 % band's edges, renamed
+
+
+def replay_table(kept: pd.DataFrame) -> pd.DataFrame:
+    """The replay run's columns the drift step reads, the band's edges named p10 and p90."""
+    table = kept[list(REPLAY_COLUMNS)].rename(columns=REPLAY_COLUMNS)
+    table.index.name = "slot"                                # a grid label: Berlin wall clock
+    return table
+
+
+def read_replay(path=cfg.REPLAY_TABLE) -> pd.DataFrame:
+    return pd.read_csv(path, index_col="slot", parse_dates=["slot"],
+                       float_precision="round_trip")         # the fast parser is off in the last digit
+
+
+def export(path=cfg.REPLAY_TABLE) -> int:
+    run = TR.latest(model="replay", split="2026")
+    params, kept = TR.read_range(run)
+    table = replay_table(kept)
+    print(f"The replay run {run[:8]}, made at {params['commit']}: {len(table):,} slots, "
+          f"{table.index[0]:%Y-%m-%d} to {table.index[-1]:%Y-%m-%d}")
+    if path.exists():
+        same = read_replay(path).equals(table)
+        print(f"{path.name} is there and {'matches it' if same else 'DIFFERS: not written over'}.")
+        return 0 if same else 1
+    table.to_csv(path)                                       # floats written in full, so they read back exact
+    same = read_replay(path).equals(table)
+    print(f"Wrote {path.name}, {path.stat().st_size / 1e6:.1f} MB; "
+          f"{'reads back exactly' if same else 'DOES NOT read back exactly'}.")
+    return 0 if same else 1
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="The drift checks.")
-    parser.add_argument("what", choices=["match", "thresholds"])
+    parser.add_argument("what", choices=["match", "thresholds", "export"])
     what = parser.parse_args(argv).what
-    return match() if what == "match" else show_thresholds()
+    return {"match": match, "thresholds": show_thresholds, "export": export}[what]()
 
 
 if __name__ == "__main__":

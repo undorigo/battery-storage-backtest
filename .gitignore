@@ -40,11 +40,14 @@ data/**
 # so without it a clean clone, and the hosted page, would have nothing to draw.
 # `daily.csv` is the trial's record, committed each evening by its workflow: the commit
 # that adds a day's rows is the proof they were written before the day began.
+# `replay_2026.csv` is the 2026 replay's hours, so the drift step on GitHub can read
+# the 28 days before the trial without MLflow.
 !reports/scores.csv
 !reports/quantile_scores.csv
 !reports/capture_scores.csv
 !reports/page.parquet
 !reports/daily.csv
+!reports/replay_2026.csv
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Model artefacts and experiment tracking
